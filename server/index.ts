@@ -1,10 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { finnhubService } from "./finnhub-service";
+import { jsonStockService } from "./services/json-stock-service";
 import cron from 'node-cron';
 
-// Common stock symbols to keep in cache
+// Common stock symbols to preload
 const COMMON_SYMBOLS = [
   // Tech stocks
   'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META',
@@ -14,37 +14,44 @@ const COMMON_SYMBOLS = [
   'JNJ', 'PFE', 'UNH', 'ABBV', 'SYK'
 ];
 
-// Initialize stock cache with common symbols
+// Initialize stock data
 async function initializeStockCache() {
   try {
-    log('Initializing stock cache for common symbols...');
-    const result = await finnhubService.refreshCache(COMMON_SYMBOLS);
-    log(`Cache initialization complete: ${result.success.length} succeeded, ${result.failures.length} failed`);
+    log('Loading stock data from JSON files...');
     
-    if (result.failures.length > 0) {
-      log(`Failed to cache: ${result.failures.join(', ')}`);
+    const availableSymbols = jsonStockService.getAvailableSymbols();
+    const successSymbols = [];
+    const failedSymbols = [];
+    
+    for (const symbol of COMMON_SYMBOLS) {
+      if (availableSymbols.includes(symbol)) {
+        try {
+          // Load data from JSON file to verify it's available
+          jsonStockService.getStockData(symbol);
+          successSymbols.push(symbol);
+        } catch (err) {
+          failedSymbols.push(symbol);
+        }
+      } else {
+        failedSymbols.push(symbol);
+      }
+    }
+    
+    log(`JSON stock data initialization complete: ${successSymbols.length} available, ${failedSymbols.length} not available`);
+    
+    if (failedSymbols.length > 0) {
+      log(`Stocks not available as JSON: ${failedSymbols.join(', ')}`);
     }
   } catch (error) {
-    log(`Error initializing stock cache: ${error}`);
+    log(`Error initializing stock data: ${error}`);
   }
 }
 
-// Set up scheduled cache updates
+// No scheduled updates needed as JSON data is static
 function setupScheduledCacheUpdates() {
-  // Run updates every day at 1:00 AM
-  cron.schedule('0 1 * * *', async () => {
-    try {
-      log('Running scheduled stock cache update...');
-      const result = await finnhubService.refreshCache(COMMON_SYMBOLS);
-      log(`Cache update complete: ${result.success.length} succeeded, ${result.failures.length} failed`);
-      
-      if (result.failures.length > 0) {
-        log(`Failed to update: ${result.failures.join(', ')}`);
-      }
-    } catch (error) {
-      log(`Error in scheduled cache update: ${error}`);
-    }
-  });
+  // This function remains for API compatibility but doesn't do anything
+  // since we're using static JSON files
+  log('Note: Using static JSON data, no scheduled updates will occur');
 }
 
 const app = express();

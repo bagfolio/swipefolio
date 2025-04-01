@@ -8,8 +8,15 @@ import AuthPage from "@/pages/auth-page";
 import LessonPage from "@/pages/lesson-page";
 import OnboardingPage from "@/pages/onboarding-page";
 import StockDetailPage from "@/pages/stock-detail-page";
+import StockDetailView from "@/pages/stock-detail-view";
 import PortfolioPage from "@/pages/portfolio-page";
 import LeaderboardPage from "@/pages/leaderboard-page-new";
+import GamesHubPage from "@/pages/games-hub-page";
+import BoardRoomPage from "@/pages/board-room-page";
+import TimeAttackPage from "@/pages/time-attack-page";
+import MarketAdventurePage from "@/pages/market-adventure-page";
+import MacroMastermindPage from "@/pages/macro-mastermind-page";
+import InvestorSimulatorPage from "@/pages/investor-simulator-page";
 import { AuthProvider } from "@/hooks/use-auth";
 import { UserProgressProvider } from "@/contexts/user-progress-context";
 import { PortfolioProvider } from "@/contexts/portfolio-context";
@@ -20,6 +27,7 @@ function Router() {
       <Switch>
         <Route path="/" component={HomePage} />
         <Route path="/stock/:stackId" component={StockDetailPage} />
+        <Route path="/stock-detail/:symbol" component={StockDetailView} />
         <Route path="/lesson/:stackId" component={LessonPage} />
         <Route path="/learn" component={HomePage} />
         <Route path="/market" component={HomePage} />
@@ -29,6 +37,12 @@ function Router() {
         <Route path="/profile" component={HomePage} />
         <Route path="/onboarding" component={OnboardingPage} />
         <Route path="/auth" component={AuthPage} />
+        <Route path="/games" component={GamesHubPage} />
+        <Route path="/games/board-room" component={BoardRoomPage} />
+        <Route path="/games/time-attack" component={TimeAttackPage} />
+        <Route path="/games/market-adventure" component={MarketAdventurePage} />
+        <Route path="/games/macro-mastermind" component={MacroMastermindPage} />
+        <Route path="/games/investor-simulator" component={InvestorSimulatorPage} />
         <Route component={NotFound} />
       </Switch>
     </PortfolioProvider>

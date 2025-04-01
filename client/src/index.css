@@ -35,6 +35,23 @@
   stop-color: rgba(239, 68, 68, 0);
 }
 
+/* Button shine animation for investor profile popup */
+@keyframes shine {
+  to {
+    left: 125%;
+  }
+}
+
+.animate-shine {
+  animation: shine 2s infinite;
+}
+
+/* Text shadow glow effect for profile headers */
+.text-shadow-glow {
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+  transition: text-shadow 0.3s ease;
+}
+
 /* Metric card styling */
 /* This section is moved below */
 
@@ -404,4 +421,25 @@
   from-cyan-500 to-blue-500 text-white font-bold text-base opacity-0 z-20
   transition-opacity duration-300;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Enhanced profile popup styles and touch handling */
+.profile-header-area {
+  touch-action: pan-x; /* Allow horizontal swiping but handle vertical */
+}
+
+.dragging-enabled {
+  touch-action: none; /* Disable default touch behaviors when dragging */
+  user-select: none;
+}
+
+.investor-profile-scroll-container {
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  scrollbar-width: thin;
+}
+
+/* Drag handle styling */
+.drag-handle {
+  touch-action: none; /* Always capture touch on drag handle */
+  user-select: none;
 }
