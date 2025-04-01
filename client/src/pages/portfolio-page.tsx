@@ -319,9 +319,12 @@ export default function PortfolioPage() {
                 <div className="bg-slate-50 rounded-lg py-2 px-4 shadow-sm border border-slate-100 min-w-[140px]">
                   <div className="flex justify-between items-center mb-1">
                     <p className="text-xs text-slate-500">Quality Score</p>
-                    <p className={`text-lg font-bold ${getQualityScoreColor(portfolioMetrics.qualityScore || 0)}`}>
-                      {portfolioMetrics.qualityScore || 0}
-                    </p>
+                    <div className="flex items-center">
+                      <p className={`text-lg font-bold ${getQualityScoreColor(portfolioMetrics.qualityScore || 0)}`}>
+                        {portfolioMetrics.qualityScore || 0}
+                      </p>
+                      <span className="text-xs text-slate-500 ml-2">(out of 100)</span>
+                    </div>
                   </div>
                   <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                     <div 
@@ -603,7 +606,8 @@ export default function PortfolioPage() {
                           <p className="text-xs text-slate-500">Portfolio Quality Score</p>
                           <div className="flex items-center">
                             <div className={`h-2.5 w-2.5 rounded-full ${getQualityScoreBgColor(portfolioMetrics.qualityScore || 0)} mr-1.5`}></div>
-                            <p className="font-semibold">{portfolioMetrics.qualityScore || 0}</p>
+                            <p className="font-semibold text-lg font-medium">{portfolioMetrics.qualityScore || 0}</p>
+                            <span className="text-xs text-slate-500 ml-2">(out of 100)</span>
                           </div>
                         </div>
                         <div>

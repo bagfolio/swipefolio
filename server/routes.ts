@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import axios from "axios";
 import { getAIResponse } from "./ai-service";
-import { finnhubService } from "./finnhub-service";
+import { jsonStockService } from "./services/json-stock-service";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
@@ -547,9 +547,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Finnhub API Endpoints
+  // Stock Data API Endpoints
   
-  // Get stock data (from cache if available, otherwise from API)
+  // Get stock data from JSON files
   app.get("/api/stock/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
@@ -561,9 +561,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const normalizedSymbol = symbol.toUpperCase();
       
       console.log(`[API] Getting stock data for ${normalizedSymbol}`);
-      const stockData = await finnhubService.getStockData(normalizedSymbol);
       
-      res.json(stockData);
+      // Get stock data directly from JSON files
+      if (jsonStockService.fileExists(normalizedSymbol)) {
+        const stockData = jsonStockService.getStockData(normalizedSymbol);
+        if (stockData) {
+          return res.json(stockData);
+        }
+      }
+      
+      // Return error if no data found
+      return res.status(404).json({ 
+        error: "Stock data not found", 
+        message: `No JSON file found for symbol: ${normalizedSymbol}` 
+      });
     } catch (error: any) {
       console.error(`[API] Error getting stock data:`, error);
       res.status(500).json({ 
@@ -573,7 +584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Refresh cache for a specific stock symbol
+  // Refresh cache for a specific stock symbol - Not needed for JSON files
   app.post("/api/stock/refresh-cache", async (req, res) => {
     try {
       const { symbols } = req.body;
@@ -582,40 +593,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Array of symbols is required" });
       }
       
-      // Limit the number of symbols that can be refreshed at once
-      const MAX_SYMBOLS = 10;
-      const symbolsToRefresh = symbols.slice(0, MAX_SYMBOLS).map(s => s.toUpperCase());
+      // Get the list of symbols to refresh
+      const symbolsToRefresh = symbols.map(s => s.toUpperCase());
       
-      console.log(`[API] Refreshing cache for ${symbolsToRefresh.length} symbols: ${symbolsToRefresh.join(', ')}`);
-      const result = await finnhubService.refreshCache(symbolsToRefresh);
+      console.log(`[API] Request to refresh cache for ${symbolsToRefresh.length} symbols: ${symbolsToRefresh.join(', ')}`);
+      
+      // For JSON files, we just check if they exist
+      const success = [];
+      const failures = [];
+      
+      // Check each symbol to see if its JSON file exists
+      for (const symbol of symbolsToRefresh) {
+        if (jsonStockService.fileExists(symbol)) {
+          success.push(symbol);
+        } else {
+          failures.push(symbol);
+        }
+      }
       
       res.json({
-        message: `Cache refresh completed for ${result.success.length} symbols. Failed: ${result.failures.length}`,
-        success: result.success,
-        failures: result.failures
+        message: `JSON files found for ${success.length} symbols. Missing: ${failures.length}`,
+        success,
+        failures
       });
     } catch (error: any) {
-      console.error(`[API] Error refreshing cache:`, error);
+      console.error(`[API] Error checking JSON files:`, error);
       res.status(500).json({ 
-        error: "Failed to refresh cache", 
+        error: "Failed to check JSON files", 
         message: error.message 
       });
     }
   });
   
-  // Clear the entire cache
+  // Clear cache endpoint - Not needed for JSON files since they're read-only
   app.post("/api/stock/clear-cache", async (req, res) => {
     try {
-      console.log(`[API] Clearing stock cache`);
-      await finnhubService.clearCache();
+      console.log(`[API] Clearing stock cache requested - Not implemented for JSON files`);
       
+      // For JSON files, we don't need to clear anything since they're read directly from disk
       res.json({
-        message: "Cache cleared successfully"
+        message: "No cache to clear with JSON files. They are read directly from disk.",
+        availableFiles: jsonStockService.getAvailableSymbols().length
       });
     } catch (error: any) {
-      console.error(`[API] Error clearing cache:`, error);
+      console.error(`[API] Error in clear cache endpoint:`, error);
       res.status(500).json({ 
-        error: "Failed to clear cache", 
+        error: "Error processing clear cache request", 
         message: error.message 
       });
     }
