@@ -19,16 +19,19 @@ export default function StockDetailView() {
   
   // Fetch the stock data using the symbol from the URL parameters
   const { data: stock, isLoading, error } = useQuery<StockData>({
-    queryKey: ['/api/finnhub/stock', symbol],
+    queryKey: ['/api/stock', symbol],
     queryFn: async () => {
       // Check if symbol parameter exists
       if (!symbol) {
         throw new Error("Stock symbol not provided");
       }
       
-      const response = await fetch(`/api/finnhub/stock/${symbol}`);
+      const response = await fetch(`/api/stock/${symbol}`);
       if (!response.ok) {
-        throw new Error(`Failed to fetch stock data for ${symbol}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Failed to fetch stock data for ${symbol}`
+        );
       }
       
       return response.json();

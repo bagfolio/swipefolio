@@ -44,13 +44,16 @@ interface StockChartProps {
 export default function StockChart({ symbol }: StockChartProps) {
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('3M');
   
-  // Fetch stock history data
+  // Fetch stock history data from our JSON files
   const { data, isLoading, error } = useQuery<StockHistoryResponse>({
-    queryKey: ['/api/stocks/history', symbol],
+    queryKey: ['/api/stock/history', symbol],
     queryFn: async () => {
-      const response = await fetch(`/api/stocks/history/${symbol}`);
+      const response = await fetch(`/api/stock/${symbol}/history`);
       if (!response.ok) {
-        throw new Error(`Failed to fetch stock history for ${symbol}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Failed to fetch stock history for ${symbol}`
+        );
       }
       return response.json();
     },

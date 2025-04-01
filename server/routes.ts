@@ -4,8 +4,6 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import axios from "axios";
 import { getAIResponse } from "./ai-service";
-import { finnhubService } from "./finnhub-service";
-import { yfinanceService } from "./services/yfinance-service";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
@@ -685,15 +683,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const symbols = jsonStockService.getAvailableSymbols();
       
       if (symbols.length === 0) {
-        console.log('[API] No JSON stock files found, returning hardcoded list');
-        // Return a hardcoded list of available stocks from mock-stocks if no JSON files
-        const { realEstateStocks, healthcareStocks, techStocks } = await import('../shared/mock-stocks');
-        const mockSymbols = [
-          ...Object.keys(realEstateStocks), 
-          ...Object.keys(healthcareStocks), 
-          ...Object.keys(techStocks)
-        ];
-        return res.json(mockSymbols);
+        console.log('[API] No JSON stock files found, returning empty list');
+        return res.status(404).json({ 
+          error: "No stock data available", 
+          message: "No JSON stock files found in the data directory" 
+        });
       }
       
       console.log(`[API] Returning ${symbols.length} available stock symbols`);
@@ -719,9 +713,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const normalizedSymbol = symbol.toUpperCase();
       
       console.log(`[API] Getting stock data for ${normalizedSymbol}`);
-      const stockData = await finnhubService.getStockData(normalizedSymbol);
       
-      res.json(stockData);
+      // Import the JSON stock service
+      const { jsonStockService } = await import('./services/json-stock-service');
+      
+      // Get stock data directly from JSON files
+      if (jsonStockService.fileExists(normalizedSymbol)) {
+        const stockData = jsonStockService.getStockData(normalizedSymbol);
+        if (stockData) {
+          return res.json(stockData);
+        }
+      }
+      
+      // Return error if no data found
+      return res.status(404).json({ 
+        error: "Stock data not found", 
+        message: `No JSON file found for symbol: ${normalizedSymbol}` 
+      });
     } catch (error: any) {
       console.error(`[API] Error getting stock data:`, error);
       res.status(500).json({ 
@@ -731,7 +739,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Refresh cache for a specific stock symbol
+  // Refresh cache for a specific stock symbol - Not needed for JSON files
   app.post("/api/stock/refresh-cache", async (req, res) => {
     try {
       const { symbols } = req.body;
@@ -740,40 +748,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Array of symbols is required" });
       }
       
-      // Limit the number of symbols that can be refreshed at once
-      const MAX_SYMBOLS = 10;
-      const symbolsToRefresh = symbols.slice(0, MAX_SYMBOLS).map(s => s.toUpperCase());
+      // Get the list of symbols to refresh
+      const symbolsToRefresh = symbols.map(s => s.toUpperCase());
       
-      console.log(`[API] Refreshing cache for ${symbolsToRefresh.length} symbols: ${symbolsToRefresh.join(', ')}`);
-      const result = await finnhubService.refreshCache(symbolsToRefresh);
+      console.log(`[API] Request to refresh cache for ${symbolsToRefresh.length} symbols: ${symbolsToRefresh.join(', ')}`);
+      
+      // For JSON files, we just check if they exist
+      const { jsonStockService } = await import('./services/json-stock-service');
+      
+      const success = [];
+      const failures = [];
+      
+      // Check each symbol to see if its JSON file exists
+      for (const symbol of symbolsToRefresh) {
+        if (jsonStockService.fileExists(symbol)) {
+          success.push(symbol);
+        } else {
+          failures.push(symbol);
+        }
+      }
       
       res.json({
-        message: `Cache refresh completed for ${result.success.length} symbols. Failed: ${result.failures.length}`,
-        success: result.success,
-        failures: result.failures
+        message: `JSON files found for ${success.length} symbols. Missing: ${failures.length}`,
+        success,
+        failures
       });
     } catch (error: any) {
-      console.error(`[API] Error refreshing cache:`, error);
+      console.error(`[API] Error checking JSON files:`, error);
       res.status(500).json({ 
-        error: "Failed to refresh cache", 
+        error: "Failed to check JSON files", 
         message: error.message 
       });
     }
   });
   
-  // Clear the entire cache
+  // Clear cache endpoint - Not needed for JSON files since they're read-only
   app.post("/api/stock/clear-cache", async (req, res) => {
     try {
-      console.log(`[API] Clearing stock cache`);
-      await finnhubService.clearCache();
+      console.log(`[API] Clearing stock cache requested - Not implemented for JSON files`);
       
+      // For JSON files, we don't need to clear anything since they're read directly
       res.json({
-        message: "Cache cleared successfully"
+        message: "No cache to clear with JSON files. They are read directly from disk.",
+        availableFiles: (await import('./services/json-stock-service')).jsonStockService.getAvailableSymbols().length
       });
     } catch (error: any) {
-      console.error(`[API] Error clearing cache:`, error);
+      console.error(`[API] Error in clear cache endpoint:`, error);
       res.status(500).json({ 
-        error: "Failed to clear cache", 
+        error: "Error processing clear cache request", 
         message: error.message 
       });
     }
@@ -817,65 +839,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // YFinance API endpoints
-  app.get("/api/yfinance/info", async (req, res) => {
-    try {
-      console.log(`[API] Getting YFinance database info`);
-      const dbInfo = yfinanceService.getDatabaseInfo();
-      
-      res.json({
-        info: dbInfo
-      });
-    } catch (error: any) {
-      console.error(`[API] Error getting YFinance database info:`, error);
-      res.status(500).json({ 
-        error: "Failed to get database info", 
-        message: error.message 
-      });
-    }
-  });
-
-  app.get("/api/yfinance/symbols", async (req, res) => {
-    try {
-      console.log(`[API] Getting available symbols from YFinance cache`);
-      const symbols = yfinanceService.getAvailableSymbols();
-      
-      res.json({
-        symbols,
-        count: symbols.length
-      });
-    } catch (error: any) {
-      console.error(`[API] Error getting symbols:`, error);
-      res.status(500).json({ 
-        error: "Failed to get symbols", 
-        message: error.message 
-      });
-    }
-  });
-
-  app.get("/api/yfinance/stock/:symbol", async (req, res) => {
-    try {
-      const symbol = req.params.symbol.toUpperCase();
-      console.log(`[API] Getting YFinance data for symbol: ${symbol}`);
-      
-      const stockData = yfinanceService.getStockData(symbol);
-      
-      // Even if there's an error, the YFinance service will already provide mock data
-      // if the database is corrupted or the symbol isn't found
-      res.json(stockData);
-    } catch (error: any) {
-      console.error(`[API] Error getting stock data:`, error);
-      // Import getMockStockData directly in case of unexpected errors
-      const { getMockStockData } = await import("../shared/mock-stocks");
-      const mockData = getMockStockData(req.params.symbol.toUpperCase());
-      
-      res.json({
-        ...mockData,
-        warning: "Error accessing stock data, using mock data",
-        error: error.message
-      });
-    }
-  });
+  // We are now using only JSON data files, YFinance endpoints removed
   
   // Get stock price history for charts
   app.get("/api/stock/:symbol/history", async (req, res) => {
@@ -883,7 +847,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const symbol = req.params.symbol.toUpperCase();
       console.log(`[API] Getting price history for: ${symbol}`);
       
-      // Try to get data from JSON files first
+      // Get data from JSON files
       const { jsonStockService } = await import('./services/json-stock-service');
       
       if (jsonStockService.fileExists(symbol)) {
@@ -898,16 +862,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // If JSON file doesn't exist or no history data, use mock data
-      console.log(`[API] No history data found in JSON files for ${symbol}, using mock data`);
-      
-      // Generate mock history data
-      const mockHistory = generateMockHistoryData(symbol);
-      
-      res.json({
-        symbol,
-        history: mockHistory,
-        source: 'mock'
+      // If JSON file doesn't exist or no history data, return an error
+      return res.status(404).json({ 
+        error: "No history data available", 
+        message: `No JSON file found for symbol: ${symbol}` 
       });
     } catch (error: any) {
       console.error(`[API] Error getting price history:`, error);
@@ -918,44 +876,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Helper function to generate mock history data
-  function generateMockHistoryData(symbol: string): any[] {
-    const mockHistory: any[] = [];
-    const basePrice = Math.random() * 200 + 50; // Random starting price between 50 and 250
-    const volatility = Math.random() * 0.05; // Random volatility factor
-    
-    // Generate data for the last 90 days
-    const today = new Date();
-    
-    for (let i = 90; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
-      
-      // Calculate price with some randomness and a slight trend
-      const trend = (Math.random() - 0.51) * 0.02; // Slight bias toward up or down
-      const dailyChange = (Math.random() - 0.5) * volatility + trend;
-      const previousPrice: number = i === 90 ? basePrice : mockHistory[mockHistory.length - 1].Close;
-      const price: number = previousPrice * (1 + dailyChange);
-      
-      // Add some randomness to open, high, low
-      const open: number = price * (1 + (Math.random() - 0.5) * 0.01);
-      const high: number = price * (1 + Math.random() * 0.01);
-      const low: number = price * (1 - Math.random() * 0.01);
-      
-      mockHistory.push({
-        Date: date.toISOString().split('T')[0],
-        Open: open,
-        High: high,
-        Low: low,
-        Close: price,
-        Volume: Math.floor(Math.random() * 10000000) + 1000000,
-        Dividends: 0,
-        "Stock Splits": 0
-      });
-    }
-    
-    return mockHistory;
-  }
+  // No longer generating mock history data - using real JSON data only
 
   const httpServer = createServer(app);
   return httpServer;
