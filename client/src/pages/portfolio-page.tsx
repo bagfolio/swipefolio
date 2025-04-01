@@ -320,12 +320,12 @@ export default function PortfolioPage() {
                   <div className="flex justify-between items-center mb-1">
                     <p className="text-xs text-slate-500 mr-2">Quality Score</p>
                     <p className="font-semibold text-sm flex items-baseline">
-                      <span className={`font-bold ${
+                      <span className={`text-lg font-bold ${
                         portfolioMetrics.qualityScore > 70 ? 'text-green-600' : 
                         portfolioMetrics.qualityScore > 50 ? 'text-amber-500' : 
                         'text-red-500'
                       }`}>{portfolioMetrics.qualityScore || 0}</span>
-                      <span className="text-xs text-slate-500 ml-1">/100</span>
+                      <span className="text-xs text-slate-500">/100</span>
                     </p>
                   </div>
                   <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
@@ -611,12 +611,12 @@ export default function PortfolioPage() {
                           <div className="flex justify-between items-center mb-1">
                             <p className="text-xs text-slate-500 mr-2">Portfolio Quality Score</p>
                             <p className="font-semibold text-sm flex items-baseline">
-                              <span className={`font-bold ${
+                              <span className={`text-lg font-bold ${
                                 portfolioMetrics.qualityScore > 70 ? 'text-green-600' : 
                                 portfolioMetrics.qualityScore > 50 ? 'text-amber-500' : 
                                 'text-red-500'
                               }`}>{portfolioMetrics.qualityScore || 0}</span>
-                              <span className="text-xs text-slate-500 ml-1">/100</span>
+                              <span className="text-xs text-slate-500">/100</span>
                             </p>
                           </div>
                           <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
