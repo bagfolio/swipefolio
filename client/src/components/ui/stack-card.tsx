@@ -1,4 +1,4 @@
-import { TrendingUp, BarChart2, Star, Clock, ChevronLeft, ChevronRight, Heart } from "lucide-react";
+import { BarChart2, Star, Clock, ChevronLeft, ChevronRight, Heart } from "lucide-react";
 import type { Stack } from "@shared/schema";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -84,12 +84,7 @@ export default function StackCard({ stack, onClick, imageUrl, category }: StackC
       <div className="p-3 flex-1 flex flex-col justify-between bg-white">
         {/* Title with icon - Improved spacing */}
         <div>
-          <div className="flex items-start justify-between">
-            <h3 className="font-bold text-base text-gray-800 leading-tight">{stack.title}</h3>
-            <div className="p-1.5 rounded-full bg-gray-100 border border-gray-200">
-              <TrendingUp className="w-4 h-4 text-blue-500" />
-            </div>
-          </div>
+          <h3 className="font-bold text-base text-gray-800 leading-tight mb-1">{stack.title}</h3>
           <p className="text-xs text-gray-500 mt-1 line-clamp-2">{stack.description}</p>
         </div>
 
