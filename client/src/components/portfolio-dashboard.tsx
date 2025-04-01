@@ -237,30 +237,42 @@ export default function PortfolioDashboard() {
 
       {/* Allocation with integrated AI promotion button - using a frosted glass effect and iOS-style progress bar */}
       <div className="px-4 py-3 mb-3 rounded-xl bg-gradient-to-r from-slate-50/95 to-slate-100/95 backdrop-blur-lg border border-slate-200 shadow-md relative overflow-hidden" style={{ boxShadow: "0 10px 30px -5px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.03)" }}>
-        <div className="mb-1.5 flex justify-between items-center">
-          <div className="flex items-center">
-            <span className="text-sm text-slate-700 font-medium">Portfolio allocation</span>
-            <Link href="/portfolio">
-              <motion.button
-                className="ml-2 px-3 py-0.5 rounded-full bg-indigo-500 text-xs font-medium text-white shadow-sm flex items-center"
-                whileHover={{ scale: 1.05, backgroundColor: "#4F46E5" }}
-                whileTap={{ scale: 0.95 }}
-                style={{
-                  boxShadow: "0 2px 8px -2px rgba(99, 102, 241, 0.3)"
-                }}
-              >
-                <TrendingUp className="w-3.5 h-3.5 mr-1 text-white" />
-                <span>Improve with AI</span>
-              </motion.button>
-            </Link>
-          </div>
-          <span className="text-sm font-medium text-indigo-600">{allocationPercentage}%</span>
+        <div className="mb-2 flex justify-between items-center">
+          <span className="text-sm text-slate-700 font-medium">Portfolio allocation</span>
+          <Link href="/portfolio">
+            <motion.button
+              className="px-3 py-0.5 rounded-full bg-indigo-500 text-xs font-medium text-white shadow-sm flex items-center"
+              whileHover={{ scale: 1.05, backgroundColor: "#4F46E5" }}
+              whileTap={{ scale: 0.95 }}
+              style={{
+                boxShadow: "0 2px 8px -2px rgba(99, 102, 241, 0.3)"
+              }}
+            >
+              <TrendingUp className="w-3.5 h-3.5 mr-1 text-white" />
+              <span>Improve with AI</span>
+            </motion.button>
+          </Link>
         </div>
 
-        <Progress
-          value={allocationPercentage}
-          className="h-2.5 mb-0.5"
-        />
+        <div className="relative mb-0.5">
+          {/* Base bar with light gray stroke to be visible at 0% */}
+          <div className="h-4 w-full bg-slate-100 rounded-full border border-slate-200 overflow-hidden">
+            {/* Filled progress portion */}
+            <div 
+              className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full flex items-center justify-end px-2"
+              style={{ 
+                width: `${Math.max(allocationPercentage, 5)}%`, 
+                minWidth: allocationPercentage > 0 ? '2rem' : '0'
+              }}
+            >
+              {allocationPercentage > 0 && (
+                <span className="text-xs font-medium text-white">
+                  {allocationPercentage}%
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
         
         {/* Subtle glow effects behind the progress bar */}
         <div className="absolute bottom-0 left-1/4 w-16 h-16 rounded-full bg-indigo-200/10 blur-xl -z-10"></div>
