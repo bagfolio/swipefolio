@@ -611,7 +611,7 @@ export default function PortfolioPage() {
                           <div className="flex justify-between items-center mb-1">
                             <p className="text-xs text-slate-500 mr-2">Portfolio Quality Score</p>
                             <p className="font-semibold text-sm flex items-baseline">
-                              <span className={`text-lg font-bold ${
+                              <span className={`font-bold ${
                                 portfolioMetrics.qualityScore > 70 ? 'text-green-600' : 
                                 portfolioMetrics.qualityScore > 50 ? 'text-amber-500' : 
                                 'text-red-500'
