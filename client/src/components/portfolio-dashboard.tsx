@@ -163,8 +163,8 @@ export default function PortfolioDashboard() {
         {/* Top Metrics Row - Clear Icon-Text Pairing */}
         <div className="grid grid-cols-2 gap-0">
           {/* Left Side - Projected 1-Year Value */}
-          <div className="p-4 border-r border-slate-100 flex flex-col justify-center items-center h-32">
-            <div className="flex items-center mb-0">
+          <div className="p-3 border-r border-slate-100 flex flex-col items-center justify-between h-28">
+            <div className="flex items-center">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Projected Value</span>
             </div>
@@ -173,27 +173,27 @@ export default function PortfolioDashboard() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="text-center flex-1 flex flex-col justify-center mt-1"
+              className="text-center flex-1 flex flex-col justify-center my-1"
             >
               {/* Calculate projected future value: invested amount + projected return */}
-              <span className="text-2xl font-bold text-slate-800">
+              <span className="text-xl font-bold text-slate-800">
                 ${(totalInvested + projectedReturn).toFixed(2)}
               </span>
-              
-              <div className={`flex items-center justify-center text-xs mt-1 ${projectedReturn >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                {projectedReturn >= 0 ? (
-                  <ArrowUp className="h-3 w-3 mr-0.5" />
-                ) : (
-                  <ArrowDown className="h-3 w-3 mr-0.5" />
-                )}
-                <span>{projectedReturn >= 0 ? '+' : ''}{projectedReturnPercent.toFixed(1)}%</span>
-              </div>
             </motion.div>
+            
+            <div className={`flex items-center justify-center text-xs ${projectedReturn >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              {projectedReturn >= 0 ? (
+                <ArrowUp className="h-3 w-3 mr-0.5" />
+              ) : (
+                <ArrowDown className="h-3 w-3 mr-0.5" />
+              )}
+              <span>{projectedReturn >= 0 ? '+' : ''}{projectedReturnPercent.toFixed(1)}%</span>
+            </div>
           </div>
           
           {/* Right Side - Quality Score with Circle Chart */}
-          <div className="p-4 border-l border-slate-100 flex flex-col justify-center items-center h-32">
-            <div className="flex items-center mb-0">
+          <div className="p-3 border-l border-slate-100 flex flex-col items-center justify-between h-28">
+            <div className="flex items-center">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Quality Score</span>
             </div>
@@ -202,36 +202,40 @@ export default function PortfolioDashboard() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="text-center flex-1 flex flex-col justify-center mt-1"
+              className="text-center flex flex-col justify-center"
             >
-              <div className="relative w-16 h-16">
-                <svg width="64" height="64" viewBox="0 0 64 64">
+              <div className="relative w-14 h-14">
+                <svg width="56" height="56" viewBox="0 0 56 56">
                   <circle 
-                    cx="32" 
-                    cy="32" 
-                    r="28" 
+                    cx="28" 
+                    cy="28" 
+                    r="24" 
                     fill="none" 
                     stroke="#e2e8f0" 
-                    strokeWidth="6"
+                    strokeWidth="5"
                   />
                   <circle 
-                    cx="32" 
-                    cy="32" 
-                    r="28" 
+                    cx="28" 
+                    cy="28" 
+                    r="24" 
                     fill="none" 
                     stroke={portfolioMetrics.qualityScore > 70 ? '#22c55e' : (portfolioMetrics.qualityScore > 50 ? '#f59e0b' : '#ef4444')} 
-                    strokeWidth="6"
-                    strokeDasharray={28 * 2 * Math.PI}
-                    strokeDashoffset={28 * 2 * Math.PI * (1 - (portfolioMetrics.qualityScore || 0) / 100)}
+                    strokeWidth="5"
+                    strokeDasharray={24 * 2 * Math.PI}
+                    strokeDashoffset={24 * 2 * Math.PI * (1 - (portfolioMetrics.qualityScore || 0) / 100)}
                     strokeLinecap="round"
-                    transform="rotate(-90 32 32)"
+                    transform="rotate(-90 28 28)"
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-base font-bold">{portfolioMetrics.qualityScore || 0}</span>
+                  <span className="text-sm font-bold">{portfolioMetrics.qualityScore || 0}</span>
                 </div>
               </div>
             </motion.div>
+            
+            <div className="text-xs text-slate-500 opacity-0">
+              Placeholder
+            </div>
           </div>
         </div>
       </div>
