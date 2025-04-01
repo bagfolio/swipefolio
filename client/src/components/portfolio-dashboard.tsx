@@ -164,7 +164,7 @@ export default function PortfolioDashboard() {
         <div className="grid grid-cols-2 gap-0">
           {/* Left Side - Projected 1-Year Value */}
           <div className="p-4 border-r border-slate-100 flex flex-col justify-center items-center h-32">
-            <div className="flex items-center mb-2">
+            <div className="flex items-center mb-1">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Projected Value</span>
             </div>
@@ -193,7 +193,7 @@ export default function PortfolioDashboard() {
           
           {/* Right Side - Quality Score with Circle Chart */}
           <div className="p-4 border-l border-slate-100 flex flex-col justify-center items-center h-32">
-            <div className="flex items-center mb-2">
+            <div className="flex items-center mb-1">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Quality Score</span>
             </div>
@@ -228,7 +228,7 @@ export default function PortfolioDashboard() {
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-bold">{portfolioMetrics.qualityScore || 0}</span>
+                  <span className="text-base font-bold">{portfolioMetrics.qualityScore || 0}</span>
                 </div>
               </div>
             </motion.div>
