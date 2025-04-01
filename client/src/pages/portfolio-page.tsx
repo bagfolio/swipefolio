@@ -318,15 +318,23 @@ export default function PortfolioPage() {
                 {/* Progress Bar Quality Score */}
                 <div className="bg-slate-50 rounded-lg py-2 px-4 shadow-sm border border-slate-100 min-w-[140px]">
                   <div className="flex justify-between items-center mb-1">
-                    <p className="text-xs text-slate-500">Quality Score</p>
+                    <p className="text-xs text-slate-500 mr-2">Quality Score</p>
                     <p className="font-semibold text-sm flex items-baseline">
-                      <span className="font-bold">{portfolioMetrics.qualityScore || 0}</span>
-                      <span className="text-xs text-slate-500 ml-2">/100</span>
+                      <span className={`font-bold ${
+                        portfolioMetrics.qualityScore > 70 ? 'text-green-600' : 
+                        portfolioMetrics.qualityScore > 50 ? 'text-amber-500' : 
+                        'text-red-500'
+                      }`}>{portfolioMetrics.qualityScore || 0}</span>
+                      <span className="text-xs text-slate-500 ml-1">/100</span>
                     </p>
                   </div>
                   <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                     <div 
-                      className={`h-full ${portfolioMetrics.qualityScore > 70 ? 'bg-green-500' : (portfolioMetrics.qualityScore > 50 ? 'bg-blue-500' : 'bg-orange-500')} rounded-full`} 
+                      className={`h-full ${
+                        portfolioMetrics.qualityScore > 70 ? 'bg-green-500' : 
+                        portfolioMetrics.qualityScore > 50 ? 'bg-amber-500' : 
+                        'bg-red-500'
+                      } rounded-full`} 
                       style={{ width: `${portfolioMetrics.qualityScore || 0}%` }}
                     ></div>
                   </div>
@@ -601,15 +609,23 @@ export default function PortfolioPage() {
                       <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-3">
                         <div className="col-span-2">
                           <div className="flex justify-between items-center mb-1">
-                            <p className="text-xs text-slate-500">Portfolio Quality Score</p>
+                            <p className="text-xs text-slate-500 mr-2">Portfolio Quality Score</p>
                             <p className="font-semibold text-sm flex items-baseline">
-                              <span className="font-bold">{portfolioMetrics.qualityScore || 0}</span>
-                              <span className="text-xs text-slate-500 ml-2">/100</span>
+                              <span className={`font-bold ${
+                                portfolioMetrics.qualityScore > 70 ? 'text-green-600' : 
+                                portfolioMetrics.qualityScore > 50 ? 'text-amber-500' : 
+                                'text-red-500'
+                              }`}>{portfolioMetrics.qualityScore || 0}</span>
+                              <span className="text-xs text-slate-500 ml-1">/100</span>
                             </p>
                           </div>
                           <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                             <div 
-                              className={`h-full ${portfolioMetrics.qualityScore > 70 ? 'bg-green-500' : (portfolioMetrics.qualityScore > 50 ? 'bg-blue-500' : 'bg-orange-500')} rounded-full`} 
+                              className={`h-full ${
+                                portfolioMetrics.qualityScore > 70 ? 'bg-green-500' : 
+                                portfolioMetrics.qualityScore > 50 ? 'bg-amber-500' : 
+                                'bg-red-500'
+                              } rounded-full`} 
                               style={{ width: `${portfolioMetrics.qualityScore || 0}%` }}
                             ></div>
                           </div>
