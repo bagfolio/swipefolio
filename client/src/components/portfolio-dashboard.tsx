@@ -261,7 +261,22 @@ export default function PortfolioDashboard() {
         <div className="absolute bottom-0 right-1/4 w-12 h-12 rounded-full bg-purple-200/10 blur-xl -z-10"></div>
       </div>
       
-
+      {/* View More Button - Bottom Right */}
+      <div className="flex justify-end mt-4">
+        <Link href="/portfolio">
+          <motion.button
+            className="flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-md shadow-md transition-shadow duration-200"
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.95 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.5 }}
+          >
+            <span className="mr-1">View More</span>
+            <span className="text-lg">&rarr;</span>
+          </motion.button>
+        </Link>
+      </div>
     </motion.div>
   );
 }
