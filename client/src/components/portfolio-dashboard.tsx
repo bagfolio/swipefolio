@@ -161,15 +161,15 @@ export default function PortfolioDashboard() {
       {/* Portfolio Summary Card - Updated Format with Projected Value */}
       <div className="bg-white rounded-xl shadow-lg border border-slate-200 mb-4 overflow-hidden" style={{ boxShadow: "0 8px 25px -5px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.03)" }}>
         {/* Top Metrics Row - Clear Icon-Text Pairing */}
-        <div className="grid grid-cols-2 gap-0 py-2">
+        <div className="grid grid-cols-2 gap-0 pt-2 pb-1">
           {/* Left Side - Projected 1-Year Value */}
-          <div className="px-4 py-3 border-r border-slate-100 flex flex-col items-center justify-between h-28">
+          <div className="px-4 pt-3 pb-2 border-r border-slate-100 flex flex-col items-center h-24">
             <div className="flex items-center">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Projected Value</span>
             </div>
             
-            <div className="text-center flex flex-col items-center space-y-2 my-1">
+            <div className="text-center flex flex-col items-center space-y-2 mt-auto mb-auto">
               {/* Calculate projected future value: invested amount + projected return */}
               <span className="text-xl font-bold text-slate-800">
                 ${(totalInvested + projectedReturn).toFixed(2)}
@@ -184,18 +184,16 @@ export default function PortfolioDashboard() {
                 <span>{projectedReturn >= 0 ? '+' : ''}{projectedReturnPercent.toFixed(1)}%</span>
               </div>
             </div>
-            
-            <div className="h-1"></div> {/* Spacer */}
           </div>
           
           {/* Right Side - Quality Score with Circle Chart */}
-          <div className="px-4 py-3 border-l border-slate-100 flex flex-col items-center justify-between h-28">
+          <div className="px-4 pt-3 pb-2 border-l border-slate-100 flex flex-col items-center h-24">
             <div className="flex items-center">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Quality Score</span>
             </div>
             
-            <div className="text-center flex flex-col items-center justify-center my-1">
+            <div className="text-center flex flex-col items-center justify-center mt-auto mb-auto">
               <div className="relative w-14 h-14">
                 <svg width="56" height="56" viewBox="0 0 56 56">
                   <circle 
@@ -224,8 +222,6 @@ export default function PortfolioDashboard() {
                 </div>
               </div>
             </div>
-            
-            <div className="h-1"></div> {/* Spacer */}
           </div>
         </div>
       </div>
