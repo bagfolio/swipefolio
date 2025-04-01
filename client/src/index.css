@@ -122,7 +122,7 @@
 }
 
 .grid-cols-stacks {
-  @apply grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-5 mt-4;
+  @apply flex flex-col space-y-3 mt-3;
 }
 
 /* Chart animations */
