@@ -80,7 +80,7 @@ export default function StacksExplorer({ stacks }: StacksExplorerProps) {
                           stack.title.includes("Basics") || 
                           stack.title.includes("101") ||
                           stack.title.includes("Learn");
-
+                          
     console.log(`Stack: ${stack.title}, Industry: ${stack.industry}, Educational: ${isEducational}`);
     return !isEducational;
   });
@@ -134,7 +134,7 @@ export default function StacksExplorer({ stacks }: StacksExplorerProps) {
       imageUrl: details.image
     };
   });
-
+  
   console.log("Final stacks for display:", enhancedStacks);
 
   return (
