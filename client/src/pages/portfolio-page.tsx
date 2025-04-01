@@ -9,6 +9,7 @@ import AppHeader from '@/components/app-header';
 import AppNavigation from '@/components/app-navigation';
 import { PortfolioContext, PortfolioHolding } from '@/contexts/portfolio-context';
 import { Progress } from '@/components/ui/progress';
+import ProgressRing from '@/components/ui/progress-ring';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getIndustryAverages } from '@/lib/industry-data';
 import { getQualityScoreColor, getQualityScoreBgColor } from '@/data/leaderboard-data';
@@ -315,23 +316,20 @@ export default function PortfolioPage() {
                   </div>
                 </div>
                 
-                {/* Redesigned Quality Score with horizontal bar instead of circle */}
-                <div className="bg-slate-50 rounded-lg py-2 px-4 shadow-sm border border-slate-100 min-w-[140px]">
-                  <div className="flex justify-between items-center mb-1">
-                    <p className="text-xs text-slate-500">Quality Score</p>
-                    <div className="flex items-center">
-                      <p className={`text-lg font-bold ${getQualityScoreColor(portfolioMetrics.qualityScore || 0)}`}>
-                        {portfolioMetrics.qualityScore || 0}
-                      </p>
-                      <span className="text-xs text-slate-500 ml-2">(out of 100)</span>
-                    </div>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full ${getQualityScoreBgColor(portfolioMetrics.qualityScore || 0)} rounded-full`} 
-                      style={{ width: `${portfolioMetrics.qualityScore || 0}%` }}
-                    ></div>
-                  </div>
+                {/* Circular Quality Score */}
+                <div className="bg-slate-50 rounded-lg py-2 px-4 shadow-sm border border-slate-100 min-w-[140px] flex flex-col items-center">
+                  <p className="text-xs text-slate-500 mb-2">Quality Score</p>
+                  <ProgressRing 
+                    progress={portfolioMetrics.qualityScore || 0} 
+                    size={64} 
+                    strokeWidth={5}
+                    color={`text-${portfolioMetrics.qualityScore > 70 ? 'green' : (portfolioMetrics.qualityScore > 50 ? 'blue' : 'orange')}-500`}
+                    bgColor="text-gray-200"
+                    className="mb-1"
+                  >
+                    <p className="text-lg font-bold">{portfolioMetrics.qualityScore || 0}</p>
+                  </ProgressRing>
+                  <span className="text-xs text-slate-500 mt-1">/100</span>
                 </div>
               </div>
               
@@ -602,11 +600,19 @@ export default function PortfolioPage() {
                       
                       <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-3">
                         <div className="col-span-2">
-                          <p className="text-xs text-slate-500">Portfolio Quality Score</p>
+                          <p className="text-xs text-slate-500 mb-1">Portfolio Quality Score</p>
                           <div className="flex items-center">
-                            <div className={`h-2.5 w-2.5 rounded-full ${getQualityScoreBgColor(portfolioMetrics.qualityScore || 0)} mr-1.5`}></div>
-                            <p className="font-semibold text-lg font-medium">{portfolioMetrics.qualityScore || 0}</p>
-                            <span className="text-xs text-slate-500 ml-2">(out of 100)</span>
+                            <div className="flex items-center justify-start">
+                              <ProgressRing 
+                                progress={portfolioMetrics.qualityScore || 0} 
+                                size={50} 
+                                strokeWidth={4}
+                                color={`text-${portfolioMetrics.qualityScore > 70 ? 'green' : (portfolioMetrics.qualityScore > 50 ? 'blue' : 'orange')}-500`}
+                                bgColor="text-gray-200"
+                              >
+                                <p className="text-sm font-bold">{portfolioMetrics.qualityScore || 0}</p>
+                              </ProgressRing>
+                            </div>
                           </div>
                         </div>
                         <div>

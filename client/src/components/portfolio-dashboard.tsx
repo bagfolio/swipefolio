@@ -205,7 +205,7 @@ export default function PortfolioDashboard() {
             >
               <div className="flex items-baseline justify-center">
                 <span className="text-2xl font-bold text-slate-800">{portfolioMetrics.qualityScore || 0}</span>
-                <span className="text-xs ml-1 text-slate-500">/100</span>
+                <span className="text-sm ml-1 text-slate-500">/100</span>
               </div>
             </motion.div>
           </div>
