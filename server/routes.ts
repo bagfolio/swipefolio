@@ -5,6 +5,7 @@ import { setupAuth } from "./auth";
 import axios from "axios";
 import { getAIResponse } from "./ai-service";
 import { finnhubService } from "./finnhub-service";
+import { yfinanceService } from "./services/yfinance-service";
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
@@ -743,6 +744,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: "Failed to clear cache", 
         message: error.message 
+      });
+    }
+  });
+
+  // YFinance API endpoints
+  app.get("/api/yfinance/info", async (req, res) => {
+    try {
+      console.log(`[API] Getting YFinance database info`);
+      const dbInfo = yfinanceService.getDatabaseInfo();
+      
+      res.json({
+        info: dbInfo
+      });
+    } catch (error: any) {
+      console.error(`[API] Error getting YFinance database info:`, error);
+      res.status(500).json({ 
+        error: "Failed to get database info", 
+        message: error.message 
+      });
+    }
+  });
+
+  app.get("/api/yfinance/symbols", async (req, res) => {
+    try {
+      console.log(`[API] Getting available symbols from YFinance cache`);
+      const symbols = yfinanceService.getAvailableSymbols();
+      
+      res.json({
+        symbols,
+        count: symbols.length
+      });
+    } catch (error: any) {
+      console.error(`[API] Error getting symbols:`, error);
+      res.status(500).json({ 
+        error: "Failed to get symbols", 
+        message: error.message 
+      });
+    }
+  });
+
+  app.get("/api/yfinance/stock/:symbol", async (req, res) => {
+    try {
+      const symbol = req.params.symbol.toUpperCase();
+      console.log(`[API] Getting YFinance data for symbol: ${symbol}`);
+      
+      const stockData = yfinanceService.getStockData(symbol);
+      
+      // Even if there's an error, the YFinance service will already provide mock data
+      // if the database is corrupted or the symbol isn't found
+      res.json(stockData);
+    } catch (error: any) {
+      console.error(`[API] Error getting stock data:`, error);
+      // Import getMockStockData directly in case of unexpected errors
+      const { getMockStockData } = await import("../shared/mock-stocks");
+      const mockData = getMockStockData(req.params.symbol.toUpperCase());
+      
+      res.json({
+        ...mockData,
+        warning: "Error accessing stock data, using mock data",
+        error: error.message
       });
     }
   });
