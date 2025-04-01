@@ -21,6 +21,7 @@ import {
   calculateTrades
 } from "@/data/leaderboard-data";
 import { PortfolioContext } from "@/contexts/portfolio-context";
+import AppNavigation from "@/components/app-navigation";
 
 
 const LeaderboardPage: React.FC = () => {
@@ -363,6 +364,9 @@ const LeaderboardPage: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Bottom Navigation */}
+      <AppNavigation />
     </div>
   );
 };
