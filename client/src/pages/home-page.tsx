@@ -13,7 +13,7 @@ import { useState, useContext, useRef, useEffect } from "react";
 import HeroSection from "@/components/hero-section";
 import ModernUserWelcome from "@/components/modern-user-welcome";
 import PortfolioDashboard from "@/components/portfolio-dashboard";
-import CompetitionTracker from "@/components/competition-tracker";
+import CompetitionTracker from "@/components/competition-tracker-with-popup";
 import { PortfolioContext, usePortfolio } from "@/contexts/portfolio-context";
 import AIAssistant from "@/components/ui/ai-assistant";
 

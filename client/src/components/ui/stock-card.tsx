@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useCallback } from "react";
+import { Link } from "wouter";
 import { StockData } from "@/lib/stock-data";
 import { getIndustryAverages } from "@/lib/industry-data";
 import { 
@@ -563,7 +564,14 @@ export default function StockCard({
             <div className="p-5 border-b border-gray-800">
               <div className="flex justify-between items-start">
                 <div>
-                  <h2 className="text-xl md:text-2xl font-bold text-white mb-1">{stock.name} <span className="text-gray-400">({stock.ticker})</span></h2>
+                  <a 
+                    href={`/stock-detail/${stock.ticker}`} 
+                    className="group inline-flex items-center gap-1.5"
+                    onClick={(e) => e.stopPropagation()} // Prevent triggering card swipe actions
+                  >
+                    <h2 className="text-xl md:text-2xl font-bold text-white mb-1 group-hover:text-blue-300 transition-colors">{stock.name} <span className="text-gray-400 group-hover:text-blue-400 transition-colors">({stock.ticker})</span></h2>
+                    <BarChart3 size={20} className="text-gray-400 group-hover:text-blue-300 transition-colors" />
+                  </a>
                   
                   {/* Day's range information */}
                   <div className="flex items-center text-xs text-gray-400 mt-1 mb-2">
@@ -834,8 +842,15 @@ export default function StockCard({
         <div className="bg-white p-4 flex flex-col border-b border-slate-100 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <h2 className="text-xl font-bold text-slate-900">{stock.name}</h2>
-              <span className="text-slate-500 font-medium bg-slate-50 px-2 py-0.5 rounded-md">{stock.ticker}</span>
+              <Link 
+                to={`/stock-detail/${stock.ticker}`} 
+                className="group flex items-center gap-1.5"
+                onClick={(e: React.MouseEvent) => e.stopPropagation()} // Prevent triggering card swipe actions
+              >
+                <h2 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{stock.name}</h2>
+                <span className="text-slate-500 font-medium bg-slate-50 px-2 py-0.5 rounded-md group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">{stock.ticker}</span>
+                <BarChart3 size={18} className="text-slate-400 group-hover:text-blue-500 ml-1 transition-colors" />
+              </Link>
             </div>
             <div className="flex items-center">
               <button 
@@ -1062,8 +1077,15 @@ export default function StockCard({
         
         {/* Ask AI Component has been removed */}
 
-        {/* Bottom Swipe Instruction */}
+        {/* Bottom Swipe Instruction and View Details button */}
         <div className="p-4 bg-white border-t border-b border-slate-100 mb-4">
+          <Link 
+            to={`/stock-detail/${stock.ticker}`}
+            className="block w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 mb-3 text-center font-medium transition-colors"
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          >
+            View Detailed Chart
+          </Link>
           <div className="text-center text-sm font-medium text-slate-600 my-2">
             Swipe <span className="text-red-600 font-medium">left to skip</span> • Swipe <span className="text-green-600 font-medium">right to invest</span>
           </div>

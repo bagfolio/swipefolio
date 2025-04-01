@@ -11,7 +11,8 @@ import {
   Star,
   Check,
   UserPlus,
-  ChevronRight
+  ChevronRight,
+  Zap
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { 
@@ -20,6 +21,7 @@ import {
   LeaderboardUser
 } from "@/data/leaderboard-data";
 import { PortfolioContext } from "@/contexts/portfolio-context";
+import InvestorProfilePopup from "@/components/investor-profile-popup";
 
 const LeaderboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"all" | "friends">("all");
@@ -27,7 +29,20 @@ const LeaderboardPage: React.FC = () => {
   const [friendsList, setFriendsList] = useState<LeaderboardUser[]>([]);
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardUser[]>([]);
   const [currentUser, setCurrentUser] = useState<LeaderboardUser | undefined>();
+  const [selectedInvestor, setSelectedInvestor] = useState<LeaderboardUser | null>(null);
+  const [showProfilePopup, setShowProfilePopup] = useState<boolean>(false);
   const portfolio = useContext(PortfolioContext);
+  
+  // Handler to open investor profile popup
+  const handleOpenProfile = (investor: LeaderboardUser) => {
+    setSelectedInvestor(investor);
+    setShowProfilePopup(true);
+  };
+  
+  // Handler to close investor profile popup
+  const handleCloseProfile = () => {
+    setShowProfilePopup(false);
+  };
   
   // Update user stats and refetch leaderboard data when portfolio changes
   useEffect(() => {
@@ -113,15 +128,38 @@ const LeaderboardPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pb-20">
       {/* Header - Lighter Background */}
       <div className="bg-gradient-to-r from-slate-100 to-blue-50 text-slate-800 pt-10 pb-8 px-4 rounded-b-3xl shadow-sm">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-4">
           <Link href="/">
             <button className="flex items-center text-slate-600 hover:text-slate-800 transition-colors">
               <ArrowLeft className="w-5 h-5 mr-1" />
               <span>Back</span>
             </button>
           </Link>
-          <h1 className="text-2xl font-bold text-slate-800">Leaderboard</h1>
           <div className="w-5"></div> {/* Empty div for even spacing */}
+        </div>
+        
+        {/* iOS-Style Tab Selector - Moved to top as requested */}
+        <div className="flex justify-center mb-4">
+          <div className="bg-white/90 backdrop-blur-sm p-1 rounded-full flex shadow-sm border border-slate-200">
+            <button 
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeTab === 'all' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+              onClick={() => setActiveTab('all')}
+            >
+              All Investors
+            </button>
+            <button 
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeTab === 'friends' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+              onClick={() => setActiveTab('friends')}
+            >
+              Friends
+            </button>
+          </div>
+        </div>
+        
+        {/* Enhanced Leaderboard Title */}
+        <div className="text-center mb-5">
+          <h1 className="text-3xl font-bold text-slate-800 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Leaderboard</h1>
+          <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-indigo-500 mx-auto mt-1 rounded-full"></div>
         </div>
         
         {/* iOS-Style Card Podium Layout for Top 3 */}
@@ -143,7 +181,9 @@ const LeaderboardPage: React.FC = () => {
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.1, duration: 0.3 }}
             >
-              <div className="bg-white rounded-2xl shadow-md p-3 transform -translate-y-6">
+              <div 
+                onClick={() => filteredData[1] && handleOpenProfile(filteredData[1])}
+                className="bg-white rounded-2xl shadow-md p-3 transform -translate-y-6 cursor-pointer hover:shadow-lg transition-all active:scale-[0.98]">
                 <div className="flex flex-col items-center">
                   {/* Rank indicator */}
                   <div className="absolute -top-2 right-3 bg-slate-400 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold text-white shadow border border-white">
@@ -189,7 +229,9 @@ const LeaderboardPage: React.FC = () => {
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0, duration: 0.3 }}
             >
-              <div className="bg-white rounded-2xl shadow-lg p-4 transform -translate-y-10 border-[0.5px] border-yellow-100">
+              <div 
+                onClick={() => filteredData[0] && handleOpenProfile(filteredData[0])}
+                className="bg-white rounded-2xl shadow-lg p-4 transform -translate-y-10 border-[0.5px] border-yellow-100 cursor-pointer hover:shadow-xl transition-all active:scale-[0.98]">
                 {/* Trophy on top - outside the card */}
                 <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
                   <div className="relative">
@@ -252,7 +294,9 @@ const LeaderboardPage: React.FC = () => {
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.3 }}
             >
-              <div className="bg-white rounded-2xl shadow-md p-3 transform -translate-y-6">
+              <div 
+                onClick={() => filteredData[2] && handleOpenProfile(filteredData[2])}
+                className="bg-white rounded-2xl shadow-md p-3 transform -translate-y-6 cursor-pointer hover:shadow-lg transition-all active:scale-[0.98]">
                 <div className="flex flex-col items-center">
                   {/* Rank indicator */}
                   <div className="absolute -top-2 right-3 bg-amber-700 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold text-white shadow border border-white">
@@ -293,23 +337,7 @@ const LeaderboardPage: React.FC = () => {
           </div>
         </div>
         
-        {/* iOS-Style Tab Selector */}
-        <div className="flex justify-center mt-2">
-          <div className="bg-white/80 backdrop-blur-sm p-1 rounded-full flex shadow-sm">
-            <button 
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeTab === 'all' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
-              onClick={() => setActiveTab('all')}
-            >
-              All Investors
-            </button>
-            <button 
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeTab === 'friends' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
-              onClick={() => setActiveTab('friends')}
-            >
-              Friends
-            </button>
-          </div>
-        </div>
+
       </div>
       
       {/* Removed search bar to bring leaderboard closer to top */}
@@ -387,13 +415,15 @@ const LeaderboardPage: React.FC = () => {
                   <motion.div 
                     key={user.id}
                     id={`leaderboard-user-${user.id}`}
+                    onClick={() => handleOpenProfile(user)}
                     className={`grid grid-cols-[40px_minmax(100px,1.5fr)_repeat(4,_minmax(45px,1fr))] items-center px-3 py-4 
                       ${isTopThree ? 'bg-gradient-to-r from-slate-50 to-white border-t border-slate-100' : 
                         isCurrentUser ? 'bg-blue-50/80' : 
                         isEvenRow ? 'bg-white border-t border-slate-100' : 'bg-slate-50/30 border-t border-slate-100'
                       }
                       ${isCurrentUser ? 'border-l-3 border-blue-500' : ''}
-                      hover:bg-blue-50/30 transition-colors duration-200 relative`}
+                      hover:bg-blue-50/30 transition-colors duration-200 relative
+                      cursor-pointer active:bg-blue-100/50 hover:shadow-sm`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05, duration: 0.2 }}
@@ -499,6 +529,14 @@ const LeaderboardPage: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Investor Profile Popup */}
+      {showProfilePopup && (
+        <InvestorProfilePopup 
+          investor={selectedInvestor} 
+          onClose={handleCloseProfile} 
+        />
+      )}
     </div>
   );
 };

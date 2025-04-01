@@ -4,7 +4,9 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import axios from "axios";
 import { getAIResponse } from "./ai-service";
+
 import { jsonStockService } from "./services/json-stock-service";
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
@@ -546,10 +548,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json(errorResponse);
     }
   });
+  
+  // Board Room Game - AI scenario generation
+  app.post("/api/ai-scenario", async (req, res) => {
+    try {
+      console.log("Received AI scenario request");
+      const { prompt } = req.body;
+      
+      // Validate request body
+      if (!prompt) {
+        return res.status(400).json({ 
+          error: "INVALID_REQUEST", 
+          message: "A prompt is required" 
+        });
+      }
+      
+      // Get AI response with game context
+      const response = await getAIResponse(prompt, { 
+        gameMode: true,
+        gameRole: "CEO Simulator"
+      });
+      
+      try {
+        // Try to parse as JSON
+        const scenario = JSON.parse(response);
+        return res.json({ scenario });
+      } catch (parseError) {
+        console.error('Failed to parse AI response as JSON:', parseError);
+        
+        // If the response isn't valid JSON, return the raw response for debugging
+        return res.status(500).json({ 
+          message: 'Failed to parse AI response as JSON',
+          rawResponse: response
+        });
+      }
+    } catch (error: any) {
+      console.error("Error generating AI scenario:", error);
+      
+      interface AIErrorResponse {
+        error: string;
+        message: string;
+        details?: {
+          status?: number;
+          data?: any;
+        };
+      }
+      
+      let errorResponse: AIErrorResponse = { 
+        error: "AI service error", 
+        message: error instanceof Error ? error.message : "Unknown error occurred"
+      };
+      
+      // Add more detailed error information if available
+      if (error.response) {
+        console.error("Error response status:", error.response.status);
+        console.error("Error response data:", error.response.data);
+        
+        errorResponse = {
+          error: "AI service error", 
+          message: error instanceof Error ? error.message : "Unknown error occurred",
+          details: {
+            status: error.response.status,
+            data: error.response.data
+          }
+        };
+      }
+      
+      return res.status(500).json(errorResponse);
+    }
+  });
+  
+  // Board Room Game - AI insight/explanation generation
+  app.post("/api/ai-insight", async (req, res) => {
+    try {
+      console.log("Received AI insight request");
+      const { prompt } = req.body;
+      
+      // Validate request body
+      if (!prompt) {
+        return res.status(400).json({ 
+          error: "INVALID_REQUEST", 
+          message: "A prompt is required" 
+        });
+      }
+      
+      // Get AI response with game context
+      const explanation = await getAIResponse(prompt, { 
+        gameMode: true,
+        gameRole: "CEO Simulator"
+      });
+      
+      return res.json({ explanation });
+    } catch (error: any) {
+      console.error("Error generating AI insight:", error);
+      
+      interface AIErrorResponse {
+        error: string;
+        message: string;
+        details?: {
+          status?: number;
+          data?: any;
+        };
+      }
+      
+      let errorResponse: AIErrorResponse = { 
+        error: "AI service error", 
+        message: error instanceof Error ? error.message : "Unknown error occurred"
+      };
+      
+      // Add more detailed error information if available
+      if (error.response) {
+        console.error("Error response status:", error.response.status);
+        console.error("Error response data:", error.response.data);
+        
+        errorResponse = {
+          error: "AI service error", 
+          message: error instanceof Error ? error.message : "Unknown error occurred",
+          details: {
+            status: error.response.status,
+            data: error.response.data
+          }
+        };
+      }
+      
+      return res.status(500).json(errorResponse);
+    }
+  });
 
   // Stock Data API Endpoints
   
+
   // Get stock data from JSON files
+  // Get stock data for a specific symbol
+
   app.get("/api/stock/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
@@ -562,6 +693,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[API] Getting stock data for ${normalizedSymbol}`);
       
+
       // Get stock data directly from JSON files
       if (jsonStockService.fileExists(normalizedSymbol)) {
         const stockData = jsonStockService.getStockData(normalizedSymbol);
@@ -599,6 +731,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[API] Request to refresh cache for ${symbolsToRefresh.length} symbols: ${symbolsToRefresh.join(', ')}`);
       
       // For JSON files, we just check if they exist
+
       const success = [];
       const failures = [];
       
@@ -630,19 +763,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log(`[API] Clearing stock cache requested - Not implemented for JSON files`);
       
+
       // For JSON files, we don't need to clear anything since they're read directly from disk
       res.json({
         message: "No cache to clear with JSON files. They are read directly from disk.",
         availableFiles: jsonStockService.getAvailableSymbols().length
+
       });
     } catch (error: any) {
       console.error(`[API] Error in clear cache endpoint:`, error);
       res.status(500).json({ 
         error: "Error processing clear cache request", 
+
         message: error.message 
       });
     }
   });
+
+  // We are now using only JSON data files, YFinance endpoints removed
+  
+  // Get stock price history for charts
+  app.get("/api/stock/:symbol/history", async (req, res) => {
+    try {
+      const symbol = req.params.symbol.toUpperCase();
+      console.log(`[API] Getting price history for: ${symbol}`);
+      
+      // Get data from JSON files
+      const { jsonStockService } = await import('./services/json-stock-service');
+      
+      if (jsonStockService.fileExists(symbol)) {
+        const stockData = jsonStockService.getStockData(symbol);
+        
+        if (stockData && stockData.history && stockData.history.length > 0) {
+          return res.json({
+            symbol,
+            history: stockData.history,
+            source: 'json'
+          });
+        }
+      }
+      
+      // If JSON file doesn't exist or no history data, return an error
+      return res.status(404).json({ 
+        error: "No history data available", 
+        message: `No JSON file found for symbol: ${symbol}` 
+      });
+    } catch (error: any) {
+      console.error(`[API] Error getting price history:`, error);
+      res.status(500).json({ 
+        error: "Failed to fetch price history", 
+        message: error.message 
+      });
+    }
+  });
+  
+  // No longer generating mock history data - using real JSON data only
 
   const httpServer = createServer(app);
   return httpServer;
