@@ -63,12 +63,7 @@ export default function StackCard({ stack, onClick, imageUrl, category }: StackC
           }}
         />
         
-        {/* Category badge - Moved to top for better visibility */}
-        {category && (
-          <div className="absolute top-3 left-3 bg-black/60 border border-gray-700 backdrop-blur-sm rounded-full px-2.5 py-0.5 text-xs font-medium z-20 text-white">
-            {category}
-          </div>
-        )}
+        {/* Category badge removed as it's now shown next to difficulty */}
 
         {/* Bottom indicators row - Only showing stock count */}
         <div className="absolute bottom-2 left-2 z-20">

@@ -91,10 +91,10 @@ export default function StacksExplorer({ stacks }: StacksExplorerProps) {
     const defaultIndustries = ["Tech", "Healthcare", "Retail", "Real Estate", "ESG"];
     const industryStockCounts: Record<string, number> = {
       "Real Estate": 10, // We have real estate stocks
-      "Healthcare": 6,   // Currently using tech stocks as a fallback
-      "Tech": 10,        // We have tech stocks
-      "Retail": 8,       // We have retail stocks
-      "ESG": 6           // Currently using tech stocks as a fallback
+      "Healthcare": 8,   // Currently using tech stocks as a fallback
+      "Tech": 12,        // We have tech stocks
+      "Retail": 10,       // We have retail stocks
+      "ESG": 10           // Currently using tech stocks as a fallback
     };
 
     // Add missing industries from our defaults
