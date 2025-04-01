@@ -88,7 +88,7 @@ export class MemStorage implements IStorage {
     const techStack: Omit<Stack, "id"> = {
       title: "Tech Giants",
       description: "Explore leading technology companies and their market impact",
-      cardCount: 10,
+      cardCount: 12,
       estimatedMinutes: 15,
       industry: "Tech",
       iconName: "cpu-line",
@@ -100,27 +100,15 @@ export class MemStorage implements IStorage {
     const retailStack: Omit<Stack, "id"> = {
       title: "Consumer & Retail",
       description: "Analyze major retail and consumer goods companies",
-      cardCount: 8,
+      cardCount: 10,
       estimatedMinutes: 12,
-      industry: "Beginner",
+      industry: "Retail",
       iconName: "shopping-bag-line",
       color: "from-orange-500 to-orange-400",
-      difficulty: "beginner",
+      difficulty: "Beginner",
       rating: 45,
     };
     
-    // Stock Investing stack
-    const stockStack: Omit<Stack, "id"> = {
-      title: "Stock Investing",
-      description: "Master the fundamentals of stock market investing",
-      cardCount: 10,
-      estimatedMinutes: 15,
-      industry: "Investing",
-      iconName: "line-chart-line",
-      color: "from-secondary-500 to-green-400",
-      difficulty: "beginner",
-      rating: 48,
-    };
     
     // Real Estate stack
     const realEstateStack: Omit<Stack, "id"> = {
@@ -144,7 +132,7 @@ export class MemStorage implements IStorage {
       industry: "Cryptocurrency",
       iconName: "coins-line",
       color: "from-accent-500 to-yellow-400",
-      difficulty: "beginner",
+      difficulty: "Beginner",
       rating: 47,
     };
     
@@ -152,7 +140,7 @@ export class MemStorage implements IStorage {
     const healthcareStack: Omit<Stack, "id"> = {
       title: "Healthcare",
       description: "Financial aspects of the healthcare industry",
-      cardCount: 9,
+      cardCount: 8,
       estimatedMinutes: 14,
       industry: "Healthcare",
       iconName: "heart-pulse-line",
@@ -164,7 +152,7 @@ export class MemStorage implements IStorage {
     const esgStack: Omit<Stack, "id"> = {
       title: "Green Giants",
       description: "Explore sustainable and environmentally conscious investments",
-      cardCount: 8,
+      cardCount: 10,
       estimatedMinutes: 15,
       industry: "ESG",
       iconName: "leaf-line",
@@ -175,7 +163,6 @@ export class MemStorage implements IStorage {
 
     this.createStack(techStack);
     this.createStack(retailStack);
-    this.createStack(stockStack);
     this.createStack(realEstateStack);
     this.createStack(cryptoStack);
     this.createStack(healthcareStack);
