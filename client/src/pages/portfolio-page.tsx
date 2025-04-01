@@ -477,9 +477,10 @@ export default function PortfolioPage() {
                 {sortedHoldings.length > 0 && (
                   <Button 
                     onClick={() => setIsImproveDialogOpen(true)} 
-                    className="mt-3 bg-white text-blue-600 hover:bg-blue-50 shadow-md"
+                    className="mt-3 bg-white text-white hover:bg-blue-50 hover:text-blue-600 shadow-md"
+                    style={{ background: 'linear-gradient(to right, #3b82f6, #2563eb)' }}
                   >
-                    <Sparkles className="h-4 w-4 mr-2 text-blue-500" />
+                    <Sparkles className="h-4 w-4 mr-2 text-white" />
                     See How You Can Improve
                   </Button>
                 )}

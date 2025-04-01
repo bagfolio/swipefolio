@@ -190,46 +190,23 @@ export default function PortfolioDashboard() {
             </motion.div>
           </div>
           
-          {/* Right Side - Quality Score Circle */}
-          <div className="p-4 flex justify-center items-center">
+          {/* Right Side - Quality Score */}
+          <div className="p-4 border-l border-slate-100 flex flex-col justify-center items-center">
+            <div className="flex items-center mb-1">
+              <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
+              <span className="text-sm font-medium text-slate-500">Quality Score</span>
+            </div>
+            
             <motion.div 
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ 
-                type: "spring", 
-                stiffness: 260, 
-                damping: 20,
-                delay: 0.3
-              }}
-              className="flex flex-col items-center justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+              className="text-center"
             >
-              <div className="relative flex items-center justify-center">
-                <svg className="w-16 h-16">
-                  <circle
-                    className="text-gray-200"
-                    strokeWidth="5"
-                    stroke="currentColor"
-                    fill="transparent"
-                    r="25"
-                    cx="32"
-                    cy="32"
-                  />
-                  <circle
-                    className="text-blue-600"
-                    strokeWidth="5"
-                    strokeDasharray={2 * Math.PI * 25}
-                    strokeDashoffset={2 * Math.PI * 25 * (1 - (portfolioMetrics.qualityScore || 0) / 100)}
-                    strokeLinecap="round"
-                    stroke="currentColor"
-                    fill="transparent"
-                    r="25"
-                    cx="32"
-                    cy="32"
-                  />
-                </svg>
-                <span className="absolute font-bold text-lg text-slate-800">{portfolioMetrics.qualityScore || 0}</span>
+              <div className="flex items-baseline justify-center">
+                <span className="text-2xl font-bold text-slate-800">{portfolioMetrics.qualityScore || 0}</span>
+                <span className="text-xs ml-1 text-slate-500">/100</span>
               </div>
-              <span className="text-xs font-medium text-blue-600 mt-1">Quality Score</span>
             </motion.div>
           </div>
         </div>

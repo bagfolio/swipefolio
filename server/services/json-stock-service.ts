@@ -1,83 +1,46 @@
-// Import required modules
-import path from 'path';
-import fs from 'fs';
+/**
+ * json-stock-service.ts
+ * 
+ * This service handles loading stock data from JSON files.
+ * It is designed to work with the static JSON files located in client/src/STOCKDATA.
+ */
 
-// Define stock data structure
-interface StockData {
-  symbol: string;
-  companyName: string;
-  price: number;
-  change: number;
-  changePercent: number;
-  industry: string;
-  description: string;
-  metrics: Record<string, any>;
-  chartData?: Array<{timestamp: number, price: number}>;
-  [key: string]: any;
-}
-
+// Create a simple service to manage stock data without external API dependencies
 class JsonStockService {
-  private cache: Map<string, StockData> = new Map();
-  
+  private symbols: string[] = [
+    // Tech stocks
+    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META',
+    // Healthcare stocks
+    'JNJ', 'UNH', 'PFE', 'ABT', 'MRK',
+    // Real Estate stocks
+    'PLD', 'AMT', 'CCI', 'SPG', 'O',
+    // Financial stocks
+    'JPM', 'BAC', 'WFC', 'C', 'GS'
+  ];
+
+  // Initialize the service
   constructor() {
-    // Intentionally left empty - no need to initialize connections
+    console.log('JsonStockService initialized');
   }
-  
-  /**
-   * Get stock data for a specific symbol
-   */
-  async getStockData(symbol: string): Promise<any> {
-    try {
-      // Try to get from cache first
-      if (this.cache.has(symbol)) {
-        return this.cache.get(symbol);
-      }
-      
-      // If not in cache, fetch from local JSON data
-      const data = await this.fetchStockData(symbol);
-      if (data) {
-        // Store in cache for subsequent requests
-        this.cache.set(symbol, data);
-      }
-      return data;
-    } catch (error) {
-      console.error(`Error getting stock data for ${symbol}:`, error);
-      throw new Error(`Failed to get stock data for ${symbol}`);
-    }
+
+  // This method will be used to load stock data from JSON files
+  async loadStockData() {
+    // The data is loaded on the client side from the STOCKDATA directory
+    console.log('Stock data is loaded from client-side static JSON files');
+    return true;
   }
-  
-  /**
-   * Fetch stock data from local JSON files
-   */
-  private async fetchStockData(symbol: string): Promise<any> {
-    try {
-      // For this implementation, we're just going to respond with a simple error
-      // Actual implementation would load from STOCKDATA directory files in the client folder
-      throw new Error(`Stock data service is not configured`);
-    } catch (error) {
-      console.error(`Error fetching stock data for ${symbol}:`, error);
-      throw new Error(`Failed to fetch stock data for ${symbol}`);
-    }
+
+  // Method to refresh stocks (stub - no actual implementation needed)
+  async refreshCache(): Promise<{ success: string[], failures: string[] }> {
+    // Return empty arrays since we're not actually refreshing any data
+    return { success: [], failures: [] };
   }
-  
-  /**
-   * Get bulk stock data for multiple symbols
-   */
-  async getBulkStockData(symbols: string[]): Promise<Record<string, any>> {
-    const results: Record<string, any> = {};
-    
-    for (const symbol of symbols) {
-      try {
-        results[symbol] = await this.getStockData(symbol);
-      } catch (error) {
-        console.error(`Error getting bulk data for ${symbol}:`, error);
-        results[symbol] = null;
-      }
-    }
-    
-    return results;
+
+  // Method to get available stock symbols
+  getAvailableSymbols(): string[] {
+    return this.symbols;
   }
 }
 
-// Export a singleton instance
+// Export a singleton instance of the service
 export const jsonStockService = new JsonStockService();
