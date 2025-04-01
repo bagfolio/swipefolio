@@ -477,10 +477,8 @@ export default function PortfolioPage() {
                 {sortedHoldings.length > 0 && (
                   <Button 
                     onClick={() => setIsImproveDialogOpen(true)} 
-                    className="mt-3 bg-white text-white hover:bg-blue-50 hover:text-blue-600 shadow-md"
-                    style={{ background: 'linear-gradient(to right, #3b82f6, #2563eb)' }}
+                    className="mt-3 bg-white text-blue-600 hover:bg-blue-50 shadow-md"
                   >
-                    <Sparkles className="h-4 w-4 mr-2 text-white" />
                     See How You Can Improve
                   </Button>
                 )}
@@ -737,12 +735,11 @@ export default function PortfolioPage() {
       {/* Improve with AI Dialog */}
       <Dialog open={isImproveDialogOpen} onOpenChange={setIsImproveDialogOpen}>
         <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto rounded-xl shadow-lg bg-gradient-to-b from-white to-slate-50 border-0">
-          <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <Sparkles className="h-4 w-4 mr-2 text-blue-500" />
+          <DialogHeader className="items-start text-left">
+            <DialogTitle className="text-left text-xl font-bold text-slate-800">
               Improve Your Portfolio
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-left">
               Discover stocks that could enhance your portfolio based on your investment goals.
             </DialogDescription>
           </DialogHeader>
@@ -934,7 +931,7 @@ export default function PortfolioPage() {
                             portfolio.buyStock(stock, parseFloat(investmentAmount));
                             setIsImproveDialogOpen(false);
                           }}
-                          className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-md text-base py-5"
+                          className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-md text-base py-5 text-white"
                         >
                           <DollarSign className="h-4 w-4 mr-2" />
                           Invest ${investmentAmount} in {stock.ticker}
@@ -963,7 +960,7 @@ export default function PortfolioPage() {
               <Button 
                 onClick={handleFindSuggestions} 
                 disabled={isLoadingSuggestions}
-                className="flex items-center bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-md transition-all duration-200"
+                className="flex items-center bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-md transition-all duration-200 text-white"
               >
                 {isLoadingSuggestions ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
