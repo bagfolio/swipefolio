@@ -93,7 +93,7 @@ export class MemStorage implements IStorage {
       industry: "Tech",
       iconName: "cpu-line",
       color: "from-blue-600 to-blue-400",
-      difficulty: "intermediate",
+      difficulty: "Beginner",
       rating: 48,
     };
 
@@ -102,7 +102,7 @@ export class MemStorage implements IStorage {
       description: "Analyze major retail and consumer goods companies",
       cardCount: 8,
       estimatedMinutes: 12,
-      industry: "Retail",
+      industry: "Beginner",
       iconName: "shopping-bag-line",
       color: "from-orange-500 to-orange-400",
       difficulty: "beginner",
@@ -131,7 +131,7 @@ export class MemStorage implements IStorage {
       industry: "Real Estate",
       iconName: "building-line",
       color: "from-blue-500 to-blue-400",
-      difficulty: "intermediate",
+      difficulty: "Intermediate",
       rating: 46,
     };
     
@@ -157,7 +157,7 @@ export class MemStorage implements IStorage {
       industry: "Healthcare",
       iconName: "heart-pulse-line",
       color: "from-purple-500 to-purple-400",
-      difficulty: "intermediate",
+      difficulty: "Intermediate",
       rating: 45,
     };
     
@@ -169,7 +169,7 @@ export class MemStorage implements IStorage {
       industry: "ESG",
       iconName: "leaf-line",
       color: "from-green-500 to-green-400",
-      difficulty: "intermediate",
+      difficulty: "Hard",
       rating: 47,
     };
 
