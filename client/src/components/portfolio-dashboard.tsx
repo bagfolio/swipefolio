@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUp, ArrowDown, Wallet, TrendingUp, Clock, DollarSign, PieChart, Sparkles } from 'lucide-react';
 import { Progress } from './ui/progress';
+import ProgressRing from './ui/progress-ring';
 import { usePortfolio, PortfolioHolding } from '@/contexts/portfolio-context';
 import { Link } from "wouter";
 
@@ -190,7 +191,7 @@ export default function PortfolioDashboard() {
             </motion.div>
           </div>
           
-          {/* Right Side - Quality Score */}
+          {/* Right Side - Quality Score with Circle Chart */}
           <div className="p-4 border-l border-slate-100 flex flex-col justify-center items-center">
             <div className="flex items-center mb-1">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
@@ -203,9 +204,32 @@ export default function PortfolioDashboard() {
               transition={{ duration: 0.5 }}
               className="text-center"
             >
-              <div className="flex items-baseline justify-center">
-                <span className="text-2xl font-bold text-slate-800">{portfolioMetrics.qualityScore || 0}</span>
-                <span className="text-sm ml-1 text-slate-500">/100</span>
+              <div className="relative w-16 h-16">
+                <svg width="64" height="64" viewBox="0 0 64 64">
+                  <circle 
+                    cx="32" 
+                    cy="32" 
+                    r="28" 
+                    fill="none" 
+                    stroke="#e2e8f0" 
+                    strokeWidth="6"
+                  />
+                  <circle 
+                    cx="32" 
+                    cy="32" 
+                    r="28" 
+                    fill="none" 
+                    stroke={portfolioMetrics.qualityScore > 70 ? '#22c55e' : (portfolioMetrics.qualityScore > 50 ? '#3b82f6' : '#f97316')} 
+                    strokeWidth="6"
+                    strokeDasharray={28 * 2 * Math.PI}
+                    strokeDashoffset={28 * 2 * Math.PI * (1 - (portfolioMetrics.qualityScore || 0) / 100)}
+                    strokeLinecap="round"
+                    transform="rotate(-90 32 32)"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-lg font-bold">{portfolioMetrics.qualityScore || 0}</span>
+                </div>
               </div>
             </motion.div>
           </div>

@@ -9,7 +9,6 @@ import AppHeader from '@/components/app-header';
 import AppNavigation from '@/components/app-navigation';
 import { PortfolioContext, PortfolioHolding } from '@/contexts/portfolio-context';
 import { Progress } from '@/components/ui/progress';
-import ProgressRing from '@/components/ui/progress-ring';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getIndustryAverages } from '@/lib/industry-data';
 import { getQualityScoreColor, getQualityScoreBgColor } from '@/data/leaderboard-data';
@@ -316,20 +315,21 @@ export default function PortfolioPage() {
                   </div>
                 </div>
                 
-                {/* Circular Quality Score */}
-                <div className="bg-slate-50 rounded-lg py-2 px-4 shadow-sm border border-slate-100 min-w-[140px] flex flex-col items-center">
-                  <p className="text-xs text-slate-500 mb-2">Quality Score</p>
-                  <ProgressRing 
-                    progress={portfolioMetrics.qualityScore || 0} 
-                    size={64} 
-                    strokeWidth={5}
-                    color={`text-${portfolioMetrics.qualityScore > 70 ? 'green' : (portfolioMetrics.qualityScore > 50 ? 'blue' : 'orange')}-500`}
-                    bgColor="text-gray-200"
-                    className="mb-1"
-                  >
-                    <p className="text-lg font-bold">{portfolioMetrics.qualityScore || 0}</p>
-                  </ProgressRing>
-                  <span className="text-xs text-slate-500 mt-1">/100</span>
+                {/* Progress Bar Quality Score */}
+                <div className="bg-slate-50 rounded-lg py-2 px-4 shadow-sm border border-slate-100 min-w-[140px]">
+                  <div className="flex justify-between items-center mb-1">
+                    <p className="text-xs text-slate-500">Quality Score</p>
+                    <p className="font-semibold text-sm flex items-baseline">
+                      <span className="font-bold">{portfolioMetrics.qualityScore || 0}</span>
+                      <span className="text-xs text-slate-500 ml-1">/100</span>
+                    </p>
+                  </div>
+                  <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full ${portfolioMetrics.qualityScore > 70 ? 'bg-green-500' : (portfolioMetrics.qualityScore > 50 ? 'bg-blue-500' : 'bg-orange-500')} rounded-full`} 
+                      style={{ width: `${portfolioMetrics.qualityScore || 0}%` }}
+                    ></div>
+                  </div>
                 </div>
               </div>
               
@@ -600,19 +600,18 @@ export default function PortfolioPage() {
                       
                       <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-3">
                         <div className="col-span-2">
-                          <p className="text-xs text-slate-500 mb-1">Portfolio Quality Score</p>
-                          <div className="flex items-center">
-                            <div className="flex items-center justify-start">
-                              <ProgressRing 
-                                progress={portfolioMetrics.qualityScore || 0} 
-                                size={50} 
-                                strokeWidth={4}
-                                color={`text-${portfolioMetrics.qualityScore > 70 ? 'green' : (portfolioMetrics.qualityScore > 50 ? 'blue' : 'orange')}-500`}
-                                bgColor="text-gray-200"
-                              >
-                                <p className="text-sm font-bold">{portfolioMetrics.qualityScore || 0}</p>
-                              </ProgressRing>
-                            </div>
+                          <div className="flex justify-between items-center mb-1">
+                            <p className="text-xs text-slate-500">Portfolio Quality Score</p>
+                            <p className="font-semibold text-sm flex items-baseline">
+                              <span className="font-bold">{portfolioMetrics.qualityScore || 0}</span>
+                              <span className="text-xs text-slate-500 ml-1">/100</span>
+                            </p>
+                          </div>
+                          <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full ${portfolioMetrics.qualityScore > 70 ? 'bg-green-500' : (portfolioMetrics.qualityScore > 50 ? 'bg-blue-500' : 'bg-orange-500')} rounded-full`} 
+                              style={{ width: `${portfolioMetrics.qualityScore || 0}%` }}
+                            ></div>
                           </div>
                         </div>
                         <div>
