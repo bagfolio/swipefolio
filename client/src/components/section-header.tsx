@@ -11,7 +11,7 @@ export default function SectionHeader({
 }: SectionHeaderProps) {
   return (
     <div className="flex justify-between items-center mb-4">
-      <h2 className="section-header">{title}</h2>
+      <h3 className="text-lg font-medium text-slate-700">{title}</h3>
       
       {showSeeAll && (
         <button 

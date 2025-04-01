@@ -28,7 +28,7 @@ export default function CategoryChips({ onCategoryChange }: CategoryChipsProps) 
   };
   
   return (
-    <div className="relative pb-1">
+    <div className="relative">
       <div className="flex overflow-x-auto py-4 space-x-3 no-scrollbar">
         {categories.map(category => (
           <motion.button
@@ -60,9 +60,6 @@ export default function CategoryChips({ onCategoryChange }: CategoryChipsProps) 
           </motion.button>
         ))}
       </div>
-      
-      {/* Decorative indicator at the bottom */}
-      <div className="absolute -bottom-1 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-slate-200 to-transparent opacity-70" />
     </div>
   );
 }
