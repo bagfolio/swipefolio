@@ -119,15 +119,8 @@ const LeaderboardPage: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pb-20">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white pt-10 pb-8 px-4 rounded-b-3xl">
-          <div className="flex items-center justify-between mb-4">
-            <Link href="/">
-              <button className="flex items-center text-white/90 hover:text-white transition-colors">
-                <ArrowLeft className="w-5 h-5 mr-1" />
-                <span>Back</span>
-              </button>
-            </Link>
+          <div className="flex items-center justify-center mb-4">
             <h1 className="text-xl font-bold">Leaderboard</h1>
-            <div className="w-5"></div> {/* Empty div for even spacing */}
           </div>
           
           {/* Podium for top 3 */}
