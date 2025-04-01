@@ -1,14 +1,14 @@
-import type { PortfolioContextProps } from '@/contexts/portfolio-context';
+// This file provides a singleton instance to access the portfolio context
+// It allows components outside the React component hierarchy to access portfolio data
 
-/**
- * This utility provides a way to access the PortfolioContext outside of React components
- * It's used by services that need to read the current portfolio state
- */
+import { PortfolioContextProps } from '../contexts/portfolio-context';
+
 class PortfolioContextInstance {
   private context: PortfolioContextProps | null = null;
 
-  setContext(context: PortfolioContextProps): void {
+  setContext(context: PortfolioContextProps) {
     this.context = context;
+    console.log('Setting portfolio context instance');
   }
 
   getContext(): PortfolioContextProps | null {
