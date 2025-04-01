@@ -321,7 +321,7 @@ export default function PortfolioPage() {
                     <p className="text-xs text-slate-500">Quality Score</p>
                     <p className="font-semibold text-sm flex items-baseline">
                       <span className="font-bold">{portfolioMetrics.qualityScore || 0}</span>
-                      <span className="text-xs text-slate-500 ml-1">/100</span>
+                      <span className="text-xs text-slate-500 ml-2">/100</span>
                     </p>
                   </div>
                   <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
@@ -604,7 +604,7 @@ export default function PortfolioPage() {
                             <p className="text-xs text-slate-500">Portfolio Quality Score</p>
                             <p className="font-semibold text-sm flex items-baseline">
                               <span className="font-bold">{portfolioMetrics.qualityScore || 0}</span>
-                              <span className="text-xs text-slate-500 ml-1">/100</span>
+                              <span className="text-xs text-slate-500 ml-2">/100</span>
                             </p>
                           </div>
                           <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
