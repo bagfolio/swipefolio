@@ -155,7 +155,7 @@ export default function HomePage() {
         </AnimatedContainer>
         
         <AnimatedContainer delay={0.25}>
-          <div className="mb-1 mt-4">
+          <div className="mb-2 mt-4">
             <h2 className="text-xl font-semibold text-slate-800">Popular Picks</h2>
           </div>
           <CategoryChips 
@@ -164,7 +164,7 @@ export default function HomePage() {
         </AnimatedContainer>
         
         <AnimatedContainer delay={0.4}>
-          <div className="mt-6"></div>
+          <div className="mt-0"></div>
           <SectionHeader 
             title={selectedCategory} 
           />

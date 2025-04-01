@@ -10,7 +10,7 @@ export default function SectionHeader({
   onSeeAllClick
 }: SectionHeaderProps) {
   return (
-    <div className="flex justify-between items-center mb-4">
+    <div className="flex justify-between items-center mb-2">
       <h3 className="text-lg font-medium text-slate-700">{title}</h3>
       
       {showSeeAll && (

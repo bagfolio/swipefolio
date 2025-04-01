@@ -29,7 +29,7 @@ export default function CategoryChips({ onCategoryChange }: CategoryChipsProps) 
   
   return (
     <div className="relative">
-      <div className="flex overflow-x-auto pt-2 pb-3 space-x-3 no-scrollbar">
+      <div className="flex overflow-x-auto py-4 space-x-3 no-scrollbar">
         {categories.map(category => (
           <motion.button
             key={category}
