@@ -161,7 +161,7 @@ export default function PortfolioDashboard() {
       {/* Portfolio Summary Card - Updated Format with Projected Value */}
       <div className="bg-white rounded-xl shadow-lg border border-slate-200 mb-4 overflow-hidden" style={{ boxShadow: "0 8px 25px -5px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.03)" }}>
         {/* Top Metrics Row - Clear Icon-Text Pairing */}
-        <div className="grid grid-cols-2 gap-0">
+        <div className="grid grid-cols-2 gap-0 py-3">
           {/* Left Side - Projected 1-Year Value */}
           <div className="px-4 py-5 border-r border-slate-100 flex flex-col items-center justify-between h-32">
             <div className="flex items-center">
