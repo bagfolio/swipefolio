@@ -161,9 +161,9 @@ export default function PortfolioDashboard() {
       {/* Portfolio Summary Card - Updated Format with Projected Value */}
       <div className="bg-white rounded-xl shadow-lg border border-slate-200 mb-4 overflow-hidden" style={{ boxShadow: "0 8px 25px -5px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.03)" }}>
         {/* Top Metrics Row - Clear Icon-Text Pairing */}
-        <div className="grid grid-cols-2 gap-0 py-3">
+        <div className="grid grid-cols-2 gap-0 py-2">
           {/* Left Side - Projected 1-Year Value */}
-          <div className="px-4 py-5 border-r border-slate-100 flex flex-col items-center justify-between h-32">
+          <div className="px-4 py-3 border-r border-slate-100 flex flex-col items-center justify-between h-28">
             <div className="flex items-center">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Projected Value</span>
@@ -189,7 +189,7 @@ export default function PortfolioDashboard() {
           </div>
           
           {/* Right Side - Quality Score with Circle Chart */}
-          <div className="px-4 py-5 border-l border-slate-100 flex flex-col items-center justify-between h-32">
+          <div className="px-4 py-3 border-l border-slate-100 flex flex-col items-center justify-between h-28">
             <div className="flex items-center">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Quality Score</span>
