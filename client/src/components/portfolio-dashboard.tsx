@@ -235,8 +235,8 @@ export default function PortfolioDashboard() {
         </div>
       </div>
 
-      {/* Allocation with integrated AI promotion button - using a frosted glass effect and iOS-style progress bar */}
-      <div className="px-4 py-3 mb-3 rounded-xl bg-gradient-to-r from-slate-50/95 to-slate-100/95 backdrop-blur-lg border border-slate-200 shadow-md relative overflow-hidden" style={{ boxShadow: "0 10px 30px -5px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.03)" }}>
+      {/* Allocation with integrated AI promotion button - using a clean white background and iOS-style progress bar */}
+      <div className="px-4 py-3 mb-3 rounded-xl bg-white border border-slate-200 shadow-md relative overflow-hidden" style={{ boxShadow: "0 10px 30px -5px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.03)" }}>
         <div className="mb-2 flex justify-between items-center">
           <span className="text-sm text-slate-700 font-medium">Portfolio allocation</span>
           <Link href="/portfolio">
