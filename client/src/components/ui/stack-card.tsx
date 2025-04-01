@@ -91,12 +91,18 @@ export default function StackCard({ stack, onClick, imageUrl, category }: StackC
         <div className="mt-auto pt-1">
           {/* Bottom badges with better spacing */}
           <div className="flex items-center justify-between">
-            <div className={`badge ${
-              stack.difficulty === 'beginner' ? 'bg-green-50 text-green-600 border-green-200' :
-              stack.difficulty === 'intermediate' ? 'bg-yellow-50 text-yellow-600 border-yellow-200' :
-              'bg-red-50 text-red-600 border-red-200'
-            } text-xs px-2 py-0.5 rounded-full border`}>
-              {stack.difficulty || 'intermediate'}
+            <div className="flex items-center space-x-2">
+              <div className={`badge ${
+                stack.difficulty === 'beginner' ? 'bg-green-50 text-green-600 border-green-200' :
+                stack.difficulty === 'intermediate' ? 'bg-yellow-50 text-yellow-600 border-yellow-200' :
+                'bg-red-50 text-red-600 border-red-200'
+              } text-xs px-2 py-0.5 rounded-full border`}>
+                {stack.difficulty || 'intermediate'}
+              </div>
+              
+              <div className="badge bg-blue-50 text-blue-600 border-blue-200 text-xs px-2 py-0.5 rounded-full border">
+                {stack.industry}
+              </div>
             </div>
             
             {/* Favorite button */}
