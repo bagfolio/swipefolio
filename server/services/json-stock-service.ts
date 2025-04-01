@@ -1,54 +1,14 @@
 
+import * as fs from 'fs';
+import * as path from 'path';
+import { getMockStockData } from '../../shared/mock-stocks';
+
 /**
  * json-stock-service.ts
  * 
  * This service handles loading stock data from JSON files.
  * It is designed to work with the static JSON files located in client/src/STOCKDATA.
  */
-
-// Create a simple service to manage stock data without external API dependencies
-class JsonStockService {
-  private symbols: string[] = [
-    // Tech stocks
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META',
-    // Healthcare stocks
-    'JNJ', 'UNH', 'PFE', 'ABT', 'MRK',
-    // Real Estate stocks
-    'PLD', 'AMT', 'CCI', 'SPG', 'O',
-    // Financial stocks
-    'JPM', 'BAC', 'WFC', 'C', 'GS'
-  ];
-
-  // Initialize the service
-  constructor() {
-    console.log('JsonStockService initialized');
-  }
-
-  // This method will be used to load stock data from JSON files
-  async loadStockData() {
-    // The data is loaded on the client side from the STOCKDATA directory
-    console.log('Stock data is loaded from client-side static JSON files');
-    return true;
-  }
-
-  // Method to refresh stocks (stub - no actual implementation needed)
-  async refreshCache(): Promise<{ success: string[], failures: string[] }> {
-    // Return empty arrays since we're not actually refreshing any data
-    return { success: [], failures: [] };
-  }
-
-  // Method to get available stock symbols
-  getAvailableSymbols(): string[] {
-    return this.symbols;
-  }
-}
-
-// Export a singleton instance of the service
-
-import * as fs from 'fs';
-import * as path from 'path';
-import { log } from '../vite';
-import { getMockStockData } from '../../shared/mock-stocks';
 
 /**
  * Service for accessing JSON stock data files
@@ -57,9 +17,44 @@ export class JsonStockService {
   private basePath: string;
   
   constructor() {
-    // Set path to JSON stock data files
-    this.basePath = path.join(process.cwd(), 'client', 'src', 'data');
-    log(`JsonStockService initialized with path: ${this.basePath}`, 'json-stock');
+    // Set path to JSON stock data files in the STOCKDATA directory
+    this.basePath = path.join(process.cwd(), 'client', 'src', 'STOCKDATA');
+    console.log('JsonStockService initialized');
+  }
+  
+  // Method for server startup to check stock availability
+  async loadStockData() {
+    try {
+      const availableSymbols = this.getAvailableSymbols();
+      const allSymbols = [
+        'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 
+        'AVB', 'O', 'PLD', 'SPG', 'AMT',
+        'JNJ', 'PFE', 'UNH', 'ABBV', 'SYK'
+      ];
+      
+      // Check which symbols are available as JSON files
+      const notAvailable = allSymbols.filter(symbol => !this.fileExists(symbol));
+      
+      console.log(`Loading stock data from JSON files...`);
+      console.log(`JSON stock data initialization complete: ${availableSymbols.length} available, ${notAvailable.length} not available`);
+      
+      if (notAvailable.length > 0) {
+        console.log(`Stocks not available as JSON: ${notAvailable.join(', ')}`);
+      }
+      
+      console.log('Note: Using static JSON data, no scheduled updates will occur');
+      
+      return true;
+    } catch (error) {
+      console.error('Error loading stock data:', error);
+      return false;
+    }
+  }
+  
+  // Method to refresh stocks (stub - no actual implementation needed)
+  async refreshCache(): Promise<{ success: string[], failures: string[] }> {
+    // Return empty arrays since we're not actually refreshing any data
+    return { success: [], failures: [] };
   }
   
   /**
@@ -94,20 +89,37 @@ export class JsonStockService {
       
       // Check if the file exists
       if (!fs.existsSync(filePath)) {
-        log(`JSON file for ${symbol} not found. Falling back to mock data.`, 'json-stock');
+        console.log(`JSON file for ${symbol} not found. Using mock data.`);
         return getMockStockData(symbol);
       }
       
       // Read the JSON file
       const rawData = fs.readFileSync(filePath, 'utf8');
       
-      // Fix common JSON parsing issues before parsing
-      const cleanedData = this.cleanJsonString(rawData);
+      // Use custom parsing to handle invalid values
+      let data;
       
-      // Parse the cleaned JSON
-      const data = JSON.parse(cleanedData);
+      try {
+        // First try with basic cleaning
+        const cleanedData = this.cleanJsonString(rawData);
+        data = JSON.parse(cleanedData);
+      } catch (parseError) {
+        // If that fails, try a more aggressive approach
+        try {
+          // For arrays containing NaN values (common issue)
+          const correctedData = rawData.replace(/\[([^\]]*NaN[^\]]*)\]/g, function(match) {
+            return match.replace(/NaN/g, '0');
+          });
+          
+          data = JSON.parse(correctedData);
+        } catch (deepParseError) {
+          // Last resort: Use mock data if we can't fix the JSON
+          console.error(`Cannot parse JSON for ${symbol} after cleaning:`, deepParseError);
+          return getMockStockData(symbol);
+        }
+      }
       
-      log(`Successfully loaded JSON data for ${symbol}`, 'json-stock');
+      console.log(`Successfully loaded JSON data for ${symbol}`);
       
       // Format the data in a consistent way
       return this.formatStockData(symbol, data);
@@ -115,7 +127,7 @@ export class JsonStockService {
       console.error(`Error getting JSON stock data for ${symbol}:`, error);
       
       // Fall back to mock data
-      log(`Error accessing JSON file for ${symbol}. Falling back to mock data.`, 'json-stock');
+      console.log(`Error accessing JSON file for ${symbol}. Using mock data.`);
       return getMockStockData(symbol);
     }
   }
@@ -127,9 +139,13 @@ export class JsonStockService {
     // Replace NaN, Infinity, and undefined with valid JSON values
     // These are not valid in JSON but sometimes appear in JavaScript objects
     return jsonString
+      .replace(/\bNaN\b/g, '0')                     // Replace NaN anywhere
       .replace(/:\s*NaN\s*([,}])/g, ': 0$1')         // Replace NaN with 0
+      .replace(/\bInfinity\b/g, '0')                // Replace Infinity anywhere
       .replace(/:\s*Infinity\s*([,}])/g, ': 0$1')    // Replace Infinity with 0
+      .replace(/\b-Infinity\b/g, '0')               // Replace -Infinity anywhere
       .replace(/:\s*-Infinity\s*([,}])/g, ': 0$1')   // Replace -Infinity with 0
+      .replace(/\bundefined\b/g, 'null')            // Replace undefined anywhere
       .replace(/:\s*undefined\s*([,}])/g, ': null$1'); // Replace undefined with null
   }
   
