@@ -163,8 +163,8 @@ export default function PortfolioDashboard() {
         {/* Top Metrics Row - Clear Icon-Text Pairing */}
         <div className="grid grid-cols-2 gap-0">
           {/* Left Side - Projected 1-Year Value */}
-          <div className="p-4 border-r border-slate-100 flex flex-col justify-center items-center">
-            <div className="flex items-center mb-1">
+          <div className="p-4 border-r border-slate-100 flex flex-col justify-center items-center h-32">
+            <div className="flex items-center mb-2">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Projected Value</span>
             </div>
@@ -173,7 +173,7 @@ export default function PortfolioDashboard() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="text-center"
+              className="text-center flex-1 flex flex-col justify-center"
             >
               {/* Calculate projected future value: invested amount + projected return */}
               <span className="text-2xl font-bold text-slate-800">
@@ -192,8 +192,8 @@ export default function PortfolioDashboard() {
           </div>
           
           {/* Right Side - Quality Score with Circle Chart */}
-          <div className="p-4 border-l border-slate-100 flex flex-col justify-center items-center">
-            <div className="flex items-center mb-1">
+          <div className="p-4 border-l border-slate-100 flex flex-col justify-center items-center h-32">
+            <div className="flex items-center mb-2">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Quality Score</span>
             </div>
@@ -202,7 +202,7 @@ export default function PortfolioDashboard() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="text-center"
+              className="text-center flex-1 flex flex-col justify-center"
             >
               <div className="relative w-16 h-16">
                 <svg width="64" height="64" viewBox="0 0 64 64">
@@ -219,7 +219,7 @@ export default function PortfolioDashboard() {
                     cy="32" 
                     r="28" 
                     fill="none" 
-                    stroke={portfolioMetrics.qualityScore > 70 ? '#22c55e' : (portfolioMetrics.qualityScore > 50 ? '#3b82f6' : '#f97316')} 
+                    stroke={portfolioMetrics.qualityScore > 70 ? '#22c55e' : (portfolioMetrics.qualityScore > 50 ? '#f59e0b' : '#ef4444')} 
                     strokeWidth="6"
                     strokeDasharray={28 * 2 * Math.PI}
                     strokeDashoffset={28 * 2 * Math.PI * (1 - (portfolioMetrics.qualityScore || 0) / 100)}
