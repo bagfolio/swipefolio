@@ -164,7 +164,7 @@ export default function PortfolioDashboard() {
         <div className="grid grid-cols-2 gap-0">
           {/* Left Side - Projected 1-Year Value */}
           <div className="p-4 border-r border-slate-100 flex flex-col justify-center items-center h-32">
-            <div className="flex items-center mb-1">
+            <div className="flex items-center mb-0">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Projected Value</span>
             </div>
@@ -173,7 +173,7 @@ export default function PortfolioDashboard() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="text-center flex-1 flex flex-col justify-center"
+              className="text-center flex-1 flex flex-col justify-center mt-1"
             >
               {/* Calculate projected future value: invested amount + projected return */}
               <span className="text-2xl font-bold text-slate-800">
@@ -193,7 +193,7 @@ export default function PortfolioDashboard() {
           
           {/* Right Side - Quality Score with Circle Chart */}
           <div className="p-4 border-l border-slate-100 flex flex-col justify-center items-center h-32">
-            <div className="flex items-center mb-1">
+            <div className="flex items-center mb-0">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Quality Score</span>
             </div>
@@ -202,7 +202,7 @@ export default function PortfolioDashboard() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5 }}
-              className="text-center flex-1 flex flex-col justify-center"
+              className="text-center flex-1 flex flex-col justify-center mt-1"
             >
               <div className="relative w-16 h-16">
                 <svg width="64" height="64" viewBox="0 0 64 64">
