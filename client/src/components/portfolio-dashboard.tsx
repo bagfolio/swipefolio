@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowUp, ArrowDown, Wallet, TrendingUp, Clock, DollarSign, PieChart } from 'lucide-react';
+import { ArrowUp, ArrowDown, Wallet, TrendingUp, Clock, DollarSign, PieChart, Sparkles } from 'lucide-react';
 import { Progress } from './ui/progress';
 import { usePortfolio, PortfolioHolding } from '@/contexts/portfolio-context';
 import { Link } from "wouter";
@@ -248,28 +248,29 @@ export default function PortfolioDashboard() {
                 boxShadow: "0 2px 8px -2px rgba(99, 102, 241, 0.3)"
               }}
             >
-              <TrendingUp className="w-3.5 h-3.5 mr-1 text-white" />
-              <span>Improve with AI</span>
+              <Sparkles className="w-3.5 h-3.5 mr-1 text-white" />
+              <span>Boost</span>
             </motion.button>
           </Link>
         </div>
 
         <div className="relative mb-0.5">
           {/* Base bar with light gray stroke to be visible at 0% */}
-          <div className="h-4 w-full bg-slate-100 rounded-full border border-slate-200 overflow-hidden">
+          <div className="h-6 w-full bg-slate-100 rounded-full border border-slate-200 overflow-hidden relative">
             {/* Filled progress portion */}
             <div 
-              className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full flex items-center justify-end px-2"
+              className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full"
               style={{ 
-                width: `${Math.max(allocationPercentage, 5)}%`, 
-                minWidth: allocationPercentage > 0 ? '2rem' : '0'
+                width: `${allocationPercentage}%`,
+                transition: "width 0.5s ease-in-out"
               }}
-            >
-              {allocationPercentage > 0 && (
-                <span className="text-xs font-medium text-white">
-                  {allocationPercentage}%
-                </span>
-              )}
+            />
+            
+            {/* Percentage text (always centered) */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className={`text-xs font-medium ${allocationPercentage > 30 ? 'text-white' : 'text-slate-700'}`}>
+                {allocationPercentage}%
+              </span>
             </div>
           </div>
         </div>
