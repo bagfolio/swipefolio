@@ -163,7 +163,7 @@ export default function PortfolioDashboard() {
         {/* Top Metrics Row - Clear Icon-Text Pairing */}
         <div className="grid grid-cols-2 gap-0">
           {/* Left Side - Projected 1-Year Value */}
-          <div className="p-4 border-r border-slate-100 flex flex-col items-center justify-between h-28">
+          <div className="px-4 py-5 border-r border-slate-100 flex flex-col items-center justify-between h-32">
             <div className="flex items-center">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Projected Value</span>
@@ -189,7 +189,7 @@ export default function PortfolioDashboard() {
           </div>
           
           {/* Right Side - Quality Score with Circle Chart */}
-          <div className="p-4 border-l border-slate-100 flex flex-col items-center justify-between h-28">
+          <div className="px-4 py-5 border-l border-slate-100 flex flex-col items-center justify-between h-32">
             <div className="flex items-center">
               <TrendingUp className="w-4 h-4 text-blue-500 mr-1.5" />
               <span className="text-sm font-medium text-slate-500">Quality Score</span>
