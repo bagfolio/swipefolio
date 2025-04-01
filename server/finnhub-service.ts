@@ -4,6 +4,7 @@ import { stockCache } from '../shared/schema';
 import { eq, sql } from 'drizzle-orm';
 import { getMockStockData, formatMockStockData } from '../shared/mock-stocks';
 import * as finnhub from 'finnhub';
+import { jsonStockService } from './services/json-stock-service';
 
 // Configure API key
 // Use the API key provided by the user
@@ -164,6 +165,13 @@ export class FinnhubService {
   
   // Get mock data for a stock symbol
   private getMockData(symbol: string): any {
+    // First try to get data from JSON files
+    if (jsonStockService.fileExists(symbol)) {
+      console.log(`[Finnhub] Using JSON file data for ${symbol}`);
+      return jsonStockService.getStockData(symbol);
+    }
+    
+    // Fall back to hardcoded mock data if JSON file doesn't exist
     const mockStock = getMockStockData(symbol);
     
     if (!mockStock) {

@@ -677,6 +677,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Finnhub API Endpoints
   
   // Get stock data (from cache if available, otherwise from API)
+  // Get list of available stocks
+  app.get("/api/stocks", async (req, res) => {
+    try {
+      // Get list of available symbols from JSON files
+      const { jsonStockService } = await import('./services/json-stock-service');
+      const symbols = jsonStockService.getAvailableSymbols();
+      
+      if (symbols.length === 0) {
+        console.log('[API] No JSON stock files found, returning hardcoded list');
+        // Return a hardcoded list of available stocks from mock-stocks if no JSON files
+        const { realEstateStocks, healthcareStocks, techStocks } = await import('../shared/mock-stocks');
+        const mockSymbols = [
+          ...Object.keys(realEstateStocks), 
+          ...Object.keys(healthcareStocks), 
+          ...Object.keys(techStocks)
+        ];
+        return res.json(mockSymbols);
+      }
+      
+      console.log(`[API] Returning ${symbols.length} available stock symbols`);
+      res.json(symbols);
+    } catch (error: any) {
+      console.error('[API] Error getting available stocks:', error);
+      res.status(500).json({ 
+        error: "Failed to fetch available stocks", 
+        message: error.message 
+      });
+    }
+  });
+
+  // Get stock data for a specific symbol
   app.get("/api/stock/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
@@ -747,6 +778,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+  
+  // Get stock history data for charts
+  app.get("/api/stocks/history/:symbol", async (req, res) => {
+    try {
+      const { symbol } = req.params;
+      if (!symbol) {
+        return res.status(400).json({ error: "Symbol is required" });
+      }
+      
+      // Uppercase the symbol for consistency
+      const normalizedSymbol = symbol.toUpperCase();
+      
+      console.log(`[API] Getting stock history data for ${normalizedSymbol}`);
+      
+      // Import the JSON stock service
+      const { jsonStockService } = await import('./services/json-stock-service');
+      
+      // Get stock data which includes history
+      const stockData = jsonStockService.getStockData(normalizedSymbol);
+      
+      if (!stockData) {
+        return res.status(404).json({ error: "Stock data not found" });
+      }
+      
+      // Format and return the history data
+      res.json({
+        symbol: normalizedSymbol,
+        history: stockData.history || [],
+        source: "JSON Stock Data"
+      });
+    } catch (error: any) {
+      console.error(`[API] Error getting stock history data:`, error);
+      res.status(500).json({ 
+        error: "Failed to fetch stock history data", 
+        message: error.message 
+      });
+    }
+  });
 
   // YFinance API endpoints
   app.get("/api/yfinance/info", async (req, res) => {
@@ -807,6 +876,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+  
+  // Get stock price history for charts
+  app.get("/api/stock/:symbol/history", async (req, res) => {
+    try {
+      const symbol = req.params.symbol.toUpperCase();
+      console.log(`[API] Getting price history for: ${symbol}`);
+      
+      // Try to get data from JSON files first
+      const { jsonStockService } = await import('./services/json-stock-service');
+      
+      if (jsonStockService.fileExists(symbol)) {
+        const stockData = jsonStockService.getStockData(symbol);
+        
+        if (stockData && stockData.history && stockData.history.length > 0) {
+          return res.json({
+            symbol,
+            history: stockData.history,
+            source: 'json'
+          });
+        }
+      }
+      
+      // If JSON file doesn't exist or no history data, use mock data
+      console.log(`[API] No history data found in JSON files for ${symbol}, using mock data`);
+      
+      // Generate mock history data
+      const mockHistory = generateMockHistoryData(symbol);
+      
+      res.json({
+        symbol,
+        history: mockHistory,
+        source: 'mock'
+      });
+    } catch (error: any) {
+      console.error(`[API] Error getting price history:`, error);
+      res.status(500).json({ 
+        error: "Failed to fetch price history", 
+        message: error.message 
+      });
+    }
+  });
+  
+  // Helper function to generate mock history data
+  function generateMockHistoryData(symbol: string): any[] {
+    const mockHistory: any[] = [];
+    const basePrice = Math.random() * 200 + 50; // Random starting price between 50 and 250
+    const volatility = Math.random() * 0.05; // Random volatility factor
+    
+    // Generate data for the last 90 days
+    const today = new Date();
+    
+    for (let i = 90; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      
+      // Calculate price with some randomness and a slight trend
+      const trend = (Math.random() - 0.51) * 0.02; // Slight bias toward up or down
+      const dailyChange = (Math.random() - 0.5) * volatility + trend;
+      const previousPrice: number = i === 90 ? basePrice : mockHistory[mockHistory.length - 1].Close;
+      const price: number = previousPrice * (1 + dailyChange);
+      
+      // Add some randomness to open, high, low
+      const open: number = price * (1 + (Math.random() - 0.5) * 0.01);
+      const high: number = price * (1 + Math.random() * 0.01);
+      const low: number = price * (1 - Math.random() * 0.01);
+      
+      mockHistory.push({
+        Date: date.toISOString().split('T')[0],
+        Open: open,
+        High: high,
+        Low: low,
+        Close: price,
+        Volume: Math.floor(Math.random() * 10000000) + 1000000,
+        Dividends: 0,
+        "Stock Splits": 0
+      });
+    }
+    
+    return mockHistory;
+  }
 
   const httpServer = createServer(app);
   return httpServer;
