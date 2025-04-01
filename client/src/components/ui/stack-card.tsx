@@ -46,7 +46,7 @@ export default function StackCard({ stack, onClick, imageUrl, category }: StackC
 
   return (
     <motion.div 
-      className="stack-card rounded-xl overflow-hidden flex flex-row shadow-lg border border-gray-200 bg-white h-[130px]"
+      className="stack-card rounded-xl overflow-hidden flex flex-row shadow-lg border border-gray-200 bg-white h-[140px]"
       onClick={() => onClick(stack.id)}
       whileHover={{ y: -2, transition: { duration: 0.2 } }}
       whileTap={{ scale: 0.99 }}
@@ -85,10 +85,10 @@ export default function StackCard({ stack, onClick, imageUrl, category }: StackC
         {/* Title with icon - Improved spacing */}
         <div>
           <h3 className="font-bold text-base text-gray-800 leading-tight mb-1">{stack.title}</h3>
-          <p className="text-xs text-gray-500 mt-1 line-clamp-2">{stack.description}</p>
+          <p className="text-xs text-gray-500 mt-1 line-clamp-3">{stack.description}</p>
         </div>
 
-        <div className="mt-auto pt-2">
+        <div className="mt-auto pt-1">
           {/* Bottom badges with better spacing */}
           <div className="flex items-center justify-between">
             <div className={`badge ${
