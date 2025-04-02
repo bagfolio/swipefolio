@@ -1071,6 +1071,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get raw stock metrics from PostgreSQL
+  app.get("/api/pg/stock/:ticker/metrics", async (req, res) => {
+    try {
+      const ticker = req.params.ticker.toUpperCase();
+      console.log(`[API] Getting raw metrics for ${ticker} from PostgreSQL`);
+      
+      // Get the stock data using our service
+      const stockResult = await postgresStockService.getStockData(ticker);
+      
+      if (!stockResult) {
+        return res.status(404).json({ 
+          success: false,
+          error: "Stock not found", 
+          message: `No stock found with symbol ${ticker} in PostgreSQL database`
+        });
+      }
+      
+      // Extract metrics from the stock data
+      const metrics = stockResult.metrics || {};
+      
+      // Format metrics response
+      const response = {
+        success: true,
+        data: {
+          ticker: ticker,
+          metrics: metrics
+        }
+      };
+      
+      res.json(response);
+    } catch (error: any) {
+      console.error(`[API] Error fetching metrics for ${req.params.ticker}:`, error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch stock metrics", 
+        message: error.message 
+      });
+    }
+  });
+  
   // Stock News Analysis API Endpoint
   app.post("/api/stocks/news/analyze", async (req, res) => {
     try {

@@ -1,6 +1,19 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import { Link } from "wouter";
-import { StockData } from "@/lib/stock-data";
+import { StockData, fetchStockMetrics, formatMetricsFromDatabase } from "@/lib/stock-data";
+
+// Define metric type to satisfy TypeScript
+interface MetricObject {
+  value: string | number;
+  color: "green" | "yellow" | "red";
+  details: any;
+  explanation: string;
+}
+
+// Define metrics structure in StockData
+interface Metrics {
+  [key: string]: MetricObject;
+}
 import { useQuery } from "@tanstack/react-query";
 import {
   Info,
@@ -188,6 +201,48 @@ export default function StockCard({
     enabled: Boolean(timeFrame), // Only run query when timeFrame is available
   });
   
+  // Fetch metrics data from PostgreSQL
+  const metricsQuery = useQuery({
+    queryKey: ['/api/pg/stock/metrics', stock.ticker],
+    queryFn: async () => {
+      try {
+        return await fetchStockMetrics(stock.ticker);
+      } catch (error) {
+        console.error('Error fetching metrics:', error);
+        return null;
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+  
+  // Merge PostgreSQL metrics with stock data if available
+  const stockWithMetrics = useMemo(() => {
+    if (metricsQuery.data && !metricsQuery.isError) {
+      try {
+        // Format metrics from PostgreSQL into the expected format
+        const formattedMetrics = formatMetricsFromDatabase(metricsQuery.data);
+        
+        // Create a new object with merged data
+        return {
+          ...stock,
+          metrics: {
+            ...stock.metrics,
+            ...formattedMetrics.metrics
+          },
+          // Also update any other fields that come from metrics
+          rating: formattedMetrics.rating || stock.rating,
+          smartScore: formattedMetrics.smartScore || stock.smartScore,
+          oneYearReturn: formattedMetrics.oneYearReturn || stock.oneYearReturn,
+          predictedPrice: formattedMetrics.predictedPrice || stock.predictedPrice,
+        };
+      } catch (error) {
+        console.error('Error formatting metrics:', error);
+      }
+    }
+    // If no metrics data or error, return original stock
+    return stock;
+  }, [stock, metricsQuery.data, metricsQuery.isError]);
+  
   // Use real data from API only - we've removed all fallbacks to hardcoded data
   const chartData = useMemo(() => {
     // If we have real data from the API, use it
@@ -223,9 +278,10 @@ export default function StockCard({
   const refreshData = async () => {
     setIsRefreshing(true);
     try {
-      // Refetch both API calls
+      // Refetch all API calls
       await periodsQuery.refetch();
       await historyQuery.refetch();
+      await metricsQuery.refetch();
     } catch (error) {
       console.error('Error refreshing data:', error);
     } finally {
@@ -242,11 +298,12 @@ export default function StockCard({
      let metricObj;
      let metricDetails;
 
+     // Use stockWithMetrics instead of stock to get real PostgreSQL data
      switch(metricName) {
-       case "Performance": metricObj = stock.metrics.performance; metricDetails = stock.metrics.performance.details; break;
-       case "Stability": metricObj = stock.metrics.stability; metricDetails = stock.metrics.stability.details; break;
-       case "Value": metricObj = stock.metrics.value; metricDetails = stock.metrics.value.details; break;
-       case "Momentum": metricObj = stock.metrics.momentum; metricDetails = stock.metrics.momentum.details; break;
+       case "Performance": metricObj = stockWithMetrics.metrics.performance; metricDetails = stockWithMetrics.metrics.performance.details; break;
+       case "Stability": metricObj = stockWithMetrics.metrics.stability; metricDetails = stockWithMetrics.metrics.stability.details; break;
+       case "Value": metricObj = stockWithMetrics.metrics.value; metricDetails = stockWithMetrics.metrics.value.details; break;
+       case "Momentum": metricObj = stockWithMetrics.metrics.momentum; metricDetails = stockWithMetrics.metrics.momentum.details; break;
        default: return;
      }
      if (!metricObj || !metricDetails) return; // Guard if metrics are somehow missing
@@ -505,7 +562,7 @@ export default function StockCard({
                  <h3 className="text-white text-lg font-bold col-span-2 mb-1 flex items-center">
                      <TrendingUp className="w-5 h-5 mr-2 text-blue-400" /> Stock Metrics
                  </h3>
-                 {Object.entries(stock.metrics).map(([key, metricObj]) => {
+                 {Object.entries(stockWithMetrics.metrics as Metrics).map(([key, metricObj]) => {
                     const metricName = key.charAt(0).toUpperCase() + key.slice(1);
                     return (
                         <motion.div
@@ -547,7 +604,7 @@ export default function StockCard({
                      className="rounded-xl border border-gray-700/50 overflow-hidden shadow-lg relative"
                  >
                      <div className="absolute -inset-1 bg-purple-500/5 blur-xl rounded-xl z-0"></div>
-                     <div className="relative z-10"> <AskAI stock={stock} /> </div>
+                     <div className="relative z-10"> <AskAI stock={stockWithMetrics} /> </div>
                  </motion.div>
              </div>
              {/* Forecast */}
@@ -564,11 +621,11 @@ export default function StockCard({
              <div className="p-5">
                  <h3 className="text-lg font-bold text-white mb-4 flex items-center"> <BarChart3 className="w-5 h-5 mr-2 text-blue-400" /> Stock Analysis </h3>
                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.4 }}>
-                     <OverallAnalysisCard stock={stock} />
+                     <OverallAnalysisCard stock={stockWithMetrics} />
                  </motion.div>
                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.5 }} className="mt-4">
                      <h3 className="text-lg font-bold text-white mb-4 flex items-center"> <Layers className="w-5 h-5 mr-2 text-indigo-400" /> Industry Comparison </h3>
-                     <ComparativeAnalysis currentStock={stock} />
+                     <ComparativeAnalysis currentStock={stockWithMetrics} />
                  </motion.div>
                  <div className="mt-8 mb-2 flex justify-center">
                      <div className="text-gray-500 text-sm flex items-center"> <ChevronLeft className="w-4 h-4 mr-1" /> <span>Swipe to navigate</span> <ChevronRight className="w-4 h-4 ml-1" /> </div>
@@ -634,7 +691,7 @@ export default function StockCard({
              </div>
              {/* Metrics */}
              <div className="grid grid-cols-2 gap-4 p-4 bg-white border-b border-slate-100">
-                 {Object.entries(stock.metrics).map(([key, metricObj]) => {
+                 {Object.entries(stockWithMetrics.metrics as Metrics).map(([key, metricObj]) => {
                     const metricName = key.charAt(0).toUpperCase() + key.slice(1);
                      return (
                         <div key={key} className="group relative" onClick={() => handleMetricClickInternal(metricName)} >
@@ -667,8 +724,8 @@ export default function StockCard({
              <div className="mb-4">
                <AnalystRecommendations 
                  symbol={stock.ticker}
-                 recommendations={stock.recommendations}
-                 priceTarget={stock.priceTarget}
+                 recommendations={stockWithMetrics.recommendations}
+                 priceTarget={stockWithMetrics.priceTarget}
                  currentPrice={stock.price}
                />
              </div>
@@ -688,7 +745,7 @@ export default function StockCard({
                             ? `${stock.name} has shown positive momentum, rising ${formatNumber(stock.change)}% recently.` 
                             : `${stock.name} has been under pressure, falling ${formatNumber(Math.abs(stock.change))}% recently.`} 
                          The current price of ${formatNumber(stock.price)} places it 
-                         {stock.metrics.value.color === "green" 
+                         {stockWithMetrics.metrics.value.color === "green" 
                             ? " at an attractive valuation compared to peers."
                             : " above average valuation metrics for its sector."}
                      </p>
@@ -715,14 +772,14 @@ export default function StockCard({
                      </h3>
                      <p className="text-sm text-slate-600 leading-relaxed">
                          This {stock.industry} stock 
-                         {stock.metrics.stability.color === "green" 
+                         {stockWithMetrics.metrics.stability.color === "green" 
                             ? " offers strong stability and could serve as a defensive holding."
-                            : stock.metrics.performance.color === "green"
+                            : stockWithMetrics.metrics.performance.color === "green"
                                 ? " provides growth potential and could boost portfolio returns."
                                 : " has balanced metrics and fits well in a diversified portfolio."}
-                         {stock.metrics.stability.value === "Excellent" || stock.metrics.performance.value === "Excellent" 
+                         {stockWithMetrics.metrics.stability.value === "Excellent" || stockWithMetrics.metrics.performance.value === "Excellent" 
                             ? " Rated high quality by our analysis."
-                            : stock.metrics.stability.value === "Good" || stock.metrics.performance.value === "Good"
+                            : stockWithMetrics.metrics.stability.value === "Good" || stockWithMetrics.metrics.performance.value === "Good"
                                 ? " Considered medium quality in our assessment."
                                 : " Currently rated lower in our quality metrics."}
                      </p>
@@ -730,7 +787,7 @@ export default function StockCard({
              </div>
              {/* Comparison */}
              <div className="bg-white border-t border-b border-slate-100 comparative-analysis-container" onClick={(e) => { /* Stop propagation for inner clicks */ }}>
-               <ComparativeAnalysis currentStock={stock} />
+               <ComparativeAnalysis currentStock={stockWithMetrics} />
              </div>
              {/* Bottom Buttons */}
              <div className="p-4 bg-white border-t border-b border-slate-100 mb-4">
@@ -738,7 +795,7 @@ export default function StockCard({
                  <div className="text-center text-sm font-medium text-slate-600 my-2"> Swipe <span className="text-red-600 font-medium">left to skip</span> • Swipe <span className="text-green-600 font-medium">right to invest</span> </div>
              </div>
              {/* Analysis */}
-             {stock.overallAnalysis && ( <div className="p-5 bg-gradient-to-b from-white to-slate-50"> <div className="mb-1"> <OverallAnalysisCard stock={stock} /> </div> </div> )}
+             {stockWithMetrics.overallAnalysis && ( <div className="p-5 bg-gradient-to-b from-white to-slate-50"> <div className="mb-1"> <OverallAnalysisCard stock={stockWithMetrics} /> </div> </div> )}
           </>
       )}
 

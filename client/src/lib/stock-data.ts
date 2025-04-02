@@ -141,6 +141,132 @@ export async function fetchAnalystRecommendations(ticker: string): Promise<Analy
   }
 }
 
+/**
+ * Fetch raw metrics data from PostgreSQL
+ * @param ticker The stock ticker symbol
+ * @returns Promise with metrics data or null
+ */
+export async function fetchStockMetrics(ticker: string): Promise<any> {
+  try {
+    console.log(`Fetching metrics for ${ticker} from PostgreSQL`);
+    const response = await fetch(`/api/pg/stock/${ticker}/metrics`);
+    
+    if (!response.ok) {
+      console.warn(`Error fetching metrics for ${ticker}: ${response.statusText}`);
+      return null;
+    }
+    
+    const result = await response.json();
+    if (!result.success || !result.data) {
+      console.warn(`No metrics data found for ${ticker}`);
+      return null;
+    }
+    
+    console.log(`Successfully retrieved metrics for ${ticker}:`, result.data);
+    return result.data.metrics;
+  } catch (error) {
+    console.error(`Failed to fetch metrics for ${ticker}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Helper function to map raw metrics to StockData metrics format
+ * @param rawMetrics Raw metrics from PostgreSQL 
+ * @returns Formatted metrics in the StockData format
+ */
+export function formatMetricsFromDatabase(rawMetrics: any): any {
+  if (!rawMetrics) return null;
+  
+  // Map performance metrics
+  const performance = {
+    value: getMetricScore(rawMetrics.performance || 0),
+    color: getMetricColor(rawMetrics.performance || 0),
+    details: {
+      revenueGrowth: rawMetrics.revenueGrowth || 0,
+      profitMargin: rawMetrics.profitMargin || 0,
+      returnOnCapital: rawMetrics.returnOnEquity || 0, // Using ROE as proxy for ROC
+    },
+    explanation: `Based on revenue growth (${formatNumber(rawMetrics.revenueGrowth || 0)}%), 
+                  profit margin (${formatNumber(rawMetrics.profitMargin || 0)}%), 
+                  and return on equity (${formatNumber(rawMetrics.returnOnEquity || 0)}%).`
+  };
+  
+  // Map stability metrics
+  const stability = {
+    value: getMetricScore(rawMetrics.stability || 0),
+    color: getMetricColor(rawMetrics.stability || 0),
+    details: {
+      volatility: rawMetrics.volatility || 0,
+      beta: rawMetrics.beta || 0,
+      dividendConsistency: rawMetrics.dividendYield > 0 ? "Good" : "N/A",
+    },
+    explanation: `Based on volatility metrics, beta of ${formatNumber(rawMetrics.beta || 0)}, 
+                  and dividend consistency.`
+  };
+  
+  // Map value metrics
+  const value = {
+    value: getMetricScore(rawMetrics.value || 0),
+    color: getMetricColor(rawMetrics.value || 0),
+    details: {
+      peRatio: rawMetrics.peRatio || 0,
+      pbRatio: rawMetrics.pbRatio || 0,
+      dividendYield: rawMetrics.dividendYield || 0,
+    },
+    explanation: `Based on P/E ratio (${formatNumber(rawMetrics.peRatio || 0)}), 
+                  P/B ratio (${formatNumber(rawMetrics.pbRatio || 0)}), 
+                  and dividend yield (${formatNumber(rawMetrics.dividendYield || 0)}%).`
+  };
+  
+  // Map momentum metrics
+  const momentum = {
+    value: getMetricScore(rawMetrics.momentum || 0),
+    color: getMetricColor(rawMetrics.momentum || 0),
+    details: {
+      threeMonthReturn: rawMetrics.threeMonthReturn || 0,
+      relativePerformance: rawMetrics.relativePerformance || 0,
+      rsi: rawMetrics.rsi || 50, // Default to neutral RSI
+      oneYearReturn: rawMetrics.oneYearReturn || 0
+    },
+    explanation: `Based on recent price momentum, relative performance versus the market, 
+                  and technical indicators.`
+  };
+  
+  return { performance, stability, value, momentum };
+}
+
+/**
+ * Helper function to convert a numeric score (0-100) to a textual rating
+ */
+function getMetricScore(score: number): string {
+  if (score >= 80) return "Excellent";
+  if (score >= 60) return "Good";
+  if (score >= 40) return "Average";
+  if (score >= 20) return "Below Average";
+  return "Poor";
+}
+
+/**
+ * Helper function to convert a numeric score (0-100) to a color
+ */
+function getMetricColor(score: number): string {
+  if (score >= 60) return "green";
+  if (score >= 40) return "yellow";
+  return "red";
+}
+
+/**
+ * Helper function to format numbers consistently
+ */
+function formatNumber(value: number): string {
+  if (Math.abs(value) < 10) {
+    return value.toFixed(2);
+  } else {
+    return value.toFixed(1);
+  }
+}
+
 export interface StockData {
   name: string;
   ticker: string;
