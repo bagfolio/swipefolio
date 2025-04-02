@@ -27,6 +27,7 @@ import { AnalystRecommendations } from "@/components/stock-detail/analyst-recomm
 import { Skeleton } from "@/components/ui/skeleton";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import AskAI from "./ask-ai";
+import { StockCardNews } from "./stock-card-news";
 import { getIndustryAverages } from "@/lib/industry-data";
 
 
@@ -524,6 +525,14 @@ export default function StockCard({
                     );
                  })}
              </div>
+             {/* Latest News */}
+             <div className="p-5 border-b border-gray-800">
+                <StockCardNews 
+                  symbol={stock.ticker} 
+                  mode="dark" 
+                  className="mb-2"
+                />
+             </div>
              {/* Ask AI */}
              <div className="p-5 border-b border-gray-800">
                  <h3 className="text-lg font-bold text-white mb-3 flex items-center">
@@ -641,7 +650,12 @@ export default function StockCard({
                      );
                  })}
              </div>
-             {/* News */}
+             {/* News Notification */}
+             <div className="p-4 bg-white border-b border-slate-100">
+               <StockCardNews symbol={stock.ticker} mode="light" />
+             </div>
+             
+             {/* Full News */}
              <div className="mb-4">
                <StockNews symbol={stock.ticker} />
              </div>
