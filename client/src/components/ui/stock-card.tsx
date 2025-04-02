@@ -555,7 +555,7 @@ export default function StockCard({
             animate={{
               // Only move the top card (index 0) up to cover the background card
               // Keep the background card (index 1) in its original position
-              y: indexInStack === 0 ? -250 : 0,
+              y: indexInStack === 0 ? -100 : 0,
               scale,
               opacity: stackOpacity
             }}
