@@ -208,6 +208,57 @@ export class PgStockService {
   }
 
   /**
+   * Get price history data for a specific ticker and time period
+   * @param ticker The stock ticker symbol
+   * @param period The time period ('5D', '1W', '1M', '3M', '6M', '1Y', '5Y')
+   */
+  async getPriceHistory(ticker: string, period: string = '1M'): Promise<any> {
+    try {
+      // Get detailed data that contains closing history
+      const result = await pool.query(`
+        SELECT ticker, closing_history 
+        FROM stock_data 
+        WHERE ticker = $1
+      `, [ticker]);
+      
+      if (result.rows.length === 0 || !result.rows[0].closing_history) {
+        console.warn(`No price history found for '${ticker}' in PostgreSQL`);
+        return null;
+      }
+      
+      // Extract the price history for the requested period
+      const closingHistory = result.rows[0].closing_history;
+      
+      // Parse the JSON if it's a string
+      let history = closingHistory;
+      if (typeof closingHistory === 'string') {
+        try {
+          history = JSON.parse(closingHistory);
+        } catch (e) {
+          console.warn(`Error parsing closing_history JSON for ${ticker}:`, e);
+          return null;
+        }
+      }
+      
+      // Check if the requested period exists
+      if (history && history[period]) {
+        return {
+          ticker: ticker,
+          period: period,
+          prices: history[period],
+          lastUpdated: new Date().toISOString()
+        };
+      } else {
+        console.log(`No price history data for period '${period}' found for '${ticker}'`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`Error fetching price history for '${ticker}' (${period}) from PostgreSQL:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Format the stock data for consistent response structure
    */
   private formatStockData(data: any): any {
