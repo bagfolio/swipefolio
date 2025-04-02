@@ -28,10 +28,11 @@ import PurchaseSuccessModal from "./purchase-success-modal";
 
 interface StockCardProps {
   stock: StockData;
-  onNext?: () => void; // Optional callback
-  onPrevious?: () => void; // Optional callback
+  onNext: () => void;
+  onPrevious: () => void;
   currentIndex: number;
   totalCount: number;
+  nextStock?: StockData;
   displayMode?: 'simple' | 'realtime';
 }
 
@@ -133,6 +134,7 @@ export default function StockCard({
   onPrevious, 
   currentIndex, 
   totalCount,
+  nextStock,
   displayMode = 'realtime'
 }: StockCardProps) {
   const cardControls = useAnimation();
@@ -176,9 +178,7 @@ export default function StockCard({
   const handleSuccessModalClose = () => {
     setModalState('closed'); // Close the modal
     setPurchaseData(null);
-    if (onNext) {
-      onNext(); // Trigger moving to the next card AFTER closing if onNext is provided
-    }
+    onNext(); // Trigger moving to the next card AFTER closing
   };
 
   // Use static data only
@@ -271,9 +271,7 @@ export default function StockCard({
           opacity: 0,
           transition: { duration: 0.3 }
         }).then(() => {
-          if (onNext) {
-            onNext();
-          }
+          onNext();
           cardControls.set({ x: 0, opacity: 1 });
           setSwipeDirection(null);
         });
@@ -303,9 +301,7 @@ export default function StockCard({
           opacity: 0,
           transition: { duration: 0.3 }
         }).then(() => {
-          if (onPrevious) {
-            onPrevious();
-          }
+          onPrevious();
           cardControls.set({ x: 0, opacity: 1 });
           setSwipeDirection(null);
         });
@@ -317,9 +313,7 @@ export default function StockCard({
           opacity: 0,
           transition: { duration: 0.3 }
         }).then(() => {
-          if (onNext) {
-            onNext();
-          }
+          onNext();
           cardControls.set({ x: 0, opacity: 1 });
           setSwipeDirection(null);
         });
@@ -511,14 +505,38 @@ export default function StockCard({
     setIsMetricPopupOpen(true);
   };
 
-
-
   // Render appropriate stock card based on display mode
   if (displayMode === 'simple') {
     return (
       <div className="relative h-full w-full overflow-hidden">
         {/* Card stack container */}
         <div className="absolute inset-0 flex items-center justify-center">
+          {/* Next card in stack (positioned behind) */}
+          {nextStock && (
+            <div 
+              className="absolute inset-0 z-0 flex flex-col rounded-xl overflow-hidden"
+              style={{
+                transform: 'scale(0.92) translateY(20px)',
+                opacity: 0.6,
+                filter: 'blur(3px)'
+              }}
+            >
+              {/* Very simple next card preview */}
+              <div className="w-full h-full bg-gray-900 py-12 px-4 flex flex-col items-center justify-center">
+                <div className="bg-black/40 rounded-xl p-6 border border-gray-700/40 shadow-xl backdrop-blur-sm w-11/12 max-w-md flex flex-col items-center text-center space-y-4">
+                  <h2 className="text-2xl font-bold text-white">{nextStock.name}</h2>
+                  <p className="text-xl font-medium text-gray-300">{nextStock.ticker}</p>
+                  <div className={`text-lg font-bold px-4 py-1 rounded-full ${nextStock.change >= 0 ? 'text-green-300 bg-green-900/30' : 'text-red-300 bg-red-900/30'}`}>
+                    ${nextStock.price.toFixed(2)} <span>{nextStock.change >= 0 ? '↑' : '↓'} {Math.abs(nextStock.change)}%</span>
+                  </div>
+
+                  {/* Blurred content suggestion */}
+                  <div className="w-3/4 h-2 bg-gray-700/50 rounded-full mt-2"></div>
+                  <div className="w-2/3 h-2 bg-gray-700/50 rounded-full"></div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Main stock card - enhanced with softer shadows and better rounded corners */}
           <motion.div
@@ -765,6 +783,59 @@ export default function StockCard({
   // Real-time display mode
   return (
     <div className="relative h-full" data-testid="stock-card">
+      {/* Next stock preview card - Enhanced for better visibility */}
+      {nextStock && (
+        <div 
+          className="absolute inset-0 z-0"
+          style={{
+            transform: 'scale(0.92) translateY(20px)',
+            opacity: 0.85,
+            filter: 'blur(2px)'
+          }}
+        >
+          <div className="w-full h-full bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200">
+            {/* Enhanced preview of next stock with more visible content */}
+            <div className="p-4 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">{nextStock.name}</h3>
+                  <p className="text-sm text-gray-500">{nextStock.ticker}</p>
+                </div>
+                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  nextStock.change >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                }`}>
+                  ${nextStock.price.toFixed(2)}
+                </div>
+              </div>
+            </div>
+            
+            {/* Add a chart preview for more visibility */}
+            <div className="p-4 flex justify-center">
+              <div className={`h-24 w-full rounded-lg opacity-50 ${
+                nextStock.change >= 0 ? 'bg-green-50' : 'bg-red-50'
+              }`}>
+                <div className="h-full w-full flex items-center justify-center">
+                  <span className="text-sm text-gray-400">Stock Chart Preview</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Add quality indicator for the background card */}
+            <div className="px-4 pb-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-500">Quality</span>
+                <span className={`text-sm font-medium ${
+                  nextStock.metrics.performance.color === 'green' ? 'text-green-500' : 
+                  nextStock.metrics.performance.color === 'yellow' ? 'text-yellow-500' : 'text-red-500'
+                }`}>
+                  {nextStock.metrics.performance.color === 'green' ? 'High' : 
+                   nextStock.metrics.performance.color === 'yellow' ? 'Medium' : 'Low'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Skipped message - shows when swiping left */}
       {showSkippedMessage && (
         <motion.div
