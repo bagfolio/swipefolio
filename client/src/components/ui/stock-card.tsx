@@ -411,13 +411,14 @@ name: stock.name
       scale: cardScale,
       backgroundColor: displayMode === 'simple' ? '#111827' : '#FFFFFF',
       color: displayMode === 'simple' ? 'white' : '#1F2937', // Use a dark gray for realtime text
-      cursor: cardControls ? 'grab' : 'default' // Only show grab cursor if draggable
+      cursor: cardControls ? 'grab' : 'default', // Only show grab cursor if draggable
+      height: '100vh', // Ensure full height
+      position: 'relative' // For proper positioning
     }}
     whileTap={cardControls ? { cursor: 'grabbing' } : {}}
   >
     {/* Inner container for scrolling content */}
-    {/* Ensure background color matches card */}
-    <div className={`h-full overflow-y-auto overflow-x-hidden pb-16 stock-card ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black' : 'bg-white'}`}>
+    <div className="absolute inset-0 overflow-y-auto overflow-x-hidden pb-16" style={{ WebkitOverflowScrolling: 'touch' }}>ient-to-b from-gray-900 to-black' : 'bg-white'}`}>
 
       {/* --- Common Top Section (Page Indicator/Timeframe) --- */}
       {displayMode === 'simple' && (
