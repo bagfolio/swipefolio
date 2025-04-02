@@ -219,66 +219,96 @@ export default function StockCard({
      });
   };
 
-  // Reference to track start time of drag
+  // Reference to track start time and position of drag
   const dragStartTimeRef = useRef<number>(0);
+  const dragStartXRef = useRef<number>(0);
+  const dragDistanceThresholdRef = useRef<number>(0);
+  const isDraggingIntentionallyRef = useRef<boolean>(false);
   
-  // Track when drag starts
-  const handleDragStart = () => {
+  // Track when drag starts with initial position
+  const handleDragStart = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     dragStartTimeRef.current = Date.now();
+    dragStartXRef.current = info.point.x;
+    isDraggingIntentionallyRef.current = false;
+    dragDistanceThresholdRef.current = 0;
   };
   
-  // Drag handler with improved sensitivity for iOS and delay to prevent accidental swipes
+  // Handle drag during movement to determine intentional vs accidental
+  const handleDrag = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    if (!cardControls) return;
+    
+    // Calculate absolute distance moved during this drag session
+    const distanceMoved = Math.abs(info.point.x - dragStartXRef.current);
+    dragDistanceThresholdRef.current = Math.max(dragDistanceThresholdRef.current, distanceMoved);
+    
+    // Only consider it an intentional drag if they've moved a significant distance
+    // AND they've been dragging for at least 150ms (to prevent accidental swipes)
+    const dragDuration = Date.now() - dragStartTimeRef.current;
+    
+    if (distanceMoved > 50 && dragDuration > 150) {
+      isDraggingIntentionallyRef.current = true;
+    }
+  };
+  
+  // Drag handler with significantly reduced sensitivity and higher thresholds
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (!cardControls) return; // Not interactive if no controls
 
-    // Calculate how long the drag lasted
-    const dragDuration = Date.now() - dragStartTimeRef.current;
-    
-    // Ignore very quick drags (less than 100ms) which are likely accidental or part of a scroll
-    if (dragDuration < 100) {
-      cardControls.start({ x: 0, transition: { type: "spring", stiffness: 400, damping: 25 } });
+    // If the drag wasn't intentional, just snap back
+    if (!isDraggingIntentionallyRef.current) {
+      cardControls.start({ 
+        x: 0, 
+        transition: { 
+          type: "spring", 
+          stiffness: 300, 
+          damping: 30,
+          duration: 0.7
+        }
+      });
       return;
     }
 
-    // Higher threshold for right swipe (to invest) to prevent accidental triggers
-    const rightThreshold = 120; 
-    // Lower threshold for left swipe (to skip)
-    const leftThreshold = 80;
-    // Lower velocity threshold to make swipes more responsive
-    const velocityThreshold = 180;
+    // Much higher thresholds to require more deliberate movement
+    const rightThreshold = 150; 
+    const leftThreshold = 120;
+    // Higher velocity threshold to require more deliberate swipes
+    const velocityThreshold = 250;
     
     const dragVelocity = info.velocity.x;
     const dragOffset = info.offset.x;
 
-    // Determine swipe direction based on combination of offset and velocity
-    if (dragOffset > rightThreshold || (dragOffset > 40 && dragVelocity > velocityThreshold)) { 
-      // Swipe Right - needs deliberate movement
+    // Determine swipe direction based on stricter combination of offset and velocity
+    if (dragOffset > rightThreshold || (dragOffset > 80 && dragVelocity > velocityThreshold)) { 
+      // Swipe Right - needs very deliberate movement
       if (displayMode === 'realtime') {
         if (onInvest) onInvest();
-        // Snap back with slower, more satisfying animation
+        // More dramatic and slower animation with rotation
         cardControls.start({ 
           x: 0, 
+          rotate: [5, 0],
           transition: { 
             type: "spring", 
-            stiffness: 400,  // Less stiff for smoother feel
-            damping: 25,     // Less damping for more bounce
-            duration: 0.5    // Longer duration for more noticeable animation
+            stiffness: 300,  // Stiffer for more controlled feel
+            damping: 20,     // Less damping for more bounce
+            duration: 0.8,   // Longer duration for very noticeable animation
+            ease: "easeInOut"
           }
         });
       } else { // Simple mode: Right swipe = Previous
         if (onPrevious) onPrevious();
       }
-    } else if (dragOffset < -leftThreshold || (dragOffset < -40 && dragVelocity < -velocityThreshold)) { 
-      // Swipe Left - more sensitive
+    } else if (dragOffset < -leftThreshold || (dragOffset < -80 && dragVelocity < -velocityThreshold)) { 
+      // Swipe Left - requires deliberate movement
       if (onNext) onNext(); // Both modes: Left swipe = Next/Skip
-    } else { // Snap back with smoother animation
+    } else { // Snap back with more dramatic animation
       cardControls.start({ 
         x: 0, 
         transition: { 
           type: "spring", 
-          stiffness: 400, 
-          damping: 25,
-          duration: 0.5
+          stiffness: 300, 
+          damping: 28,
+          duration: 0.7,
+          ease: "easeOut"
         }
       });
     }
@@ -305,6 +335,7 @@ export default function StockCard({
     dragElastic={0.5}
     dragPropagation // Allow scroll events to propagate
     onDragStart={handleDragStart}
+    onDrag={handleDrag}
     onDragEnd={handleDragEnd}
     animate={cardControls} // Use controls from parent (can be undefined)
     style={{
@@ -324,31 +355,8 @@ export default function StockCard({
         style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }} 
     >
 
-      {/* --- Common Top Section (Page Indicator/Timeframe) --- */}
-      {displayMode === 'simple' && (
-          <div className="sticky top-2 left-0 right-0 z-20 flex justify-center pointer-events-none">
-              <div className="bg-gray-800/80 backdrop-blur-sm rounded-full px-3 py-1 text-xs border border-gray-700 text-white">
-                  {currentIndex + 1} / {totalCount}
-              </div>
-          </div>
-      )}
-      {displayMode === 'realtime' && (
-          <div className="sticky top-0 z-20 flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">
-               {["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"].map((period) => (
-                   <button
-                       key={period}
-                       className={`px-3 py-1 text-xs rounded-full transition-all duration-200 ${
-                           timeFrame === period
-                               ? `${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm' : 'text-red-600 bg-red-50 border border-red-200 shadow-sm'} font-medium`
-                               : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                       }`}
-                       onClick={() => setTimeFrame(period as TimeFrame)}
-                   >
-                       {period}
-                   </button>
-               ))}
-           </div>
-      )}
+      {/* --- No category at the top --- */}
+      <div className="pt-4"></div>
 
       {/* --- Content Specific to Mode --- */}
       {displayMode === 'simple' ? (
@@ -608,12 +616,12 @@ export default function StockCard({
 
       {/* Action Buttons - Render only for interactive card */}
       {cardControls && (
-        <div className="fixed bottom-8 left-0 right-0 px-5 z-30 flex justify-center space-x-6">
-            {/* Card shadow/gradient edge */}
-            <div className="absolute inset-x-5 bottom-0 h-24 bg-gradient-to-t from-white to-transparent opacity-90 -z-10 pointer-events-none"></div>
+        <div className="fixed bottom-12 left-0 right-0 px-5 z-30 flex justify-center space-x-8">
+            {/* Card shadow/gradient edge - darker and starting higher */}
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-100 to-transparent opacity-95 -z-10 pointer-events-none"></div>
             
             <button
-                className="px-8 py-4 rounded-xl bg-red-500 text-white font-semibold shadow-xl flex items-center justify-center w-5/12 hover:bg-red-600 active:scale-95 transition-all duration-150 border border-red-400"
+                className="px-8 py-4 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white font-semibold shadow-xl flex items-center justify-center w-5/12 hover:from-red-600 hover:to-red-700 active:scale-95 transition-all duration-300 border border-red-400"
                 onClick={() => onNext && onNext()}
             >
                 <X className="mr-2" size={20} />
@@ -621,7 +629,7 @@ export default function StockCard({
             </button>
             
             <button
-                className="px-8 py-4 rounded-xl bg-green-500 text-white font-semibold shadow-xl flex items-center justify-center w-5/12 hover:bg-green-600 active:scale-95 transition-all duration-150 border border-green-400"
+                className="px-8 py-4 rounded-xl bg-gradient-to-br from-green-500 to-green-600 text-white font-semibold shadow-xl flex items-center justify-center w-5/12 hover:from-green-600 hover:to-green-700 active:scale-95 transition-all duration-300 border border-green-400"
                 data-testid="buy-button"
                 onClick={handleOpenCalculatorClick}
             >
