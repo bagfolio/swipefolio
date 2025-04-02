@@ -145,7 +145,7 @@ export default function StockCard({
   // Calculate stacking variables
   const zIndex = 100 - indexInStack; // Higher z-index for top card
   const scale = 1 - indexInStack * 0.05; // Card underneath is smaller
-  const y = indexInStack * 15; // Card underneath is lower down
+  const y = 0; // Keep cards at the same vertical position
   const stackOpacity = indexInStack === 0 ? 1 : 0.9; // Slight transparency for cards underneath
   const cardControls = useAnimation();
   const x = useMotionValue(0);
