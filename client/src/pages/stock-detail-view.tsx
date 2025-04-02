@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { StockData, getIndustryStocks } from "@/lib/stock-data";
 import StockChart from "@/components/stock-detail/stock-chart";
+import { StockNews } from "@/components/stock-detail/stock-news";
+import { AnalystRecommendations } from "@/components/stock-detail/analyst-recommendations";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import OverallAnalysisCard from "@/components/overall-analysis-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -142,6 +144,9 @@ export default function StockDetailView() {
               )}
             </div>
           </div>
+          
+          {/* News section */}
+          <StockNews symbol={stock.ticker} />
         </div>
         
         {/* Right column with metrics and related info */}
@@ -199,6 +204,14 @@ export default function StockDetailView() {
             </div>
           </div>
           
+          {/* Analyst recommendations */}
+          <AnalystRecommendations 
+            symbol={stock.ticker} 
+            recommendations={stock.recommendations} 
+            priceTarget={stock.priceTarget}
+            currentPrice={stock.price}
+          />
+
           {/* Comparative analysis card */}
           {stock.industry && (
             <div className="bg-white rounded-lg shadow overflow-hidden">

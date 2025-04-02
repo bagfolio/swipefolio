@@ -244,11 +244,11 @@ export class PostgresStockService {
       }
       
       // Extract the price history for the requested period from the closingHistory
-      const history = result[0].closingHistory;
+      const history = result[0].closingHistory as Record<string, any>;
       
       // The closing_history is stored as JSONB with periods as keys
       // Check if the requested period exists
-      if (history[period]) {
+      if (history && period in history) {
         return {
           ticker: ticker,
           period: period,

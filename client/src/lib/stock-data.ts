@@ -54,6 +54,24 @@ export interface PotentialDetails {
   relativePerformanceExplanation?: string;
 }
 
+export interface AnalystRecommendation {
+  period: string;
+  strongBuy: number;
+  buy: number;
+  hold: number;
+  sell: number;
+  strongSell: number;
+  symbol: string;
+}
+
+export interface PriceTarget {
+  targetHigh: number;
+  targetLow: number;
+  targetMean: number;
+  targetMedian: number;
+  lastUpdated: string;
+}
+
 export interface StockData {
   name: string;
   ticker: string;
@@ -104,6 +122,8 @@ export interface StockData {
   overallAnalysis: string;
   chartData: number[];
   industry: string;
+  recommendations?: AnalystRecommendation[];
+  priceTarget?: PriceTarget;
 }
 
 const hardcodedStocks: Record<string, StockData[]> = {

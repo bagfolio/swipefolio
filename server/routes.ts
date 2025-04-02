@@ -11,6 +11,7 @@ import { jsonStockService } from "./services/json-stock-service";
 import { postgresStockService } from "./services/postgres-stock-service";
 import { stockService } from "./services/stock-service";
 import { pgStockService } from "./services/pg-stock-service";
+import { stockNewsService } from "./services/stock-news-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Add an endpoint to check and toggle the data source
@@ -1006,6 +1007,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to fetch available periods", 
         message: error.message,
         symbol: req.params.symbol
+      });
+    }
+  });
+
+  // Stock News API Endpoints
+  app.get("/api/stocks/:symbol/news", async (req, res) => {
+    try {
+      const symbol = req.params.symbol.toUpperCase();
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+      
+      const newsItems = await stockNewsService.getNewsForStock(symbol, limit);
+      res.json(newsItems);
+    } catch (error: any) {
+      console.error(`Error fetching news for ${req.params.symbol}:`, error);
+      res.status(500).json({
+        error: "Failed to fetch news data",
+        message: error.message
+      });
+    }
+  });
+  
+  // Stock News Analysis API Endpoint
+  app.post("/api/stocks/news/analyze", async (req, res) => {
+    try {
+      const { ticker, title, summary } = req.body;
+      
+      if (!ticker || !title || !summary) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          message: "ticker, title, and summary are required"
+        });
+      }
+      
+      const analysis = await stockNewsService.analyzeNewsImpact(ticker, title, summary);
+      res.json({ analysis });
+    } catch (error: any) {
+      console.error("Error analyzing news impact:", error);
+      res.status(500).json({
+        error: "Failed to analyze news impact",
+        message: error.message
       });
     }
   });
