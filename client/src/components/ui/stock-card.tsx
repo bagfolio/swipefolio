@@ -51,19 +51,8 @@ interface StockCardProps {
 
 type TimeFrame = "1D" | "5D" | "1M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX";
 
-// Helper functions (generateTimeBasedData, getTimeScaleLabels, getIndustryAverageData)
-const generateTimeBasedData = (data: number[], timeFrame: TimeFrame) => {
-  switch(timeFrame) {
-    case "1D": return data.map((point: number, i: number) => point * (1 + Math.sin(i * 0.5) * 0.03));
-    case "5D": return data.map((point: number, i: number) => point * (1 + Math.sin(i * 0.3) * 0.05));
-    case "1M": return data;
-    case "6M": return data.map((point: number, i: number) => point * (1 + (i/data.length) * 0.1));
-    case "1Y": return data.map((point: number, i: number) => point * (1 + Math.sin(i * 0.2) * 0.08 + (i/data.length) * 0.15));
-    case "5Y": return data.map((point: number, i: number) => point * (1 + Math.sin(i * 0.1) * 0.12 + (i/data.length) * 0.3));
-    case "MAX": return data.map((point: number, i: number) => point * (1 + Math.sin(i * 0.05) * 0.15 + (i/data.length) * 0.5));
-    default: return data;
-  }
-};
+// Helper functions (getTimeScaleLabels, getIndustryAverageData)
+// Note: generateTimeBasedData removed - we now only use real data from PostgreSQL
 const getTimeScaleLabels = (timeFrame: TimeFrame): string[] => {
   switch(timeFrame) {
     case "1D": return ["9:30", "11:00", "12:30", "14:00", "15:30", "16:00"];
@@ -196,15 +185,16 @@ export default function StockCard({
     enabled: Boolean(timeFrame), // Only run query when timeFrame is available
   });
   
-  // Use real data from API if available, otherwise fallback to generated data
+  // Use real data from API only - we've removed all fallbacks to hardcoded data
   const chartData = useMemo(() => {
     // If we have real data from the API, use it
     if (historyQuery.data?.prices && Array.isArray(historyQuery.data.prices)) {
       return historyQuery.data.prices;
     }
-    // Otherwise, fallback to the static/transformed data
-    return generateTimeBasedData(stock.chartData, timeFrame);
-  }, [historyQuery.data, stock.chartData, timeFrame]);
+    // Empty array if no data available - will show blank chart (better than fake data)
+    console.warn(`No price history data available for ${stock.ticker} (${timeFrame})`);
+    return [stock.price, stock.price, stock.price]; // Minimum fallback to show flat line at current price
+  }, [historyQuery.data, stock.ticker, timeFrame, stock.price]);
   
   const displayPrice = stock.price.toFixed(2);
   const realTimeChange = stock.change;
