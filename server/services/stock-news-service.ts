@@ -313,6 +313,73 @@ export class StockNewsService {
       return getMockNewsForStock(ticker);
     }
   }
+  
+  /**
+   * Get news for a specific stock ticker in columnar format
+   * This matches the format from the PostgreSQL database as described in the documentation
+   * @param ticker The stock ticker symbol
+   * @param limit Maximum number of news items to return
+   */
+  async getNewsForStockColumnar(ticker: string, limit: number = 5): Promise<any> {
+    try {
+      // First try to get the news from our standard method
+      const newsItems = await this.getNewsForStock(ticker, limit);
+      
+      // Transform to columnar format
+      if (newsItems && newsItems.length > 0) {
+        // Initialize columnar structure
+        const columnarData = {
+          title: [] as string[],
+          publisher: [] as string[],
+          publishDate: [] as string[],
+          url: [] as string[],
+          summary: [] as string[],
+          contentType: [] as string[],
+          id: [] as string[],
+          sentiment: [] as string[],
+          impactedMetrics: [] as any[]
+        };
+        
+        // Fill with data
+        newsItems.forEach(item => {
+          columnarData.title.push(item.title);
+          columnarData.publisher.push(item.source);
+          columnarData.publishDate.push(new Date(item.publishedDate).toISOString().split('T')[0]);
+          columnarData.url.push(item.url);
+          columnarData.summary.push(item.summary);
+          columnarData.contentType.push('STORY');
+          columnarData.id.push(item.id.toString());
+          columnarData.sentiment.push(item.sentiment);
+          columnarData.impactedMetrics.push(item.impactedMetrics);
+        });
+        
+        return {
+          success: true,
+          data: columnarData
+        };
+      }
+      
+      // Return empty columnar structure if no news
+      return {
+        success: true,
+        data: {
+          title: [],
+          publisher: [],
+          publishDate: [],
+          url: [],
+          summary: [],
+          contentType: [],
+          id: []
+        }
+      };
+    } catch (error) {
+      console.error(`Error fetching columnar news for stock '${ticker}':`, error);
+      return {
+        success: false,
+        error: "Failed to fetch news data"
+      };
+    }
+  }
 
   /**
    * Add a news item for a stock
