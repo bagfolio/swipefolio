@@ -1,0 +1,47 @@
+Likely Causes:
+
+Incorrect Vertical Offset (y): In the StockCard.tsx code you provided, const y = 0; is hardcoded (line 153). My previous instructions suggested calculating y based on indexInStack (like const y = indexInStack * 10;) to visually offset the card underneath. Since y is always 0, both cards are being animated to the same vertical position, relying solely on scale and z-index for separation, which might not be visually correct or sufficient. The animate prop in both simple and realtime modes also doesn't seem to apply this calculated offset correctly.
+Suspicious Transform: In the realtime mode section of StockCard.tsx (around line 816), the main container div has className="relative h-full transform -translate-y-40". This -translate-y-40 is likely shifting the entire card component upwards by a large amount, causing unexpected positioning issues and potentially contributing to Apple appearing lower than it should relative to its container or other elements.
+Render Order (.reverse()): My previous instruction included using .reverse() before .map() in stock-detail-page.tsx. This renders the next card first in the DOM, then the current card. Combined with the z-index calculation (zIndex = 100 - indexInStack), this should make the current card (Apple, indexInStack=0, zIndex=100) appear visually on top of the next card (Microsoft, indexInStack=1, zIndex=99). Removing .reverse() (as the assistant suggested) without perfect z-index management would likely cause the next card to render last and thus appear on top. So, keeping .reverse() is generally safer with this stacking approach.
+Let's fix the y positioning and remove that suspicious transform. The assistant is right that positioning is key, but let's apply it correctly.
+
+Instructions for Replit Agent:
+
+Fix y Calculation & Application (StockCard.tsx):
+Calculate y: Find const y = 0; (around line 153). Change it to:
+JavaScript
+
+const y = indexInStack * 15; // Creates vertical offset for cards underneath (adjust 15 if needed)
+Apply y (Realtime Mode): Find the main motion.div for realtime mode (around line 879). Update its animate prop:
+JavaScript
+
+ animate={{
+   y: y, // Use the calculated offset
+   scale,
+   opacity: stackOpacity
+ }}
+Apply y (Simple Mode): Find the main motion.div for simple mode (around line 591). Update its animate prop (replacing the incorrect y: indexInStack === 0 ? -100 : 0):
+JavaScript
+
+ animate={{
+   y: y, // Use the calculated offset
+   scale,
+   opacity: stackOpacity
+ }}
+Remove Suspicious Transform (StockCard.tsx):
+Find Container: Locate the main container div for the realtime mode return statement (around line 816). It has className="relative h-full transform -translate-y-40".
+Remove Classes: Change the className to remove the transform:
+JavaScript
+
+className="relative h-full"
+Verify Render Order (stock-detail-page.tsx):
+Open client/src/pages/stock-detail-page.tsx.
+Find where <StockCard> components are rendered inside <AnimatePresence>.
+Ensure .reverse() is present before the .map() call:
+JavaScript
+
+// Inside AnimatePresence:
+stocks
+  .slice(currentStockIndex, currentStockIndex + 2)
+  .reverse() // MAKE SURE THIS IS PRESENT
+  .map((stock, index) => { /* ... */ })

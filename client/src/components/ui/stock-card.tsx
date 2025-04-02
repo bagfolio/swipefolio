@@ -145,7 +145,7 @@ export default function StockCard({
   // Calculate stacking variables
   const zIndex = 100 - indexInStack; // Higher z-index for top card
   const scale = 1 - indexInStack * 0.05; // Card underneath is smaller
-  const y = 0; // Keep cards at the same vertical position
+  const y = indexInStack * 15; // Creates vertical offset for cards underneath
   const stackOpacity = indexInStack === 0 ? 1 : 0.9; // Slight transparency for cards underneath
   const cardControls = useAnimation();
   const x = useMotionValue(0);
@@ -553,9 +553,7 @@ export default function StockCard({
             dragElastic={0.7}
             onDragEnd={handleDragEnd}
             animate={{
-              // Only move the top card (index 0) up to cover the background card
-              // Keep the background card (index 1) in its original position
-              y: indexInStack === 0 ? -100 : 0,
+              y, // Use the calculated y offset from line 148
               scale,
               opacity: stackOpacity
             }}
@@ -798,7 +796,7 @@ export default function StockCard({
 
   // Real-time display mode
   return (
-    <div className="relative h-full transform -translate-y-40" data-testid="stock-card">
+    <div className="relative h-full" data-testid="stock-card">
       {/* Blurred background stock (next in stack) - visible during swipes */}
       {nextStock && (
         <div 
