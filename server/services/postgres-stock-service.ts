@@ -8,8 +8,27 @@
 import { db } from '../db';
 import { stocks, stockData, sectors, marketData } from '../../shared/schema';
 import { eq, inArray, desc, sql } from 'drizzle-orm';
-import { Stock, StockDetailedData, Sector, MarketData } from '../../shared/schema';
-import { formatMockStockData } from '../../shared/mock-stocks';
+import { StockDetailedData } from '../../shared/schema';
+
+// Custom interface to match actual database schema
+interface DbStock {
+  ticker: string;
+  companyName: string;
+  sector: string | null;
+  industry: string | null;
+  currentPrice: number | null;
+  marketCap: number | null;
+  dividendYield: number | null;
+  beta: number | null;
+  peRatio: number | null;
+  country: string | null;
+  exchange: string | null;
+  currency: string | null;
+  lastUpdated?: Date | null;
+  description?: string | null;
+  // Add additional fields as needed
+  [key: string]: any; // Allow any other properties
+}
 
 // Default limit for queries
 const DEFAULT_LIMIT = 50;
@@ -59,22 +78,34 @@ export class PostgresStockService {
    */
   async getAllStocks() {
     try {
-      const allStocks = await db.select().from(stocks).limit(DEFAULT_LIMIT);
+      const allStocks = await db.select({
+        ticker: stocks.ticker,
+        companyName: stocks.companyName,
+        sector: stocks.sector,
+        industry: stocks.industry,
+        currentPrice: stocks.currentPrice,
+        marketCap: stocks.marketCap,
+        dividendYield: stocks.dividendYield,
+        beta: stocks.beta,
+        peRatio: sql`price_to_earnings`,
+        country: sql`country`,
+        exchange: sql`exchange`,
+        currency: sql`currency`
+      }).from(stocks).limit(DEFAULT_LIMIT);
       
       return allStocks.map(stock => ({
         symbol: stock.ticker,
         name: stock.companyName,
-        price: stock.currentPrice,
+        price: stock.currentPrice ? Number(stock.currentPrice) : null,
         change: 0, // Calculated value needs more data
         changePercent: 0, // Calculated value needs more data
         sector: stock.sector,
         industry: stock.industry,
         metrics: {
-          marketCap: stock.marketCap,
-          dividendYield: stock.dividendYield,
-          beta: stock.beta,
-          peRatio: stock.peRatio,
-          eps: stock.eps
+          marketCap: stock.marketCap ? Number(stock.marketCap) : null,
+          dividendYield: stock.dividendYield ? Number(stock.dividendYield) : null,
+          beta: stock.beta ? Number(stock.beta) : null,
+          peRatio: stock.peRatio ? Number(stock.peRatio) : null
         }
       }));
     } catch (error) {
@@ -89,7 +120,20 @@ export class PostgresStockService {
   async getStocksBySector(sector: string) {
     try {
       const sectorStocks = await db
-        .select()
+        .select({
+          ticker: stocks.ticker,
+          companyName: stocks.companyName,
+          sector: stocks.sector,
+          industry: stocks.industry,
+          currentPrice: stocks.currentPrice,
+          marketCap: stocks.marketCap,
+          dividendYield: stocks.dividendYield,
+          beta: stocks.beta,
+          peRatio: sql`price_to_earnings`,
+          country: sql`country`,
+          exchange: sql`exchange`,
+          currency: sql`currency`
+        })
         .from(stocks)
         .where(eq(stocks.sector, sector))
         .limit(DEFAULT_LIMIT);
@@ -97,17 +141,16 @@ export class PostgresStockService {
       return sectorStocks.map(stock => ({
         symbol: stock.ticker,
         name: stock.companyName,
-        price: stock.currentPrice,
+        price: stock.currentPrice ? Number(stock.currentPrice) : null,
         change: 0, // Calculated value
         changePercent: 0, // Calculated value
         sector: stock.sector,
         industry: stock.industry,
         metrics: {
-          marketCap: stock.marketCap,
-          dividendYield: stock.dividendYield,
-          beta: stock.beta,
-          peRatio: stock.peRatio,
-          eps: stock.eps
+          marketCap: stock.marketCap ? Number(stock.marketCap) : null,
+          dividendYield: stock.dividendYield ? Number(stock.dividendYield) : null,
+          beta: stock.beta ? Number(stock.beta) : null,
+          peRatio: stock.peRatio ? Number(stock.peRatio) : null
         }
       }));
     } catch (error) {
@@ -121,9 +164,23 @@ export class PostgresStockService {
    */
   async getStockData(ticker: string): Promise<any> {
     try {
-      // Get basic stock info
+      // Get basic stock info with explicit column selection using actual database column names
       const stockInfo = await db
-        .select()
+        .select({
+          ticker: stocks.ticker,
+          companyName: stocks.companyName,
+          sector: stocks.sector,
+          industry: stocks.industry,
+          currentPrice: stocks.currentPrice,
+          marketCap: stocks.marketCap,
+          dividendYield: stocks.dividendYield,
+          beta: stocks.beta,
+          peRatio: sql`price_to_earnings`, // Use actual column name price_to_earnings
+          country: sql`country`,
+          exchange: sql`exchange`,
+          currency: sql`currency`,
+          lastUpdated: sql`last_updated`
+        })
         .from(stocks)
         .where(eq(stocks.ticker, ticker))
         .limit(1);
@@ -133,6 +190,23 @@ export class PostgresStockService {
         return null;
       }
       
+      // Convert string values to numbers where appropriate
+      const dbStock: DbStock = {
+        ticker: stockInfo[0].ticker,
+        companyName: stockInfo[0].companyName,
+        sector: stockInfo[0].sector,
+        industry: stockInfo[0].industry,
+        currentPrice: stockInfo[0].currentPrice ? Number(stockInfo[0].currentPrice) : null,
+        marketCap: stockInfo[0].marketCap ? Number(stockInfo[0].marketCap) : null,
+        dividendYield: stockInfo[0].dividendYield ? Number(stockInfo[0].dividendYield) : null,
+        beta: stockInfo[0].beta ? Number(stockInfo[0].beta) : null,
+        peRatio: stockInfo[0].peRatio ? Number(stockInfo[0].peRatio) : null,
+        country: stockInfo[0].country ? String(stockInfo[0].country) : null,
+        exchange: stockInfo[0].exchange ? String(stockInfo[0].exchange) : null,
+        currency: stockInfo[0].currency ? String(stockInfo[0].currency) : null,
+        lastUpdated: stockInfo[0].lastUpdated ? new Date(stockInfo[0].lastUpdated) : null
+      };
+      
       // Get detailed data
       const detailedData = await db
         .select()
@@ -140,7 +214,7 @@ export class PostgresStockService {
         .where(eq(stockData.ticker, ticker))
         .limit(1);
       
-      return this.formatStockData(stockInfo[0], detailedData[0] || null);
+      return this.formatStockData(dbStock, detailedData[0] || null);
     } catch (error) {
       console.error(`Error fetching stock data for '${ticker}' from PostgreSQL:`, error);
       return null;
@@ -209,7 +283,7 @@ export class PostgresStockService {
   /**
    * Format stock data for consistent response structure
    */
-  private formatStockData(basicInfo: Stock, detailedData: StockDetailedData | null): any {
+  private formatStockData(basicInfo: DbStock, detailedData: StockDetailedData | null): any {
     // Calculate metrics from available data
     const metrics = this.calculateMetrics(basicInfo, detailedData);
     
@@ -253,7 +327,7 @@ export class PostgresStockService {
   /**
    * Calculate metrics based on available data
    */
-  private calculateMetrics(basicInfo: Stock, detailedData: StockDetailedData | null): any {
+  private calculateMetrics(basicInfo: DbStock, detailedData: StockDetailedData | null): any {
     // Performance scores
     const performanceScore = this.calculatePerformanceScore(basicInfo, detailedData);
     const stabilityScore = this.calculateStabilityScore(basicInfo, detailedData);

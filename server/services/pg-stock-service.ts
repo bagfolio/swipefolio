@@ -1,0 +1,418 @@
+/**
+ * pg-stock-service.ts
+ * 
+ * This service handles loading stock data from our PostgreSQL database.
+ * It replaces the JSON file-based stock service.
+ */
+
+import { pool } from '../db';
+
+/**
+ * Service for accessing PostgreSQL stock data
+ */
+export class PgStockService {
+  private stockSymbols: string[] = [];
+  private initialized: boolean = false;
+
+  constructor() {
+    console.log('PgStockService initialized');
+  }
+
+  /**
+   * Load stock data from the database and initialize cache
+   */
+  async loadStockData(): Promise<boolean> {
+    try {
+      console.log('Loading stock data from PostgreSQL...');
+      
+      // Fetch all available stock symbols
+      const symbolsResult = await pool.query(`
+        SELECT ticker FROM stocks ORDER BY ticker
+      `);
+      
+      if (symbolsResult.rows.length > 0) {
+        this.stockSymbols = symbolsResult.rows.map(row => row.ticker);
+        this.initialized = true;
+        
+        console.log(`PostgreSQL stock data initialization complete: ${this.stockSymbols.length} stocks available`);
+        return true;
+      } else {
+        console.warn('No stocks found in the database');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error loading stock data from PostgreSQL:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get all available stock symbols
+   */
+  public async getAvailableSymbols(): Promise<string[]> {
+    // If we've already loaded the symbols, return them from memory
+    if (this.initialized && this.stockSymbols.length > 0) {
+      return this.stockSymbols;
+    }
+    
+    try {
+      const result = await pool.query(`
+        SELECT ticker FROM stocks ORDER BY ticker
+      `);
+      
+      this.stockSymbols = result.rows.map(row => row.ticker);
+      return this.stockSymbols;
+    } catch (error) {
+      console.error('Error getting available symbols from PostgreSQL:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get stock data from PostgreSQL
+   */
+  public async getStockData(symbol: string): Promise<any> {
+    try {
+      // Get basic stock info
+      const basicResult = await pool.query(`
+        SELECT * FROM stocks WHERE ticker = $1
+      `, [symbol]);
+      
+      if (basicResult.rows.length === 0) {
+        console.warn(`Stock ${symbol} not found in database`);
+        return null;
+      }
+      
+      const stockData = basicResult.rows[0];
+      
+      // Get detailed stock data
+      const detailedResult = await pool.query(`
+        SELECT * FROM stock_data WHERE ticker = $1
+      `, [symbol]);
+      
+      if (detailedResult.rows.length > 0) {
+        const detailedData = detailedResult.rows[0];
+        
+        // Format JSON fields
+        const formattedData: Record<string, any> = { ...detailedData };
+        
+        // Parse JSON strings into objects
+        const jsonFields = [
+          'closing_history', 'dividends', 'income_statement', 'balance_sheet',
+          'cash_flow', 'recommendations', 'earnings_dates', 'earnings_history',
+          'earnings_trend', 'upgrades_downgrades', 'financial_data',
+          'institutional_holders', 'major_holders'
+        ];
+        
+        for (const field of jsonFields) {
+          if (detailedData[field]) {
+            try {
+              if (typeof detailedData[field] === 'string') {
+                formattedData[field] = JSON.parse(detailedData[field]);
+              }
+            } catch (e) {
+              console.warn(`Error parsing JSON for ${field} in ${symbol}:`, e);
+            }
+          }
+        }
+        
+        // Merge detailed data, excluding ticker
+        Object.keys(formattedData).forEach(key => {
+          if (key !== 'ticker') {
+            stockData[key] = formattedData[key];
+          }
+        });
+      }
+      
+      // Format the response to match our expected structure
+      return this.formatStockData(stockData);
+    } catch (error) {
+      console.error(`Error fetching data for ${symbol} from PostgreSQL:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get stocks by sector
+   */
+  public async getStocksByIndustry(industry: string): Promise<any[]> {
+    try {
+      const result = await pool.query(`
+        SELECT * FROM stocks 
+        WHERE industry = $1
+        ORDER BY market_cap DESC
+      `, [industry]);
+      
+      return result.rows.map(stock => this.formatStockData(stock));
+    } catch (error) {
+      console.error(`Error fetching stocks for industry ${industry}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Get stocks by sector
+   */
+  public async getStocksBySector(sector: string): Promise<any[]> {
+    try {
+      const result = await pool.query(`
+        SELECT * FROM stocks 
+        WHERE sector = $1
+        ORDER BY market_cap DESC
+      `, [sector]);
+      
+      return result.rows.map(stock => this.formatStockData(stock));
+    } catch (error) {
+      console.error(`Error fetching stocks for sector ${sector}:`, error);
+      return [];
+    }
+  }
+
+  /**
+   * Get top dividend stocks
+   */
+  public async getTopDividendStocks(limit: number = 10): Promise<any[]> {
+    try {
+      const result = await pool.query(`
+        SELECT * FROM stocks 
+        WHERE dividend_yield IS NOT NULL 
+        ORDER BY dividend_yield DESC 
+        LIMIT $1
+      `, [limit]);
+      
+      return result.rows.map(stock => this.formatStockData(stock));
+    } catch (error) {
+      console.error('Error fetching top dividend stocks:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get stocks with recent analyst upgrades
+   */
+  public async getStocksWithUpgrades(): Promise<any[]> {
+    try {
+      const result = await pool.query(`
+        SELECT s.*, sd.upgrades_downgrades
+        FROM stocks s
+        JOIN stock_data sd ON s.ticker = sd.ticker
+        WHERE sd.upgrades_downgrades IS NOT NULL
+        ORDER BY s.ticker
+      `);
+      
+      return result.rows.map(stock => this.formatStockData(stock));
+    } catch (error) {
+      console.error('Error fetching stocks with upgrades:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Format the stock data for consistent response structure
+   */
+  private formatStockData(data: any): any {
+    // Create a base structure with safe defaults
+    const formattedData: any = {
+      symbol: data.ticker,
+      name: data.company_name || data.ticker,
+      price: data.current_price || 0,
+      change: data.price_change || 0,
+      changePercent: data.price_change_percent || 0,
+      previousClose: data.previous_close || 0,
+      dayHigh: data.day_high || 0,
+      dayLow: data.day_low || 0,
+      volume: data.volume || 0,
+      averageVolume: data.average_volume || 0,
+      marketCap: data.market_cap || 0,
+      beta: data.beta || 0,
+      peRatio: data.pe_ratio || 0,
+      eps: data.eps || 0,
+      industry: data.industry || "",
+      sector: data.sector || "",
+      dividendYield: data.dividend_yield || 0,
+      targetHighPrice: data.target_high_price || 0,
+      targetLowPrice: data.target_low_price || 0,
+      targetMeanPrice: data.target_mean_price || 0,
+      recommendationKey: data.recommendation_key || "",
+      description: data.description || "",
+    };
+
+    // Calculate metrics similar to how we did in the JSON service
+    const profitMargin = data.profit_margin || 0;
+    const returnOnEquity = data.return_on_equity || 0;
+    const debtToEquity = data.debt_to_equity || 0;
+    const revenueGrowth = data.revenue_growth || 0;
+
+    // Add metrics
+    formattedData.metrics = {
+      performance: this.calculatePerformanceScore(data),
+      stability: this.calculateStabilityScore(data),
+      value: this.calculateValueScore(data),
+      momentum: this.calculateMomentumScore(data),
+      quality: this.calculateQualityRating(data),
+      profitMargin: profitMargin * 100,
+      returnOnEquity: returnOnEquity * 100,
+      debtToEquity: debtToEquity,
+      revenueGrowth: revenueGrowth * 100,
+    };
+
+    // Add history data if available
+    if (data.closing_history) {
+      formattedData.history = data.closing_history;
+    }
+
+    return formattedData;
+  }
+
+  /**
+   * Calculate performance score based on financials
+   */
+  private calculatePerformanceScore(data: any): number {
+    let score = 50; // Base score
+    
+    const profitMargins = data.profit_margin || 0;
+    const returnOnEquity = data.return_on_equity || 0;
+    const revenueGrowth = data.revenue_growth || 0;
+    
+    // Adjust based on profit margins
+    if (profitMargins > 0.2) score += 10;
+    else if (profitMargins > 0.1) score += 5;
+    else if (profitMargins < 0) score -= 10;
+    
+    // Adjust based on return on equity
+    if (returnOnEquity > 0.2) score += 10;
+    else if (returnOnEquity > 0.1) score += 5;
+    else if (returnOnEquity < 0) score -= 5;
+    
+    // Adjust based on revenue growth
+    if (revenueGrowth > 0.1) score += 10;
+    else if (revenueGrowth > 0.05) score += 5;
+    else if (revenueGrowth < 0) score -= 5;
+    
+    // Cap score between 0-100
+    return Math.max(0, Math.min(100, score));
+  }
+  
+  /**
+   * Calculate stability score
+   */
+  private calculateStabilityScore(data: any): number {
+    let score = 50; // Base score
+    
+    const beta = data.beta || 1;
+    const debtToEquity = data.debt_to_equity || 0;
+    const dividendYield = data.dividend_yield || 0;
+    
+    // Adjust based on beta (volatility)
+    if (beta < 0.8) score += 10;
+    else if (beta < 1) score += 5;
+    else if (beta > 1.5) score -= 10;
+    
+    // Adjust based on debt to equity
+    if (debtToEquity < 0.3) score += 10;
+    else if (debtToEquity < 0.6) score += 5;
+    else if (debtToEquity > 1) score -= 10;
+    
+    // Adjust based on dividend yield (if applicable)
+    if (dividendYield > 0.03) score += 10;
+    else if (dividendYield > 0.015) score += 5;
+    
+    // Cap score between 0-100
+    return Math.max(0, Math.min(100, score));
+  }
+  
+  /**
+   * Calculate value score
+   */
+  private calculateValueScore(data: any): number {
+    let score = 50; // Base score
+    
+    const peRatio = data.pe_ratio || 0;
+    const pbRatio = data.pb_ratio || 0;
+    const targetMeanPrice = data.target_mean_price || 0;
+    const currentPrice = data.current_price || 0;
+    
+    // Adjust based on P/E ratio
+    if (peRatio > 0) { // Only consider positive P/E ratios
+      if (peRatio < 15) score += 10;
+      else if (peRatio < 25) score += 5;
+      else if (peRatio > 40) score -= 10;
+    }
+    
+    // Adjust based on P/B ratio
+    if (pbRatio > 0) { // Only consider positive P/B ratios
+      if (pbRatio < 1.5) score += 10;
+      else if (pbRatio < 3) score += 5;
+      else if (pbRatio > 5) score -= 10;
+    }
+    
+    // Adjust based on current price vs target price
+    if (targetMeanPrice > 0 && currentPrice > 0) {
+      const priceDiff = (targetMeanPrice / currentPrice) - 1;
+      if (priceDiff > 0.2) score += 10;
+      else if (priceDiff > 0.1) score += 5;
+      else if (priceDiff < -0.1) score -= 10;
+    }
+    
+    // Cap score between 0-100
+    return Math.max(0, Math.min(100, score));
+  }
+  
+  /**
+   * Calculate momentum score
+   */
+  private calculateMomentumScore(data: any): number {
+    let score = 50; // Base score
+    
+    const priceChangePercent = data.price_change_percent || 0;
+    const earningsGrowth = data.earnings_growth || 0;
+    
+    // Adjust based on recent price change
+    if (priceChangePercent > 5) score += 10;
+    else if (priceChangePercent > 2) score += 5;
+    else if (priceChangePercent < -5) score -= 10;
+    
+    // Adjust based on earnings growth
+    if (earningsGrowth > 0.2) score += 10;
+    else if (earningsGrowth > 0.1) score += 5;
+    else if (earningsGrowth < 0) score -= 10;
+    
+    // Cap score between 0-100
+    return Math.max(0, Math.min(100, score));
+  }
+  
+  /**
+   * Calculate quality rating (High, Medium, Low)
+   */
+  private calculateQualityRating(data: any): string {
+    // Calculate average of performance-related metrics
+    const metrics = [
+      data.profit_margin || 0,
+      data.return_on_equity || 0,
+      data.revenue_growth || 0,
+      data.earnings_growth || 0
+    ];
+    
+    const avgMetric = metrics.reduce((sum, val) => sum + val, 0) / metrics.length;
+    
+    // Determine quality rating
+    if (avgMetric > 0.15) return "High";
+    if (avgMetric > 0.05) return "Medium";
+    return "Low";
+  }
+
+  /**
+   * Refresh the cache from the database
+   */
+  async refreshCache(): Promise<{ success: string[], failures: string[] }> {
+    try {
+      await this.loadStockData();
+      return { success: this.stockSymbols, failures: [] };
+    } catch (error) {
+      console.error('Error refreshing PostgreSQL cache:', error);
+      return { success: [], failures: ['Database error'] };
+    }
+  }
+}
+
+export const pgStockService = new PgStockService();

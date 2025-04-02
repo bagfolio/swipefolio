@@ -5,9 +5,33 @@ import { setupAuth } from "./auth";
 import axios from "axios";
 import { getAIResponse } from "./ai-service";
 
+// Import both stock services - we'll use PostgreSQL first, then fallback to JSON if needed
 import { jsonStockService } from "./services/json-stock-service";
+import { postgresStockService } from "./services/postgres-stock-service";
+import { stockService } from "./services/stock-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Add an endpoint to check and toggle the data source
+  app.get("/api/system/data-source", (req, res) => {
+    const currentSource = stockService.isUsingPostgres() ? "postgresql" : "json";
+    res.json({ 
+      dataSource: currentSource,
+      postgresAvailable: true
+    });
+  });
+
+  app.post("/api/system/data-source", (req, res) => {
+    const { source } = req.body;
+    if (source !== "postgresql" && source !== "json") {
+      return res.status(400).json({ error: "Invalid data source. Must be 'postgresql' or 'json'" });
+    }
+    
+    stockService.setUsePostgres(source === "postgresql");
+    res.json({ 
+      success: true, 
+      dataSource: source
+    });
+  });
   // Set up authentication routes
   setupAuth(app);
 
@@ -693,19 +717,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[API] Getting stock data for ${normalizedSymbol}`);
       
-
-      // Get stock data directly from JSON files
+      // Try PostgreSQL database first
+      try {
+        const pgStockData = await postgresStockService.getStockData(normalizedSymbol);
+        if (pgStockData) {
+          console.log(`[API] Retrieved stock data for ${normalizedSymbol} from PostgreSQL`);
+          return res.json({
+            ...pgStockData,
+            dataSource: 'postgresql'
+          });
+        }
+      } catch (dbError) {
+        console.error(`[API] Error getting PostgreSQL data for ${normalizedSymbol}:`, dbError);
+      }
+      
+      // Fall back to JSON files if PostgreSQL fails or returns no data
+      console.log(`[API] PostgreSQL data not found for ${normalizedSymbol}, trying JSON files`);
       if (jsonStockService.fileExists(normalizedSymbol)) {
         const stockData = jsonStockService.getStockData(normalizedSymbol);
         if (stockData) {
-          return res.json(stockData);
+          console.log(`[API] Retrieved stock data for ${normalizedSymbol} from JSON`);
+          return res.json({
+            ...stockData,
+            dataSource: 'json'
+          });
         }
       }
       
-      // Return error if no data found
+      // Return error if no data found in either source
       return res.status(404).json({ 
         error: "Stock data not found", 
-        message: `No JSON file found for symbol: ${normalizedSymbol}` 
+        message: `No data found for symbol: ${normalizedSymbol} in PostgreSQL or JSON files` 
       });
     } catch (error: any) {
       console.error(`[API] Error getting stock data:`, error);
@@ -716,7 +758,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Refresh cache for a specific stock symbol - Not needed for JSON files
+  // Refresh cache for stock symbols
   app.post("/api/stock/refresh-cache", async (req, res) => {
     try {
       const { symbols } = req.body;
@@ -730,51 +772,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[API] Request to refresh cache for ${symbolsToRefresh.length} symbols: ${symbolsToRefresh.join(', ')}`);
       
-      // For JSON files, we just check if they exist
-
-      const success = [];
-      const failures = [];
+      // First try PostgreSQL refresh
+      let pgSuccess: string[] = [];
+      let pgFailures: string[] = [];
+      
+      try {
+        // For PostgreSQL we'd actually refresh the data, but for now we just query for existence
+        const result = await postgresStockService.loadStockData();
+        
+        if (result) {
+          const availableSymbols = await postgresStockService.getAvailableSymbols();
+          
+          // Check which symbols exist in the database
+          for (const symbol of symbolsToRefresh) {
+            if (availableSymbols.includes(symbol)) {
+              pgSuccess.push(symbol);
+            } else {
+              pgFailures.push(symbol);
+            }
+          }
+          
+          console.log(`[API] PostgreSQL cache check: ${pgSuccess.length} available, ${pgFailures.length} not available`);
+        }
+      } catch (dbError) {
+        console.error(`[API] Error refreshing PostgreSQL cache:`, dbError);
+        pgFailures = symbolsToRefresh; // All failed if there was a database error
+      }
+      
+      // Also check JSON files as a fallback
+      const jsonSuccess: string[] = [];
+      const jsonFailures: string[] = [];
       
       // Check each symbol to see if its JSON file exists
       for (const symbol of symbolsToRefresh) {
         if (jsonStockService.fileExists(symbol)) {
-          success.push(symbol);
+          jsonSuccess.push(symbol);
         } else {
-          failures.push(symbol);
+          jsonFailures.push(symbol);
+        }
+      }
+      
+      // Combine the results - Get unique symbols using array spread instead of Set
+      const combinedSuccess = [...pgSuccess];
+      for (const symbol of jsonSuccess) {
+        if (!combinedSuccess.includes(symbol)) {
+          combinedSuccess.push(symbol);
         }
       }
       
       res.json({
-        message: `JSON files found for ${success.length} symbols. Missing: ${failures.length}`,
-        success,
-        failures
+        message: `Stock data availability check complete`,
+        postgresql: {
+          available: pgSuccess,
+          unavailable: pgFailures
+        },
+        json: {
+          available: jsonSuccess,
+          unavailable: jsonFailures
+        },
+        // For backwards compatibility
+        success: combinedSuccess,
+        failures: symbolsToRefresh.filter(s => !pgSuccess.includes(s) && !jsonSuccess.includes(s))
       });
     } catch (error: any) {
-      console.error(`[API] Error checking JSON files:`, error);
+      console.error(`[API] Error checking stock data availability:`, error);
       res.status(500).json({ 
-        error: "Failed to check JSON files", 
+        error: "Failed to check stock data", 
         message: error.message 
       });
     }
   });
   
-  // Clear cache endpoint - Not needed for JSON files since they're read-only
+  // Clear cache endpoint - Clear PostgreSQL schema cache
   app.post("/api/stock/clear-cache", async (req, res) => {
     try {
-      console.log(`[API] Clearing stock cache requested - Not implemented for JSON files`);
+      console.log(`[API] Clearing stock cache requested`);
       
-
+      // For PostgreSQL we could refresh some internal cache if needed
+      let pgMessage = "PostgreSQL cache checked";
+      try {
+        await postgresStockService.loadStockData();
+        pgMessage = "PostgreSQL data cache refreshed";
+      } catch (dbError) {
+        console.error(`[API] Error clearing PostgreSQL cache:`, dbError);
+        pgMessage = "PostgreSQL cache refresh failed";
+      }
+      
       // For JSON files, we don't need to clear anything since they're read directly from disk
+      const jsonMessage = "JSON files are read directly from disk, no cache to clear";
+      
       res.json({
-        message: "No cache to clear with JSON files. They are read directly from disk.",
-        availableFiles: jsonStockService.getAvailableSymbols().length
-
+        message: "Stock cache checked",
+        postgresql: pgMessage,
+        json: jsonMessage,
+        jsonFilesAvailable: jsonStockService.getAvailableSymbols().length
       });
     } catch (error: any) {
       console.error(`[API] Error in clear cache endpoint:`, error);
       res.status(500).json({ 
         error: "Error processing clear cache request", 
-
         message: error.message 
       });
     }
@@ -788,13 +884,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const symbol = req.params.symbol.toUpperCase();
       console.log(`[API] Getting price history for: ${symbol}`);
       
-      // Get data from JSON files
-      const { jsonStockService } = await import('./services/json-stock-service');
+      // Try PostgreSQL database first
+      try {
+        const pgStockData = await postgresStockService.getStockData(symbol);
+        
+        if (pgStockData && pgStockData.history && pgStockData.history.length > 0) {
+          console.log(`[API] Retrieved price history for ${symbol} from PostgreSQL`);
+          return res.json({
+            symbol,
+            history: pgStockData.history,
+            source: 'postgresql'
+          });
+        }
+      } catch (dbError) {
+        console.error(`[API] Error getting PostgreSQL history for ${symbol}:`, dbError);
+      }
+      
+      // Fall back to JSON files if PostgreSQL fails or returns no data
+      console.log(`[API] PostgreSQL history not found for ${symbol}, trying JSON files`);
       
       if (jsonStockService.fileExists(symbol)) {
         const stockData = jsonStockService.getStockData(symbol);
         
         if (stockData && stockData.history && stockData.history.length > 0) {
+          console.log(`[API] Retrieved price history for ${symbol} from JSON`);
           return res.json({
             symbol,
             history: stockData.history,
@@ -803,10 +916,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // If JSON file doesn't exist or no history data, return an error
+      // If neither database nor JSON file has history data, return an error
       return res.status(404).json({ 
         error: "No history data available", 
-        message: `No JSON file found for symbol: ${symbol}` 
+        message: `No history data found for symbol: ${symbol} in PostgreSQL or JSON files` 
       });
     } catch (error: any) {
       console.error(`[API] Error getting price history:`, error);
