@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import AskAI from "./ask-ai";
 import PurchaseSuccessModal from "./purchase-success-modal";
+import BackgroundStockCard from "./background-stock-card";
 
 interface StockCardProps {
   stock: StockData;
@@ -783,57 +784,16 @@ export default function StockCard({
   // Real-time display mode
   return (
     <div className="relative h-full" data-testid="stock-card">
-      {/* Next stock preview card - Enhanced for better visibility */}
+      {/* Next stock preview card - Using dedicated background card component */}
       {nextStock && (
         <div 
           className="absolute inset-0 z-0"
           style={{
             transform: 'scale(0.92) translateY(20px)',
-            opacity: 0.85,
-            filter: 'blur(2px)'
+            opacity: 0.85
           }}
         >
-          <div className="w-full h-full bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200">
-            {/* Enhanced preview of next stock with more visible content */}
-            <div className="p-4 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">{nextStock.name}</h3>
-                  <p className="text-sm text-gray-500">{nextStock.ticker}</p>
-                </div>
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  nextStock.change >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  ${nextStock.price.toFixed(2)}
-                </div>
-              </div>
-            </div>
-            
-            {/* Add a chart preview for more visibility */}
-            <div className="p-4 flex justify-center">
-              <div className={`h-24 w-full rounded-lg opacity-50 ${
-                nextStock.change >= 0 ? 'bg-green-50' : 'bg-red-50'
-              }`}>
-                <div className="h-full w-full flex items-center justify-center">
-                  <span className="text-sm text-gray-400">Stock Chart Preview</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Add quality indicator for the background card */}
-            <div className="px-4 pb-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">Quality</span>
-                <span className={`text-sm font-medium ${
-                  nextStock.metrics.performance.color === 'green' ? 'text-green-500' : 
-                  nextStock.metrics.performance.color === 'yellow' ? 'text-yellow-500' : 'text-red-500'
-                }`}>
-                  {nextStock.metrics.performance.color === 'green' ? 'High' : 
-                   nextStock.metrics.performance.color === 'yellow' ? 'Medium' : 'Low'}
-                </span>
-              </div>
-            </div>
-          </div>
+          <BackgroundStockCard stock={nextStock} />
         </div>
       )}
       {/* Skipped message - shows when swiping left */}
