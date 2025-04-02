@@ -116,16 +116,22 @@ export default function StockDetailPage() {
       {/* Main content - Stack of Cards */}
       <div className="flex-1 relative">
         {stocks.length > 0 && (
-          <div className="relative h-full w-full">
+          <div className="relative h-full w-full perspective-1000">
             {/* Background Card - The next stock in the stack */}
             {nextStock && currentStockIndex < stocks.length - 1 && (
-              <div className="absolute inset-0 z-0">
+              <div 
+                className="absolute inset-0 z-0 pointer-events-none" 
+                style={{
+                  transform: 'scale(0.92) translateY(28px)',
+                  opacity: 0.9,
+                  filter: 'blur(1px)'
+                }}
+              >
                 <StockCard
                   stock={nextStock}
                   currentIndex={currentStockIndex + 1}
                   totalCount={stocks.length}
                   displayMode={useRealTimeData ? 'realtime' : 'simple'}
-                  isBackground={true}
                 />
               </div>
             )}

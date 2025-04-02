@@ -1,30 +1,13 @@
-import { useState, useRef, useMemo, useCallback } from "react";
+import React, { useState, useRef, useMemo } from 'react';
+import { motion, useAnimation, useMotionValue, useTransform, PanInfo } from 'framer-motion';
 import { Link } from "wouter";
-import { StockData } from "@/lib/stock-data";
-import { getIndustryAverages } from "@/lib/industry-data";
-import { 
-  Info, 
-  ChevronLeft, 
-  ChevronRight, 
-  RefreshCw, 
-  DollarSign, 
-  TrendingUp, 
-  Shield, 
-  Zap, 
-  MessageCircle, 
-  Calendar, 
-  Lock,
-  BarChart3,
-  Layers
-} from "lucide-react";
-import { motion, useAnimation, useMotionValue, useTransform, PanInfo } from "framer-motion";
-import MetricPopup from "./metric-popup-fixed";
-import PortfolioImpactCalculator from "./portfolio-impact-calculator";
-import OverallAnalysisCard from "@/components/overall-analysis-card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { BarChart3, TrendingUp, ChevronLeft, ChevronRight, MessageCircle, RefreshCw, Calendar, Lock, Info, Layers, Shield, DollarSign, Zap } from 'lucide-react';
+import { StockData } from '@/types/stock-data';
+import MetricPopup from './metric-popup';
+import OverallAnalysisCard from './overall-analysis-card';
 import ComparativeAnalysis from "@/components/comparative-analysis";
-import AskAI from "./ask-ai";
-import PurchaseSuccessModal from "./purchase-success-modal";
+import AskAI from './ask-ai';
+import { getIndustryAverages } from '@/data/industry-data';
 
 interface StockCardProps {
   stock: StockData;
@@ -158,29 +141,6 @@ export default function StockCard({
     data: any;
   } | null>(null);
 
-  // Unified modal state management to prevent iOS flickering issues
-  const [modalState, setModalState] = useState<'closed' | 'calculator' | 'success'>('closed');
-  const [purchaseData, setPurchaseData] = useState<{ 
-    shares: number; 
-    amount: number; 
-    projectedReturn: number 
-  } | null>(null);
-  
-  // Handle purchase completion - transition from calculator to success modal
-  const handlePurchaseComplete = (data: { shares: number; amount: number; projectedReturn: number }) => {
-    setPurchaseData(data);
-    setModalState('success'); // Show success modal
-  };
-
-  // Handle success modal close - also move to next card after closing
-  const handleSuccessModalClose = () => {
-    setModalState('closed'); // Close the modal
-    setPurchaseData(null);
-    if (onNext) {
-      onNext(); // Trigger moving to the next card AFTER closing if onNext is provided
-    }
-  };
-
   // Use static data only
   const chartData = useMemo(() => 
     generateTimeBasedData(stock.chartData, timeFrame),
@@ -214,51 +174,13 @@ export default function StockCard({
     setTimeout(() => setIsRefreshing(false), 1000); // Add a small delay for the animation
   };
 
-  // Add a direct button for easier testing/accessibility (real-time mode only)
-  const openPortfolioCalculator = () => {
-    setModalState('calculator');
-  };
-  
-  // Function to handle investment button click - used by the Buy button in stock detail page
-  const handleInvestButtonClick = () => {
-    openPortfolioCalculator();
-  };
-
   // Enhanced drag handler with smoother transitions and feedback
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const threshold = 100;
 
     if (displayMode === 'realtime') {
-      // Right swipe (positive x) - Open portfolio impact calculator
-      if (info.offset.x > threshold) {
-        setSwipeDirection("right");
-        // Haptic feedback if available
-        if (navigator.vibrate) {
-          navigator.vibrate(50);
-        }
-        
-        // Start spring-back animation first
-        cardControls.start({
-          x: 0,
-          opacity: 1,
-          scale: 1,
-          transition: { 
-            type: "spring", 
-            stiffness: 400, 
-            damping: 30,
-            duration: 0.4
-          }
-        });
-        
-        // THEN, after a short delay, set the modal state to 'calculator'
-        setTimeout(() => {
-          setModalState('calculator');
-        }, 150); // 150ms delay
-        
-        setSwipeDirection(null);
-      } 
       // Left swipe (negative x) - Skip to next card
-      else if (info.offset.x < -threshold) {
+      if (info.offset.x < -threshold) {
         setSwipeDirection("left");
         // Haptic feedback if available
         if (navigator.vibrate) {
@@ -511,15 +433,12 @@ export default function StockCard({
     setIsMetricPopupOpen(true);
   };
 
-
-
   // Render appropriate stock card based on display mode
   if (displayMode === 'simple') {
     return (
       <div className="relative h-full w-full overflow-hidden">
         {/* Card stack container */}
         <div className="absolute inset-0 flex items-center justify-center">
-
           {/* Main stock card - enhanced with softer shadows and better rounded corners */}
           <motion.div
             className="absolute inset-0 z-10 bg-gradient-to-b from-gray-900 to-black rounded-xl overflow-y-auto"
@@ -891,7 +810,7 @@ export default function StockCard({
           {/* Trading date and swipe instruction */}
           <div className="mt-4 flex items-center justify-between text-xs h-6">
             <span className="text-slate-900 font-medium">Last updated: {latestTradingDay}</span>
-            <span className="text-slate-700 italic">Swipe <span className="text-red-600 font-medium">left to skip</span> • Swipe <span className="text-green-600 font-medium">right to invest</span></span>
+            <span className="text-slate-700 italic">Swipe <span className="text-red-600 font-medium">left to skip</span></span>
           </div>
         </div>
 
@@ -1038,13 +957,10 @@ export default function StockCard({
               e.stopPropagation();
             }
           }}
-          // Remove touch handlers that interfere with mobile interactions
         >
           <ComparativeAnalysis currentStock={stock} />
         </div>
         
-        {/* Ask AI Component has been removed */}
-
         {/* Bottom Swipe Instruction and View Details button */}
         <div className="p-4 bg-white border-t border-b border-slate-100 mb-4">
           <Link 
@@ -1055,61 +971,21 @@ export default function StockCard({
             View Detailed Chart
           </Link>
           <div className="text-center text-sm font-medium text-slate-600 my-2">
-            Swipe <span className="text-red-600 font-medium">left to skip</span> • Swipe <span className="text-green-600 font-medium">right to invest</span>
+            Swipe <span className="text-red-600 font-medium">left to skip</span>
           </div>
         </div>
 
-        {/* Overall Analysis - Enhanced with consistent spacing */}
-        {stock.overallAnalysis && (
-          <div className="p-5 bg-gradient-to-b from-white to-slate-50">
-            <div className="mb-1">
-              <OverallAnalysisCard stock={stock} />
-            </div>
-          </div>
+        {/* Metric Popup */}
+        {isMetricPopupOpen && selectedMetric && (
+          <MetricPopup
+            isOpen={isMetricPopupOpen}
+            onClose={() => setIsMetricPopupOpen(false)}
+            metricName={selectedMetric.name}
+            metricColor={selectedMetric.color}
+            metricData={selectedMetric.data}
+          />
         )}
       </motion.div>
-
-      {/* Metric Popup */}
-      {selectedMetric && (
-        <MetricPopup
-          isOpen={isMetricPopupOpen}
-          onClose={() => setIsMetricPopupOpen(false)}
-          metricName={selectedMetric.name}
-          metricColor={selectedMetric.color}
-          metricData={selectedMetric.data}
-        />
-      )}
-
-      {/* Hidden Buy Button - used for programmatic clicking */}
-      <button 
-        className="hidden"
-        data-testid="buy-button"
-        onClick={openPortfolioCalculator}
-      >
-        Buy
-      </button>
-
-      {/* Portfolio Impact Calculator - Unified state management */}
-      {modalState === 'calculator' && (
-        <PortfolioImpactCalculator
-          isOpen={true} // Controlled by mounting/unmounting via modalState
-          onClose={() => setModalState('closed')} // Directly close
-          onPurchaseComplete={handlePurchaseComplete} // Pass completion handler
-          stock={stock}
-        />
-      )}
-      
-      {/* Purchase Success Modal - Unified state management */}
-      {modalState === 'success' && purchaseData && (
-        <PurchaseSuccessModal
-          isOpen={true} // Controlled by mounting/unmounting via modalState
-          onClose={handleSuccessModalClose} // Use specific close handler
-          stock={stock}
-          shares={purchaseData.shares}
-          amount={purchaseData.amount}
-          projectedReturn={purchaseData.projectedReturn}
-        />
-      )}
     </div>
   );
 }
