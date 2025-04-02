@@ -4,7 +4,7 @@ import { stockCache } from '../shared/schema';
 import { eq, sql } from 'drizzle-orm';
 import { getMockStockData, formatMockStockData } from '../shared/mock-stocks';
 import * as finnhub from 'finnhub';
-import { jsonStockService } from './services/json-stock-service';
+import { postgresStockService } from './services/postgres-stock-service';
 
 // Configure API key
 // Use the API key provided by the user
@@ -110,8 +110,8 @@ export class FinnhubService {
     try {
       // Check if API key is available
       if (!FINNHUB_API_KEY) {
-        console.warn(`[Finnhub] API key is missing, using mock data for ${symbol}`);
-        return this.getMockData(symbol);
+        console.warn(`[Finnhub] API key is missing, using postgres/mock data for ${symbol}`);
+        return await this.getMockData(symbol);
       }
       
       // Fetch only the quote data which works with the free tier
@@ -121,10 +121,10 @@ export class FinnhubService {
         return null;
       });
       
-      // If quote failed (which is our most basic endpoint), use mock data
+      // If quote failed (which is our most basic endpoint), use postgres/mock data
       if (!quote) {
-        console.warn(`[Finnhub] Quote fetch failed for ${symbol}, using mock data`);
-        return this.getMockData(symbol);
+        console.warn(`[Finnhub] Quote fetch failed for ${symbol}, using postgres/mock data`);
+        return await this.getMockData(symbol);
       }
       
       // Try to get company profile which might work with the free tier
@@ -133,27 +133,27 @@ export class FinnhubService {
         return null;
       });
 
-      // For the remaining premium endpoints, we'll use mock data as our free tier doesn't have access
-      // Get mock data to fill in the missing pieces
-      const mockData = this.getMockData(symbol);
+      // For the remaining premium endpoints, we'll use postgres/mock data as our free tier doesn't have access
+      // Get postgres/mock data to fill in the missing pieces
+      const backupData = await this.getMockData(symbol);
       
-      // Combine real API data with mock data for a complete response
+      // Create a structured response combining real API data with postgres/mock data
       return {
         symbol,
-        quote: quote || (mockData?.quote || {}),
-        profile: profile || (mockData?.profile || {}),
-        metrics: mockData?.metrics || {},
-        priceTarget: mockData?.priceTarget || {},
-        recommendations: mockData?.recommendations || [],
+        quote: quote || {},
+        profile: profile || {},
+        metrics: backupData?.metrics || {},
+        priceTarget: backupData?.priceTarget || {},
+        recommendations: backupData?.recommendations || [],
         lastUpdated: new Date().toISOString(),
         partiallyMocked: true // Flag to indicate some data is from mock sources
       };
     } catch (error) {
       console.error(`[Finnhub] Error fetching data for ${symbol}:`, error);
       
-      // Try to get mock data as a fallback
-      console.warn(`[Finnhub] Attempting to use mock data for ${symbol}`);
-      const mockData = this.getMockData(symbol);
+      // Try to get postgres/mock data as a fallback
+      console.warn(`[Finnhub] Attempting to use postgres/mock data for ${symbol}`);
+      const mockData = await this.getMockData(symbol);
       
       if (mockData) {
         return mockData;
@@ -163,24 +163,36 @@ export class FinnhubService {
     }
   }
   
-  // Get mock data for a stock symbol
-  private getMockData(symbol: string): any {
-    // First try to get data from JSON files
-    if (jsonStockService.fileExists(symbol)) {
-      console.log(`[Finnhub] Using JSON file data for ${symbol}`);
-      return jsonStockService.getStockData(symbol);
+  // Get data from PostgreSQL or fall back to mock data
+  private async getMockData(symbol: string): Promise<any> {
+    try {
+      // First try to get data from PostgreSQL database
+      console.log(`[Finnhub] Trying to get data from PostgreSQL for ${symbol}`);
+      const postgresData = await postgresStockService.getStockData(symbol);
+      
+      if (postgresData) {
+        console.log(`[Finnhub] Found data in PostgreSQL for ${symbol}`);
+        return postgresData;
+      }
+      
+      // Fall back to hardcoded mock data if PostgreSQL doesn't have the data
+      console.log(`[Finnhub] Data not found in PostgreSQL for ${symbol}, using mock data`);
+      const mockStock = getMockStockData(symbol);
+      
+      if (!mockStock) {
+        console.warn(`[Finnhub] No mock data available for ${symbol}`);
+        return null;
+      }
+      
+      console.log(`[Finnhub] Using mock data for ${symbol}`);
+      return formatMockStockData(mockStock);
+    } catch (error) {
+      console.error(`[Finnhub] Error getting data for ${symbol}:`, error);
+      
+      // Final fallback to hardcoded mock data
+      const mockStock = getMockStockData(symbol);
+      return mockStock ? formatMockStockData(mockStock) : null;
     }
-    
-    // Fall back to hardcoded mock data if JSON file doesn't exist
-    const mockStock = getMockStockData(symbol);
-    
-    if (!mockStock) {
-      console.warn(`[Finnhub] No mock data available for ${symbol}`);
-      return null;
-    }
-    
-    console.log(`[Finnhub] Using mock data for ${symbol}`);
-    return formatMockStockData(mockStock);
   }
   
   // Save data to cache

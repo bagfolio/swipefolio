@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, jsonb, timestamp, varchar, numeric, doublePrecision, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -75,6 +75,55 @@ export const stockCache = pgTable("stock_cache", {
   updatedAt: timestamp("updated_at").notNull().default(new Date()),
 });
 
+// New stock tables based on the provided database schema
+export const stocks = pgTable("stocks", {
+  ticker: varchar("ticker", { length: 10 }).primaryKey(),
+  companyName: text("company_name").notNull(),
+  sector: text("sector"),
+  industry: text("industry"),
+  currentPrice: numeric("current_price"),
+  marketCap: numeric("market_cap"),
+  dividendYield: numeric("dividend_yield"),
+  beta: numeric("beta"),
+  peRatio: numeric("pe_ratio"),
+  eps: numeric("eps"),
+  fiftyTwoWeekHigh: numeric("fifty_two_week_high"),
+  fiftyTwoWeekLow: numeric("fifty_two_week_low"),
+  averageVolume: numeric("average_volume"),
+  description: text("description"),
+});
+
+export const stockData = pgTable("stock_data", {
+  ticker: varchar("ticker", { length: 10 }).primaryKey().references(() => stocks.ticker),
+  closingHistory: jsonb("closing_history"), // JSON array of historical closing prices
+  dividends: jsonb("dividends"), // JSON array of dividend data
+  incomeStatement: jsonb("income_statement"), // JSON object with income statement data
+  balanceSheet: jsonb("balance_sheet"), // JSON object with balance sheet data
+  cashFlow: jsonb("cash_flow"), // JSON object with cash flow data
+  recommendations: jsonb("recommendations"), // JSON array of analyst recommendations
+  earningsDates: jsonb("earnings_dates"), // JSON array of upcoming earnings dates
+  earningsHistory: jsonb("earnings_history"), // JSON array of historical earnings
+  earningsTrend: jsonb("earnings_trend"), // JSON object with earnings trend data
+  upgradesDowngrades: jsonb("upgrades_downgrades"), // JSON array of analyst upgrades/downgrades
+  financialData: jsonb("financial_data"), // JSON object with financial metrics
+  institutionalHolders: jsonb("institutional_holders"), // JSON array of institutional holders
+  majorHolders: jsonb("major_holders"), // JSON array of major holders
+});
+
+export const sectors = pgTable("sectors", {
+  sectorKey: varchar("sector_key", { length: 50 }).primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  metrics: jsonb("metrics"), // JSON object with sector metrics
+});
+
+export const marketData = pgTable("market_data", {
+  market: varchar("market", { length: 20 }).primaryKey(),
+  name: text("name").notNull(),
+  metrics: jsonb("metrics"), // JSON object with market metrics
+  lastUpdated: timestamp("last_updated").notNull().default(new Date()),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -108,6 +157,12 @@ export const insertStockCacheSchema = createInsertSchema(stockCache).omit({
   id: true,
 });
 
+// Insert schemas for stock tables
+export const insertStocksSchema = createInsertSchema(stocks);
+export const insertStockDataSchema = createInsertSchema(stockData);
+export const insertSectorsSchema = createInsertSchema(sectors);
+export const insertMarketDataSchema = createInsertSchema(marketData);
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -117,3 +172,7 @@ export type UserProgress = typeof userProgress.$inferSelect;
 export type UserBadge = typeof userBadges.$inferSelect;
 export type UserDailyProgress = typeof userDailyProgress.$inferSelect;
 export type StockCache = typeof stockCache.$inferSelect;
+export type Stock = typeof stocks.$inferSelect;
+export type StockDetailedData = typeof stockData.$inferSelect;
+export type Sector = typeof sectors.$inferSelect;
+export type MarketData = typeof marketData.$inferSelect;

@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { postgresStockService } from "./services/postgres-stock-service";
 import { jsonStockService } from "./services/json-stock-service";
 import cron from 'node-cron';
 
@@ -17,41 +18,71 @@ const COMMON_SYMBOLS = [
 // Initialize stock data
 async function initializeStockCache() {
   try {
-    log('Loading stock data from JSON files...');
+    // Try to initialize PostgreSQL stock service
+    log('Initializing PostgreSQL stock service...');
+    const pgInitResult = await postgresStockService.loadStockData().catch(error => {
+      log(`Error initializing PostgreSQL stock service: ${error}`);
+      return false;
+    });
     
-    const availableSymbols = jsonStockService.getAvailableSymbols();
-    const successSymbols = [];
-    const failedSymbols = [];
-    
-    for (const symbol of COMMON_SYMBOLS) {
-      if (availableSymbols.includes(symbol)) {
-        try {
-          // Load data from JSON file to verify it's available
-          jsonStockService.getStockData(symbol);
-          successSymbols.push(symbol);
-        } catch (err) {
+    if (pgInitResult) {
+      log('Successfully connected to PostgreSQL database for stock data');
+    } else {
+      log('Failed to connect to PostgreSQL. Falling back to JSON files...');
+      
+      // Fallback to JSON data if PostgreSQL fails
+      const availableSymbols = jsonStockService.getAvailableSymbols();
+      const successSymbols = [];
+      const failedSymbols = [];
+      
+      for (const symbol of COMMON_SYMBOLS) {
+        if (availableSymbols.includes(symbol)) {
+          try {
+            // Load data from JSON file to verify it's available
+            jsonStockService.getStockData(symbol);
+            successSymbols.push(symbol);
+          } catch (err) {
+            failedSymbols.push(symbol);
+          }
+        } else {
           failedSymbols.push(symbol);
         }
-      } else {
-        failedSymbols.push(symbol);
       }
-    }
-    
-    log(`JSON stock data initialization complete: ${successSymbols.length} available, ${failedSymbols.length} not available`);
-    
-    if (failedSymbols.length > 0) {
-      log(`Stocks not available as JSON: ${failedSymbols.join(', ')}`);
+      
+      log(`JSON stock data initialization complete: ${successSymbols.length} available, ${failedSymbols.length} not available`);
+      
+      if (failedSymbols.length > 0) {
+        log(`Stocks not available as JSON: ${failedSymbols.join(', ')}`);
+      }
     }
   } catch (error) {
     log(`Error initializing stock data: ${error}`);
   }
 }
 
-// No scheduled updates needed as JSON data is static
+// Set up cache updates for stock data
 function setupScheduledCacheUpdates() {
-  // This function remains for API compatibility but doesn't do anything
-  // since we're using static JSON files
-  log('Note: Using static JSON data, no scheduled updates will occur');
+  // Schedule cache updates every day at midnight
+  cron.schedule('0 0 * * *', async () => {
+    log('Running scheduled stock data update...');
+    try {
+      // If we have symbols in the cache, refresh them
+      const symbols = COMMON_SYMBOLS;
+      log(`Refreshing data for ${symbols.length} symbols...`);
+      
+      // Try to use PostgreSQL service
+      try {
+        await postgresStockService.loadStockData();
+        log('Successfully refreshed stock data from PostgreSQL');
+      } catch (error) {
+        log(`Error refreshing PostgreSQL stock data: ${error}`);
+      }
+    } catch (error) {
+      log(`Error in scheduled cache update: ${error}`);
+    }
+  });
+  
+  log('Scheduled daily stock data updates (midnight)');
 }
 
 const app = express();
