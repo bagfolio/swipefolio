@@ -119,11 +119,7 @@ const handlePreviousStock = useCallback(() => {
   // Handlers Lifted from StockCard
   const handleOpenCalculator = useCallback(() => {
       setModalState('calculator');
-      // Reset card position after opening calculator
-      if (cardControls) {
-          cardControls.start({ x: 0, transition: { type: "spring", stiffness: 500, damping: 30 }});
-      }
-  }, [cardControls]);
+  }, []);
 
   const handleMetricClick = useCallback((metricData: MetricClickData) => {
       setSelectedMetric(metricData);

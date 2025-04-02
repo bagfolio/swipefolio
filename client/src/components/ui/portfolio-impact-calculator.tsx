@@ -19,16 +19,16 @@ export default function PortfolioImpactCalculator({
   stock,
 }: PortfolioImpactCalculatorProps) {
   const { cash, calculateImpact, buyStock, isLoading } = usePortfolio();
-
+  
   // State for investment amount - start with min $1
   const [investmentAmount, setInvestmentAmount] = useState<number>(1);
   const [showValueShares, setShowValueShares] = useState<boolean>(true); // true for value, false for shares
-
+  
   // State for metric info tooltips
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
-
+  
   // No longer need internal success modal state as it's managed by parent
-
+  
   // Metric explanations
   const metricExplanations = {
     performance: "Shows how much your portfolio has grown over time through stock price increases and dividends.",
@@ -36,7 +36,7 @@ export default function PortfolioImpactCalculator({
     value: "Indicates whether the companies in your portfolio are reasonably priced compared to what they're actually worth.",
     momentum: "Shows the strength and direction of your portfolio's recent price movements."
   };
-
+  
   // Slide-to-invest state variables
   const slideTrackRef = useRef<HTMLDivElement>(null);
   const [slideTrackWidth, setSlideTrackWidth] = useState(0);
@@ -48,47 +48,47 @@ export default function PortfolioImpactCalculator({
     [0, slideTrackWidth * 0.7, slideTrackWidth],
     [0, 0.5, 1]
   );
-
+  
   // Maximum amount available to invest
   const maxInvestment = cash; // Allow using all available cash
-
+  
   // Calculate impact of adding this stock
   const impact = calculateImpact(stock, investmentAmount);
-
+  
   // Calculate shares that would be purchased
   const shares = investmentAmount / stock.price;
-
+  
   // Calculate projected 1-year return based on stock oneYearReturn
   const oneYearReturnValue = typeof stock.oneYearReturn === 'string' ? parseFloat(stock.oneYearReturn) : stock.oneYearReturn ?? 0;
   const projectedReturn = investmentAmount * (1 + oneYearReturnValue / 100);
-
+  
   // Update slideTrackWidth when the component mounts or window resizes
   useEffect(() => {
     if (!isOpen) return;
-
+    
     const updateTrackWidth = () => {
       if (slideTrackRef.current) {
         const width = slideTrackRef.current.offsetWidth;
         setSlideTrackWidth(width);
       }
     };
-
+    
     updateTrackWidth();
     window.addEventListener('resize', updateTrackWidth);
-
+    
     return () => window.removeEventListener('resize', updateTrackWidth);
   }, [slideTrackRef, isOpen]);
-
+  
   // Handle slide end
   const handleSlideEnd = () => {
     setSlidingInProgress(false);
-
+    
     // If slid more than 70% of the way, trigger success (making it easier to complete)
     if (slideX.get() > slideTrackWidth * 0.7) {
       // Animate to completion
       slideX.set(slideTrackWidth);
       setSlideSuccess(true);
-
+      
       // Wait for animation to complete before triggering actual action
       setTimeout(() => {
         handleInvest();
@@ -98,7 +98,7 @@ export default function PortfolioImpactCalculator({
       slideX.set(0);
     }
   };
-
+  
   // Format currency for value display
   const formatValue = (value: number) => {
     if (showValueShares) {
@@ -114,7 +114,7 @@ export default function PortfolioImpactCalculator({
       return `${(value / stock.price).toFixed(4)} shares`;
     }
   };
-
+  
   // Format positive/negative values
   const formatChange = (value: number) => {
     const formatted = value.toFixed(1) + '%';
@@ -126,7 +126,7 @@ export default function PortfolioImpactCalculator({
       return <span className="text-gray-500">0</span>;
     }
   };
-
+  
   // Function to get icon for metric
   const getMetricIcon = (metricName: string, size: number = 16) => {
     switch (metricName.toLowerCase()) {
@@ -142,7 +142,7 @@ export default function PortfolioImpactCalculator({
         return <Info size={size} />;
     }
   };
-
+  
   // Handle investment amount changes
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
@@ -150,16 +150,16 @@ export default function PortfolioImpactCalculator({
       setInvestmentAmount(Math.min(value, maxInvestment));
     }
   };
-
+  
   // Handle increment/decrement buttons
   const incrementAmount = () => {
     setInvestmentAmount(prev => Math.min(prev + 1, maxInvestment));
   };
-
+  
   const decrementAmount = () => {
     setInvestmentAmount(prev => Math.max(prev - 1, 1));
   };
-
+  
   // Handle invest action - simplified to call parent component's handlers
   const handleInvest = () => {
     buyStock(stock, investmentAmount);
@@ -172,7 +172,7 @@ export default function PortfolioImpactCalculator({
     });
     // No longer directly closing - StockCard will manage state transitions
   };
-
+  
   // Format number for display
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -182,12 +182,12 @@ export default function PortfolioImpactCalculator({
       maximumFractionDigits: 2
     }).format(value);
   };
-
+  
   // Format percentage for display
   const formatPercentage = (value: number) => {
     return `${value.toFixed(1)}%`;
   };
-
+  
   return (
     <div className="portfolio-impact-wrapper fixed inset-0 flex items-center justify-center z-[9999]" style={{ isolation: 'isolate' }}>
       {/* Calculator Modal */}
@@ -204,7 +204,7 @@ export default function PortfolioImpactCalculator({
               style={{ zIndex: 50 }}
               onClick={onClose}
             />
-
+            
             {/* Modal with enhanced animations and iOS-friendly rendering */}
             <motion.div
               initial={{ opacity: 0, scale: 0.92, y: 30 }}
@@ -224,7 +224,7 @@ export default function PortfolioImpactCalculator({
                 y: 20,
                 transition: { duration: 0.25, ease: 'easeIn' }
               }}
-              className="relative w-full h-full max-h-screen bg-white rounded-2xl overflow-hidden"
+              className="relative w-[85%] max-w-sm mx-auto bg-white rounded-2xl overflow-hidden"
               style={{
                 zIndex: 51,
                 maxHeight: '90vh',
@@ -268,12 +268,12 @@ export default function PortfolioImpactCalculator({
                   <X size={18} />
                 </button>
               </div>
-
+              
               {/* Content */}
               <div className="p-5">
                 <div className="mb-4">
                   {/* Title removed as it's redundant with the header */}
-
+                  
                   {/* Modern Pie Chart showing industry allocation */}
                   <div className="relative h-48 mb-4 bg-white rounded-xl overflow-hidden border border-slate-100 shadow-sm">
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -287,7 +287,7 @@ export default function PortfolioImpactCalculator({
                           stroke={Object.keys(impact.industryAllocation).length === 0 ? "#f3f4f6" : "#e5e7eb"} 
                           strokeWidth="20" 
                         />
-
+                        
                         {/* Dynamic segments - only rendered when data exists */}
                         {Object.entries(impact.industryAllocation).length > 0 && 
                           Object.entries(impact.industryAllocation).map(([industry, allocation], index) => {
@@ -300,7 +300,7 @@ export default function PortfolioImpactCalculator({
                               .slice(0, index)
                               .reduce((sum, [_, alloc]) => sum + alloc.new, 0);
                             const rotation = (previousSegments * 3.6) - 90; // -90 to start at top
-
+                            
                             // Only render segments with actual percentage values
                             return segmentPct > 0 ? (
                               <circle 
@@ -318,12 +318,12 @@ export default function PortfolioImpactCalculator({
                             ) : null;
                           })
                         }
-
+                        
                         {/* Central circle - clean white center */}
                         <circle cx="50" cy="50" r="30" fill="white" />
                       </svg>
                     </div>
-
+                    
                     {/* Simple industry indicators in the top left */}
                     <div className="absolute top-3 left-3">
                       <div className="space-y-1">
@@ -332,7 +332,7 @@ export default function PortfolioImpactCalculator({
                           .map(([industry, allocation], index) => {
                             const colors = ["#06b6d4", "#8b5cf6", "#fbbf24", "#34d399", "#f87171"];
                             const color = colors[index % colors.length];
-
+                            
                             return (
                               <div key={industry} className="flex items-center">
                                 <div 
@@ -347,7 +347,7 @@ export default function PortfolioImpactCalculator({
                       </div>
                     </div>
                   </div>
-
+                  
                   {/* 2x2 Grid Metrics - Compact and readable */}
                   <div className="grid grid-cols-2 gap-2 mb-4">
                     {Object.entries(impact.impact)
@@ -386,7 +386,7 @@ export default function PortfolioImpactCalculator({
                             </div>
                           )}
                         </div>
-
+                        
                         {/* New metric value with change indicator - centered */}
                         <div className="flex items-center justify-center">
                           <div className="text-base font-bold text-slate-900 mr-1.5">
@@ -403,7 +403,7 @@ export default function PortfolioImpactCalculator({
                       </div>
                     ))}
                   </div>
-
+                  
                   {/* Investment amount control with increment/decrement buttons */}
                   <div className="mt-6">
                     <div className="flex justify-between items-center mb-2">
@@ -414,7 +414,7 @@ export default function PortfolioImpactCalculator({
                         <span className="text-emerald-700">{formatCurrency(maxInvestment)}</span>
                       </div>
                     </div>
-
+                    
                     <div className="flex items-center gap-2">
                       <button 
                         className="p-2 bg-slate-100 text-slate-500 rounded-md hover:bg-slate-200 focus:outline-none"
@@ -425,7 +425,7 @@ export default function PortfolioImpactCalculator({
                           <path d="M5 12h14"></path>
                         </svg>
                       </button>
-
+                      
                       <div className="relative flex-1">
                         <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500">$</span>
                         <input 
@@ -437,7 +437,7 @@ export default function PortfolioImpactCalculator({
                           className="w-full rounded-md px-8 py-2.5 border border-slate-200 focus:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-100 text-center font-medium text-slate-900"
                         />
                       </div>
-
+                      
                       <button 
                         className="p-2 bg-slate-100 text-slate-500 rounded-md hover:bg-slate-200 focus:outline-none"
                         onClick={incrementAmount}
@@ -450,7 +450,7 @@ export default function PortfolioImpactCalculator({
                       </button>
                     </div>
                   </div>
-
+                  
                   {/* Enhanced Calculation summary - Smaller size */}
                   <div className="flex flex-col mt-5 mb-1">
                     <div className="flex justify-center items-center gap-3 p-3 bg-slate-50 rounded-lg">
@@ -458,11 +458,11 @@ export default function PortfolioImpactCalculator({
                         <div className="text-xs font-medium text-slate-700 mb-0.5">You'll get</div>
                         <div className="text-xl font-bold text-slate-900">{shares.toFixed(4)} shares</div>
                       </div>
-
+                      
                       <div className="text-slate-500 flex items-center justify-center">
                         <ArrowRight size={20} strokeWidth={2} />
                       </div>
-
+                      
                       <div className="text-center">
                         <div className="text-xs font-medium text-slate-700 mb-0.5">Projected 1y return</div>
                         <div className="text-xl font-bold text-green-600">
@@ -471,7 +471,7 @@ export default function PortfolioImpactCalculator({
                       </div>
                     </div>
                   </div>
-
+                  
                   {/* Invest button */}
                   <button 
                     onClick={handleInvest}
