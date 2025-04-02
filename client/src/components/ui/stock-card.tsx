@@ -578,9 +578,9 @@ export default function StockCard({
                 filter: 'blur(3px)'
               }}
             >
-              {/* Very simple next card preview */}
-              <div className="w-full h-full bg-gray-900 py-12 px-4 flex flex-col items-center justify-center">
-                <div className="bg-black/40 rounded-xl p-6 border border-gray-700/40 shadow-xl backdrop-blur-sm w-11/12 max-w-md flex flex-col items-center text-center space-y-4">
+              {/* Very simple next card preview - improved with slate instead of black */}
+              <div className="w-full h-full bg-slate-800 py-12 px-4 flex flex-col items-center justify-center">
+                <div className="bg-slate-700/60 rounded-xl p-6 border border-slate-600/40 shadow-xl backdrop-blur-sm w-11/12 max-w-md flex flex-col items-center text-center space-y-4">
                   <h2 className="text-2xl font-bold text-white">{nextStock.name}</h2>
                   <p className="text-xl font-medium text-gray-300">{nextStock.ticker}</p>
                   <div className={`text-lg font-bold px-4 py-1 rounded-full ${nextStock.change >= 0 ? 'text-green-300 bg-green-900/30' : 'text-red-300 bg-red-900/30'}`}>
@@ -588,8 +588,8 @@ export default function StockCard({
                   </div>
 
                   {/* Blurred content suggestion */}
-                  <div className="w-3/4 h-2 bg-gray-700/50 rounded-full mt-2"></div>
-                  <div className="w-2/3 h-2 bg-gray-700/50 rounded-full"></div>
+                  <div className="w-3/4 h-2 bg-gray-500/50 rounded-full mt-2"></div>
+                  <div className="w-2/3 h-2 bg-gray-500/50 rounded-full"></div>
                 </div>
               </div>
             </div>
@@ -597,7 +597,7 @@ export default function StockCard({
 
           {/* Main stock card - enhanced with softer shadows and better rounded corners */}
           <motion.div
-            className="absolute inset-0 z-10 bg-gradient-to-b from-gray-900 to-black rounded-xl overflow-y-auto"
+            className="absolute inset-0 z-10 bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl overflow-y-auto"
             ref={cardRef}
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
@@ -669,9 +669,9 @@ export default function StockCard({
                     transition={{ duration: 0.4, delay: Math.random() * 0.3 }}
                     key={key}
                     className={`p-4 rounded-xl relative ${
-                      metricObj.color === 'green' ? 'bg-gradient-to-br from-green-900/40 to-black border border-green-500/30' :
-                      metricObj.color === 'yellow' ? 'bg-gradient-to-br from-yellow-900/40 to-black border border-yellow-500/30' : 
-                      'bg-gradient-to-br from-red-900/40 to-black border border-red-500/30'
+                      metricObj.color === 'green' ? 'bg-gradient-to-br from-green-900/40 to-slate-900 border border-green-500/30' :
+                      metricObj.color === 'yellow' ? 'bg-gradient-to-br from-yellow-900/40 to-slate-900 border border-yellow-500/30' : 
+                      'bg-gradient-to-br from-red-900/40 to-slate-900 border border-red-500/30'
                     } active:scale-98 transition-all duration-150 cursor-pointer shadow-lg hover:shadow-xl`}
                     onClick={() => handleMetricClick(metricName)}
                     whileHover={{ scale: 1.03 }}
@@ -851,20 +851,20 @@ export default function StockCard({
             zIndex: 0
           }}
         >
-          {/* This is the actual next stock preview */}
-          <div className="w-full h-full bg-black">
+          {/* This is the actual next stock preview - without the black background that causes flashing */}
+          <div className="w-full h-full bg-gradient-to-b from-slate-800 to-slate-900">
             <div className="h-full w-full flex flex-col">
               {/* Simplified header with stock symbol and name */}
-              <div className="px-6 py-4 bg-gray-900/70">
+              <div className="px-6 py-4 bg-slate-800/70 backdrop-blur-sm">
                 <div className="text-xl font-bold text-white">{nextStock.ticker}</div>
                 <div className="text-sm text-gray-300">{nextStock.name}</div>
               </div>
               
               {/* Simplified chart area */}
-              <div className="flex-1 bg-gray-900/50 flex items-center justify-center">
-                <div className="text-center text-gray-400">
+              <div className="flex-1 bg-slate-800/50 backdrop-blur-sm flex items-center justify-center">
+                <div className="text-center text-gray-200">
                   <div className="text-2xl font-semibold">${nextStock.price.toFixed(2)}</div>
-                  <div className={`text-sm ${nextStock.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  <div className={`text-sm font-medium ${nextStock.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {nextStock.change >= 0 ? '+' : ''}{nextStock.change.toFixed(2)}%
                   </div>
                 </div>
