@@ -51,7 +51,8 @@ const IndustryPosition: React.FC<IndustryPositionProps> = ({
 
   // Get industry stocks and calculate actual rank position
   useEffect(() => {
-    const stocks = getIndustryStocks(industry);
+    // Use an empty array for now - we'll properly implement this later
+    const stocks: StockData[] = []; 
     setIndustryStocks(stocks);
     setIndustryStocksCount(stocks.length);
     

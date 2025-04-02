@@ -38,7 +38,12 @@ export default function StockDetailPage() {
   const stocks = useMemo(() => {
     if (!stack) return [];
     console.log("Fetching stocks for industry:", stack.industry);
-    const industryStocks = getIndustryStocks(stack.industry);
+    
+    // Import the stock data from the json service
+    const { jsonStockService } = require('@/services/json-stock-service');
+    const allStocks = jsonStockService.getAllStocks();
+    
+    const industryStocks = getIndustryStocks(stack.industry, allStocks);
     console.log(`Found ${industryStocks.length} stocks for industry ${stack.industry}`);
     return industryStocks;
   }, [stack]);

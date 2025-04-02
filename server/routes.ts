@@ -679,8 +679,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
 
   // Get stock data from JSON files
-  // Get stock data for a specific symbol
+  // Get all available stocks
+  app.get("/api/stocks", async (req, res) => {
+    try {
+      const availableStocks = jsonStockService.getAvailableSymbols();
+      console.log(`[API] Returning list of ${availableStocks.length} available stocks`);
+      res.json({ availableStocks });
+    } catch (error: any) {
+      console.error(`[API] Error getting available stocks:`, error);
+      res.status(500).json({ 
+        error: "Failed to fetch available stocks", 
+        message: error.message 
+      });
+    }
+  });
 
+  // Get stock data for a specific symbol
   app.get("/api/stock/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;

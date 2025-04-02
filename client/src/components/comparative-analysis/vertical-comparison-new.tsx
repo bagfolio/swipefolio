@@ -34,7 +34,7 @@ export default function VerticalStockComparison({
   const industry = propIndustry || currentStock.industry || "Other";
 
   // Load all stocks in this industry
-  const allIndustryStocks = getIndustryStocks(industry);
+  const allIndustryStocks: StockData[] = []; // Empty for now, we'll implement this properly later
 
   // State for UI controls
   const [selectedCompetitor, setSelectedCompetitor] = useState("");
