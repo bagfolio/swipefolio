@@ -171,25 +171,65 @@ export async function fetchStockMetrics(ticker: string): Promise<any> {
 }
 
 /**
- * Helper function to map raw metrics to StockData metrics format
+ * Helper function to map raw metrics to StockData metrics format with intelligent field mapping
  * @param rawMetrics Raw metrics from PostgreSQL 
  * @returns Formatted metrics in the StockData format
  */
 export function formatMetricsFromDatabase(rawMetrics: any): any {
   if (!rawMetrics) return null;
   
+  // Centralized field mapping to handle diverse field names
+  // Map PostgreSQL database field names to UI field names
+  const fieldMap: Record<string, string[]> = {
+    // Field in UI format: [Possible database field names]
+    'peRatio': ['peRatio', 'pe_ratio', 'price_to_earnings', 'priceToEarnings'],
+    'pbRatio': ['pbRatio', 'pb_ratio', 'price_to_book', 'priceToBook'],
+    'dividendYield': ['dividendYield', 'dividend_yield'],
+    'beta': ['beta'],
+    'volatility': ['volatility'],
+    'revenueGrowth': ['revenueGrowth', 'revenue_growth'],
+    'profitMargin': ['profitMargin', 'profit_margin'],
+    'returnOnEquity': ['returnOnEquity', 'return_on_equity', 'roe'],
+    'returnOnCapital': ['returnOnCapital', 'return_on_capital', 'roc'],
+    'debtToEquity': ['debtToEquity', 'debt_to_equity'],
+    'threeMonthReturn': ['threeMonthReturn', 'three_month_return'],
+    'relativePerformance': ['relativePerformance', 'relative_performance'],
+    'rsi': ['rsi', 'relativeStrengthIndex'],
+    'oneYearReturn': ['oneYearReturn', 'one_year_return']
+  };
+  
+  // Function to look up value using the field map
+  const getValueByMapping = (key: string, defaultValue: any = 0): any => {
+    if (!fieldMap[key]) {
+      return rawMetrics[key] !== null && rawMetrics[key] !== undefined 
+        ? rawMetrics[key] 
+        : defaultValue;
+    }
+    
+    // Try all possible field names until we find one that exists
+    for (const field of fieldMap[key]) {
+      if (rawMetrics[field] !== null && rawMetrics[field] !== undefined) {
+        console.log(`Found value for ${key} using db field ${field}: ${rawMetrics[field]}`);
+        return rawMetrics[field];
+      }
+    }
+    
+    // If no field found, return default
+    return defaultValue;
+  };
+  
   // Map performance metrics
   const performance = {
     value: getMetricScore(rawMetrics.performance || 0),
     color: getMetricColor(rawMetrics.performance || 0),
     details: {
-      revenueGrowth: rawMetrics.revenueGrowth !== null ? rawMetrics.revenueGrowth : 0,
-      profitMargin: rawMetrics.profitMargin !== null ? rawMetrics.profitMargin : 0,
-      returnOnCapital: rawMetrics.returnOnEquity !== null ? rawMetrics.returnOnEquity : 0,
+      revenueGrowth: getValueByMapping('revenueGrowth'),
+      profitMargin: getValueByMapping('profitMargin'),
+      returnOnCapital: getValueByMapping('returnOnCapital')
     },
-    explanation: `Based on revenue growth (${formatNumber(rawMetrics.revenueGrowth || 0)}%), 
-                  profit margin (${formatNumber(rawMetrics.profitMargin || 0)}%), 
-                  and return on equity (${formatNumber(rawMetrics.returnOnEquity || 0)}%).`
+    explanation: `Based on revenue growth (${formatNumber(getValueByMapping('revenueGrowth'))}%), 
+                  profit margin (${formatNumber(getValueByMapping('profitMargin'))}%), 
+                  and return on capital (${formatNumber(getValueByMapping('returnOnCapital'))}%).`
   };
   
   // Map stability metrics
@@ -197,11 +237,11 @@ export function formatMetricsFromDatabase(rawMetrics: any): any {
     value: getMetricScore(rawMetrics.stability || 0),
     color: getMetricColor(rawMetrics.stability || 0),
     details: {
-      volatility: rawMetrics.volatility !== null ? rawMetrics.volatility : 0,
-      beta: rawMetrics.beta !== null ? rawMetrics.beta : 0,
-      dividendConsistency: rawMetrics.dividendYield > 0 ? "Good" : "N/A",
+      volatility: getValueByMapping('volatility'),
+      beta: getValueByMapping('beta'),
+      dividendConsistency: getValueByMapping('dividendYield') > 0 ? "Good" : "N/A",
     },
-    explanation: `Based on volatility metrics, beta of ${formatNumber(rawMetrics.beta || 0)}, 
+    explanation: `Based on volatility metrics, beta of ${formatNumber(getValueByMapping('beta'))}, 
                   and dividend consistency.`
   };
   
@@ -210,13 +250,13 @@ export function formatMetricsFromDatabase(rawMetrics: any): any {
     value: getMetricScore(rawMetrics.value || 0),
     color: getMetricColor(rawMetrics.value || 0),
     details: {
-      peRatio: rawMetrics.peRatio !== null ? rawMetrics.peRatio : 0,
-      pbRatio: rawMetrics.pbRatio !== null ? rawMetrics.pbRatio : 0,
-      dividendYield: rawMetrics.dividendYield !== null ? rawMetrics.dividendYield : 0,
+      peRatio: getValueByMapping('peRatio'),
+      pbRatio: getValueByMapping('pbRatio'),
+      dividendYield: getValueByMapping('dividendYield'),
     },
-    explanation: `Based on P/E ratio (${formatNumber(rawMetrics.peRatio || 0)}), 
-                  P/B ratio (${formatNumber(rawMetrics.pbRatio || 0)}), 
-                  and dividend yield (${formatNumber(rawMetrics.dividendYield || 0)}%).`
+    explanation: `Based on P/E ratio (${formatNumber(getValueByMapping('peRatio'))}), 
+                  P/B ratio (${formatNumber(getValueByMapping('pbRatio'))}), 
+                  and dividend yield (${formatNumber(getValueByMapping('dividendYield'))}%).`
   };
   
   // Map momentum metrics
@@ -224,17 +264,23 @@ export function formatMetricsFromDatabase(rawMetrics: any): any {
     value: getMetricScore(rawMetrics.momentum || 0),
     color: getMetricColor(rawMetrics.momentum || 0),
     details: {
-      threeMonthReturn: rawMetrics.threeMonthReturn !== null ? rawMetrics.threeMonthReturn : 0,
-      relativePerformance: rawMetrics.relativePerformance !== null ? rawMetrics.relativePerformance : 0,
-      rsi: rawMetrics.rsi !== null ? rawMetrics.rsi : 50, // Default to neutral RSI
-      oneYearReturn: rawMetrics.oneYearReturn !== null ? rawMetrics.oneYearReturn : 0
+      threeMonthReturn: getValueByMapping('threeMonthReturn'),
+      relativePerformance: getValueByMapping('relativePerformance'),
+      rsi: getValueByMapping('rsi', 50), // Default to neutral RSI
+      oneYearReturn: getValueByMapping('oneYearReturn')
     },
     explanation: `Based on recent price momentum, relative performance versus the market, 
                   and technical indicators.`
   };
   
-  // Need to keep any existing metrics data, especially for metrics that might be null in PostgreSQL
-  // This ensures we're preserving existing data but prioritizing PostgreSQL values when available
+  // Debug logging for transparency
+  console.log('Formatted metrics from database:', {
+    performance: JSON.stringify(performance.details),
+    stability: JSON.stringify(stability.details),
+    value: JSON.stringify(value.details),
+    momentum: JSON.stringify(momentum.details)
+  });
+  
   return { performance, stability, value, momentum };
 }
 
