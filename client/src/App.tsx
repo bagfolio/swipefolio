@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home-page";
 import AuthPage from "@/pages/auth-page";
 import LessonPage from "@/pages/lesson-page";
+import LearnPage from "@/pages/LearnPage";
 import OnboardingPage from "@/pages/onboarding-page";
 import StockDetailPage from "@/pages/stock-detail-page";
 import StockDetailView from "@/pages/stock-detail-view";
@@ -29,6 +30,7 @@ function Router() {
         <Route path="/stock/:stackId" component={StockDetailPage} />
         <Route path="/stock-detail/:symbol" component={StockDetailView} />
         <Route path="/lesson/:stackId" component={LessonPage} />
+        <Route path="/learn/:stackId" component={LearnPage} />
         <Route path="/learn" component={HomePage} />
         <Route path="/market" component={HomePage} />
         <Route path="/portfolio" component={PortfolioPage} />
