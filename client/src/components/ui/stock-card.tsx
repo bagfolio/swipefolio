@@ -216,28 +216,34 @@ export default function StockCard({
      });
   };
 
-  // Drag handler
+  // Drag handler with improved sensitivity for iOS
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (!cardControls) return; // Not interactive if no controls
 
-    const threshold = 100;
+    // Higher threshold for right swipe (to invest) to prevent accidental triggers
+    const rightThreshold = 150; 
+    // Lower threshold for left swipe (to skip)
+    const leftThreshold = 100;
+    // Lower velocity threshold to make swipes more responsive
+    const velocityThreshold = 200;
+    
     const dragVelocity = info.velocity.x;
     const dragOffset = info.offset.x;
 
-    if (Math.abs(dragOffset) > threshold || Math.abs(dragVelocity) > 300) {
-      if (dragOffset > threshold || dragVelocity > 300) { // Swipe Right
-        if (displayMode === 'realtime') {
-          if (onInvest) onInvest();
-          // Snap back even if invest is called (invest likely opens modal, doesn't navigate card)
-          cardControls.start({ x: 0, transition: { type: "spring", stiffness: 500, damping: 30 }});
-        } else { // Simple mode: Right swipe = Previous
-          if (onPrevious) onPrevious();
-        }
-      } else { // Swipe Left (negative offset or velocity)
-        if (onNext) onNext(); // Both modes: Left swipe = Next/Skip
+    if (dragOffset > rightThreshold || (dragOffset > 50 && dragVelocity > velocityThreshold)) { 
+      // Swipe Right - needs more deliberate movement
+      if (displayMode === 'realtime') {
+        if (onInvest) onInvest();
+        // Snap back even if invest is called (invest likely opens modal, doesn't navigate card)
+        cardControls.start({ x: 0, transition: { type: "spring", stiffness: 500, damping: 30 }});
+      } else { // Simple mode: Right swipe = Previous
+        if (onPrevious) onPrevious();
       }
+    } else if (dragOffset < -leftThreshold || (dragOffset < -50 && dragVelocity < -velocityThreshold)) { 
+      // Swipe Left - more sensitive
+      if (onNext) onNext(); // Both modes: Left swipe = Next/Skip
     } else { // Snap back
-       cardControls.start({ x: 0, transition: { type: "spring", stiffness: 500, damping: 30 }});
+      cardControls.start({ x: 0, transition: { type: "spring", stiffness: 500, damping: 30 }});
     }
   };
 
@@ -256,7 +262,7 @@ export default function StockCard({
   // Outer wrapper - No overflow-hidden, add dragPropagation
   <motion.div
     ref={cardRef}
-    className="h-full w-full shadow-xl" // Removed rounded corners for full-width appearance
+    className="h-full w-full rounded-2xl shadow-xl" // Added larger rounded corners for better appearance
     drag={cardControls ? "x" : false} // Only draggable if interactive
     dragConstraints={{ left: 0, right: 0 }}
     dragElastic={0.5}
@@ -276,7 +282,8 @@ export default function StockCard({
   >
     {/* Inner scroll container - Absolutely positioned */}
     <div
-        className={`absolute inset-0 overflow-y-auto overflow-x-hidden pb-16 stock-card-scroll-content ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black text-white' : 'bg-white text-slate-900'}`}
+        className={`absolute inset-0 overflow-y-auto overflow-x-hidden pb-16 stock-card-scroll-content rounded-2xl ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black text-white' : 'bg-white text-slate-900'}`}
+        style={{ touchAction: 'pan-y' }} 
     >
 
       {/* --- Common Top Section (Page Indicator/Timeframe) --- */}
