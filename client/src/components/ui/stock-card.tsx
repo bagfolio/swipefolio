@@ -42,7 +42,7 @@ interface StockCardProps {
   totalCount: number;
   displayMode?: 'simple' | 'realtime';
   cardControls?: AnimationControls; // Optional controls from parent
-  x?: ReturnType<typeof useMotionValue>; // Optional motion value from parent
+  x?: ReturnType<typeof useMotionValue<number>>; // Optional motion value from parent
 }
 
 type TimeFrame = "1D" | "5D" | "1M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX";
@@ -119,10 +119,14 @@ export default function StockCard({
   x // Optional motion value from parent
 }: StockCardProps) {
 
-  // Call useTransform unconditionally, provide 0 default if x is undefined
-  const cardOpacity = useTransform(x ?? 0, [-200, 0, 200], [0.5, 1, 0.5]);
-  const cardRotate = useTransform(x ?? 0, [-200, 0, 200], [-10, 0, 10]);
-  const cardScale = useTransform(x ?? 0, [-200, 0, 200], [0.95, 1, 0.95]);
+  // Create a local motion value if none is provided from the parent
+  const localX = useMotionValue(0);
+  const xToUse = x ?? localX;
+  
+  // Use the appropriate motion value
+  const cardOpacity = useTransform(xToUse, [-200, 0, 200], [0.5, 1, 0.5]);
+  const cardRotate = useTransform(xToUse, [-200, 0, 200], [-10, 0, 10]);
+  const cardScale = useTransform(xToUse, [-200, 0, 200], [0.95, 1, 0.95]);
 
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -260,10 +264,10 @@ export default function StockCard({
     onDragEnd={handleDragEnd}
     animate={cardControls} // Use controls from parent (can be undefined)
     style={{
-      x: x, // Use motion value from parent (can be undefined)
-      opacity: cardOpacity, // Use transform (will be static if x is undefined)
-      rotate: cardRotate,   // Use transform
-      scale: cardScale,     // Use transform
+      x: xToUse, // Use our safe motion value
+      opacity: cardOpacity,
+      rotate: cardRotate,
+      scale: cardScale,
       backgroundColor: displayMode === 'simple' ? '#111827' : '#FFFFFF',
       color: displayMode === 'simple' ? 'white' : '#1F2937',
       cursor: cardControls ? 'grab' : 'default'

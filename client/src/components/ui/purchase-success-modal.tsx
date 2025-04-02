@@ -1,8 +1,7 @@
-import React, { useEffect, useCallback, useRef } from "react";
+import React, { useEffect, useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, X, TrendingUp } from "lucide-react";
 import { StockData } from "@/lib/stock-data";
-import ReactCanvasConfetti from "react-canvas-confetti";
 
 interface PurchaseSuccessModalProps {
   isOpen: boolean;
@@ -21,8 +20,8 @@ export default function PurchaseSuccessModal({
   amount,
   projectedReturn,
 }: PurchaseSuccessModalProps) {
-  // Confetti reference and animation controls
-  const refAnimationInstance = useRef<any>(null);
+  // For confetti effect, we'll use a simpler approach with CSS animation
+  const [showConfetti, setShowConfetti] = useState(false);
   
   // Format currency for display
   const formatCurrency = (value: number) => {
@@ -33,93 +32,60 @@ export default function PurchaseSuccessModal({
       maximumFractionDigits: 2
     }).format(value);
   };
-  
-  // Get confetti instance
-  const getInstance = useCallback((instance: any) => {
-    refAnimationInstance.current = instance;
-  }, []);
 
-  // Fire confetti
-  const makeShot = useCallback((particleRatio: number, opts: any) => {
-    if (refAnimationInstance.current) {
-      refAnimationInstance.current({
-        ...opts,
-        origin: { y: 0.7 },
-        particleCount: Math.floor(200 * particleRatio),
-      });
-    }
-  }, []);
-
-  // Realistic confetti effect
-  const fireConfetti = useCallback(() => {
-    makeShot(0.25, {
-      spread: 26,
-      startVelocity: 55,
-      colors: ['#26a269', '#2ec27e', '#33d17a', '#57e389', '#8ff0a4'],
-    });
-
-    makeShot(0.2, {
-      spread: 60,
-      colors: ['#f6d32d', '#f9f06b', '#ffbe6f', '#ff7800'],
-    });
-
-    makeShot(0.35, {
-      spread: 100,
-      decay: 0.91,
-      scalar: 0.8,
-      colors: ['#1c71d8', '#62a0ea', '#99c1f1', '#3584e4'],
-    });
-
-    makeShot(0.1, {
-      spread: 120,
-      startVelocity: 25,
-      decay: 0.92,
-      scalar: 1.2,
-      colors: ['#c061cb', '#dc8add', '#e29ffc', '#ad65d6'],
-    });
-
-    makeShot(0.1, {
-      spread: 120,
-      startVelocity: 45,
-      colors: ['#ed333b', '#ff7b39', '#ffbe6f', '#f66151'],
-    });
-  }, [makeShot]);
-
-  // Body lock when modal is open and trigger confetti
+  // Body lock when modal is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
-      // Delay confetti slightly for better effect
-      const timer = setTimeout(() => {
-        fireConfetti();
+      // Show confetti with a slight delay
+      const confettiTimer = setTimeout(() => {
+        setShowConfetti(true);
       }, 300);
-      return () => clearTimeout(timer);
+      
+      // Auto-close modal after a delay
+      const closeTimer = setTimeout(() => {
+        onClose();
+      }, 2500); // Auto-close after 2.5 seconds
+      
+      return () => {
+        clearTimeout(confettiTimer);
+        clearTimeout(closeTimer);
+      };
     } else {
       document.body.style.overflow = '';
+      setShowConfetti(false);
     }
 
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isOpen, fireConfetti]);
+  }, [isOpen, onClose]);
 
   return (
     <AnimatePresence mode="wait" key="success-modal">
       {isOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-[9999]" style={{ isolation: 'isolate' }}>
-          {/* Confetti canvas */}
-          <ReactCanvasConfetti
-            refConfetti={getInstance}
-            style={{
-              position: 'fixed',
-              pointerEvents: 'none',
-              width: '100%',
-              height: '100%',
-              top: 0,
-              left: 0,
-              zIndex: 55
-            }}
-          />
+          {/* Confetti effect */}
+          {showConfetti && (
+            <div className="fixed inset-0 overflow-hidden pointer-events-none z-[55]">
+              <div className="absolute -inset-10 flex justify-around">
+                {Array.from({ length: 30 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="w-2 h-8 animate-confetti-fall"
+                    style={{
+                      backgroundColor: ['#26a269', '#33d17a', '#f6d32d', '#1c71d8', '#c061cb', '#ed333b'][i % 6],
+                      left: `${Math.random() * 100}%`,
+                      top: `-${Math.random() * 100 + 20}%`,
+                      transform: `rotate(${Math.random() * 360}deg)`,
+                      animationDelay: `${Math.random() * 1.5}s`,
+                      animationDuration: `${3 + Math.random() * 4}s`,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         
           {/* iOS-friendly backdrop */}
           <motion.div

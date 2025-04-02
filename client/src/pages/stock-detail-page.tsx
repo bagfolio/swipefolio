@@ -134,8 +134,9 @@ const handlePreviousStock = useCallback(() => {
   const handleSuccessModalClose = useCallback(() => {
     setModalState('closed');
     setPurchaseData(null);
-    // Optionally call handleNextStock() here if desired
-  }, [/* handleNextStock if used */]);
+    // Move to next stock automatically 
+    handleNextStock();
+  }, [handleNextStock]);
 
 // Reset Handler
   const handleResetStack = useCallback(() => {
