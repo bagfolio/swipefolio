@@ -9,6 +9,9 @@ import { StockData, getIndustryStocks } from "@/lib/stock-data";
 import StockCard, { MetricClickData } from "@/components/ui/stock-card"; // Ensure path is correct
 import StackCompletedModal from "@/components/stack-completed-modal";    // Ensure path is correct
 import AIAssistant from "@/components/ui/ai-assistant";              // Ensure path is correct
+import ManagementSection from "@/components/stock-detail/management-section";
+import ModernAnalystRating from "@/components/stock-detail/modern-analyst-rating";
+import SwipeableNews from "@/components/stock-detail/swipeable-news";
 // Import Modals to render here
 import MetricPopup from "@/components/ui/metric-popup-fixed";         // Ensure path is correct
 import PortfolioImpactCalculator from "@/components/ui/portfolio-impact-calculator"; // Ensure path is correct
@@ -343,6 +346,21 @@ const handlePreviousStock = useCallback(() => {
                 stocksCount={stocks.length} // Access length safely
             />
        </div>
+      {/* Management Section */}
+      <div className="p-4">
+        <ManagementSection stock={currentStockData} />
+      </div>
+
+      {/* Modern Analyst Recommendations */}
+      <div className="p-4">
+        <ModernAnalystRating stock={currentStockData} />
+      </div>
+
+      {/* Swipeable News */}
+      <div className="p-4">
+        <SwipeableNews stock={currentStockData} />
+      </div>
+
       {/* AI Assistant - position as needed, ensure z-index is appropriate */}
       <div className="absolute bottom-4 right-4 z-30">
         <AIAssistant />
