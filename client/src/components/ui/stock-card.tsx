@@ -14,7 +14,9 @@ import {
   Calendar,
   Lock,
   BarChart3,
-  Layers
+  Layers,
+  Check,
+  X
 } from "lucide-react";
 import { motion, useAnimation, useMotionValue, useTransform, PanInfo, AnimationControls } from "framer-motion";
 import OverallAnalysisCard from "@/components/overall-analysis-card";
@@ -221,29 +223,46 @@ export default function StockCard({
     if (!cardControls) return; // Not interactive if no controls
 
     // Higher threshold for right swipe (to invest) to prevent accidental triggers
-    const rightThreshold = 150; 
+    const rightThreshold = 120; 
     // Lower threshold for left swipe (to skip)
-    const leftThreshold = 100;
+    const leftThreshold = 80;
     // Lower velocity threshold to make swipes more responsive
-    const velocityThreshold = 200;
+    const velocityThreshold = 180;
     
     const dragVelocity = info.velocity.x;
     const dragOffset = info.offset.x;
 
-    if (dragOffset > rightThreshold || (dragOffset > 50 && dragVelocity > velocityThreshold)) { 
-      // Swipe Right - needs more deliberate movement
+    // Determine swipe direction based on combination of offset and velocity
+    if (dragOffset > rightThreshold || (dragOffset > 40 && dragVelocity > velocityThreshold)) { 
+      // Swipe Right - needs deliberate movement
       if (displayMode === 'realtime') {
         if (onInvest) onInvest();
-        // Snap back even if invest is called (invest likely opens modal, doesn't navigate card)
-        cardControls.start({ x: 0, transition: { type: "spring", stiffness: 500, damping: 30 }});
+        // Snap back with slower, more satisfying animation
+        cardControls.start({ 
+          x: 0, 
+          transition: { 
+            type: "spring", 
+            stiffness: 400,  // Less stiff for smoother feel
+            damping: 25,     // Less damping for more bounce
+            duration: 0.5    // Longer duration for more noticeable animation
+          }
+        });
       } else { // Simple mode: Right swipe = Previous
         if (onPrevious) onPrevious();
       }
-    } else if (dragOffset < -leftThreshold || (dragOffset < -50 && dragVelocity < -velocityThreshold)) { 
+    } else if (dragOffset < -leftThreshold || (dragOffset < -40 && dragVelocity < -velocityThreshold)) { 
       // Swipe Left - more sensitive
       if (onNext) onNext(); // Both modes: Left swipe = Next/Skip
-    } else { // Snap back
-      cardControls.start({ x: 0, transition: { type: "spring", stiffness: 500, damping: 30 }});
+    } else { // Snap back with smoother animation
+      cardControls.start({ 
+        x: 0, 
+        transition: { 
+          type: "spring", 
+          stiffness: 400, 
+          damping: 25,
+          duration: 0.5
+        }
+      });
     }
   };
 
@@ -283,7 +302,7 @@ export default function StockCard({
     {/* Inner scroll container - Absolutely positioned */}
     <div
         className={`absolute inset-0 overflow-y-auto overflow-x-hidden pb-16 stock-card-scroll-content rounded-2xl ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black text-white' : 'bg-white text-slate-900'}`}
-        style={{ touchAction: 'pan-y' }} 
+        style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }} 
     >
 
       {/* --- Common Top Section (Page Indicator/Timeframe) --- */}
@@ -520,16 +539,27 @@ export default function StockCard({
           </>
       )}
 
-      {/* Hidden Buy Button - Render only for interactive card */}
+      {/* Action Buttons - Render only for interactive card */}
       {cardControls && (
+        <div className="fixed bottom-8 left-0 right-0 px-5 z-30 flex justify-center space-x-3">
             <button
-                className="hidden"
-                data-testid="buy-button"
-                onClick={handleOpenCalculatorClick} // Use internal handler
+                className="px-6 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg flex items-center justify-center w-1/3 hover:bg-red-600 active:scale-95 transition-all duration-150"
+                onClick={() => onNext && onNext()}
             >
+                <X className="mr-2" size={18} />
+                Skip
+            </button>
+            
+            <button
+                className="px-6 py-3 rounded-xl bg-green-500 text-white font-medium shadow-lg flex items-center justify-center w-1/3 hover:bg-green-600 active:scale-95 transition-all duration-150"
+                data-testid="buy-button"
+                onClick={handleOpenCalculatorClick}
+            >
+                <Check className="mr-2" size={18} />
                 Buy
             </button>
-       )}
+        </div>
+      )}
 
       {/* MODALS ARE RENDERED IN PARENT */}
 

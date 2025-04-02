@@ -17,34 +17,52 @@ import PurchaseSuccessModal from "@/components/ui/purchase-success-modal";     /
 // Import motion and hooks
 import { motion, useAnimation, useMotionValue, AnimatePresence, motionValue } from "framer-motion";
 
-// Define animation variants (adjust timing/easing as needed)
+// Define animation variants with slower, more satisfying transitions
 const cardVariants = {
   enter: (direction: number) => ({
     x: direction > 0 ? 300 : -300,
     opacity: 0,
-    scale: 0.8,
+    scale: 0.85,
+    rotate: direction > 0 ? -3 : 3, // Slight rotation for more natural feel
   }),
   center: {
     zIndex: 1,
     x: 0,
     opacity: 1,
     scale: 1,
+    rotate: 0,
     y: 0,
-    transition: { duration: 0.3, ease: "easeOut" }
+    transition: { 
+      duration: 0.5, // Slower duration 
+      ease: [0.16, 1, 0.3, 1], // Custom ease curve for more satisfying motion
+      type: "spring",
+      stiffness: 350,
+      damping: 30
+    }
   },
   exit: (direction: number) => ({
     zIndex: 0,
     x: direction < 0 ? 300 : -300,
     opacity: 0,
-    scale: 0.8,
-    transition: { duration: 0.3, ease: "easeIn" }
+    scale: 0.85,
+    rotate: direction < 0 ? 3 : -3, // Slight rotation for more natural feel
+    transition: { 
+      duration: 0.5, // Slower duration
+      ease: [0.7, 0, 0.84, 0], // Custom ease curve for more satisfying motion
+      type: "spring",
+      stiffness: 400,
+      damping: 40
+    }
   }),
   background: {
     zIndex: 0,
     opacity: 0.7,
     scale: 0.90,
     y: 25,
-    transition: { duration: 0.3 }
+    transition: { 
+      duration: 0.5,
+      ease: "easeOut"
+    }
   }
 };
 
