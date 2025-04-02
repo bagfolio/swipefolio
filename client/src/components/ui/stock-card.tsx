@@ -145,6 +145,9 @@ export default function StockCard({
   const cardRotate = useTransform(x, [-300, 0, 300], [-6, 0, 6]);
   // Scale effect for better tactile feel
   const cardScale = useTransform(x, [-300, -150, 0, 150, 300], [0.95, 0.97, 1, 0.97, 0.95]);
+  // Preview opacity for the next card
+  // We deleted the transform-based opacity effect in favor of direct calculations
+  // to avoid TypeScript errors and simplify the animation logic
   const cardRef = useRef<HTMLDivElement>(null);
 
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("1D");
@@ -300,7 +303,7 @@ export default function StockCard({
             transition: { duration: 0.3 }
           }).then(() => {
             onNext();
-            cardControls.set({ x: 0, opacity: 1 });
+            cardControls.set({ x: 0, opacity: 1, scale: 1 });
             setSwipeDirection(null);
           });
         }
@@ -335,7 +338,7 @@ export default function StockCard({
           }
         }).then(() => {
           onPrevious();
-          cardControls.set({ x: 0, opacity: 1 });
+          cardControls.set({ x: 0, opacity: 1, scale: 1 });
           setSwipeDirection(null);
         });
       } else if (info.offset.x < -threshold) {
@@ -370,7 +373,7 @@ export default function StockCard({
             transition: { duration: 0.3 }
           }).then(() => {
             onNext();
-            cardControls.set({ x: 0, opacity: 1 });
+            cardControls.set({ x: 0, opacity: 1, scale: 1 });
             setSwipeDirection(null);
           });
         }
@@ -845,7 +848,7 @@ export default function StockCard({
         <div 
           className="absolute inset-0 overflow-hidden pointer-events-none"
           style={{
-            opacity: Math.abs(x.get()) > 50 ? 0.6 : 0,
+            opacity: Math.abs(x.get()) > 50 ? 0.7 : 0,
             transform: `translateX(${x.get() < 0 ? '60px' : '-60px'})`,
             filter: 'blur(5px)',
             zIndex: 0
