@@ -14,7 +14,8 @@ import MetricPopup from "@/components/ui/metric-popup-fixed";         // Ensure 
 import PortfolioImpactCalculator from "@/components/ui/portfolio-impact-calculator"; // Ensure path is correct
 import PurchaseSuccessModal from "@/components/ui/purchase-success-modal";     // Ensure path is correct
 // Import motion and hooks
-import { motion, useAnimation, useMotionValue, AnimatePresence } from "framer-motion";
+// Import motion and hooks
+import { motion, useAnimation, useMotionValue, AnimatePresence, motionValue } from "framer-motion";
 
 // Define animation variants (adjust timing/easing as needed)
 const cardVariants = {
@@ -214,9 +215,9 @@ const handlePreviousStock = useCallback(() => {
       </div>
 
       {/* Main Card Stack Area */}
-      <div className="flex-1 flex items-center justify-center p-4 pt-16 relative perspective-1000">
+      <div className="flex-1 flex items-center justify-center p-4 pt-12 relative perspective-1000"> {/* Reduced pt */}
          {/* Adjusted height */}
-         <div className="relative w-full h-[calc(100vh-4rem)] max-w-md">
+         <div className="relative w-full h-full max-w-md">
            <AnimatePresence initial={false} custom={swipeDirection}>
 
              {/* Background Card */}
@@ -234,7 +235,7 @@ const handlePreviousStock = useCallback(() => {
                     currentIndex={currentStockIndex + 1}
                     totalCount={stocks.length} // Access length safely now
                     displayMode={useRealTimeData ? 'realtime' : 'simple'}
-                    // NO interactive props passed
+                    x={motionValue(0)}
                   />
                 </motion.div>
               )}
@@ -262,7 +263,7 @@ const handlePreviousStock = useCallback(() => {
                      totalCount={stocks.length} // Access length safely now
                      displayMode={useRealTimeData ? 'realtime' : 'simple'}
                      cardControls={cardControls}
-                     x={x}
+                     x={x} // Pass the real x
                    />
                  </motion.div>
               )}
