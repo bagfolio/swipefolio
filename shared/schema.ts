@@ -108,6 +108,21 @@ export const stockData = pgTable("stock_data", {
   financialData: jsonb("financial_data"), // JSON object with financial metrics
   institutionalHolders: jsonb("institutional_holders"), // JSON array of institutional holders
   majorHolders: jsonb("major_holders"), // JSON array of major holders
+  newsData: jsonb("news_data"), // JSON array of news articles
+});
+
+export const stockNews = pgTable("stock_news", {
+  id: serial("id").primaryKey(),
+  ticker: varchar("ticker", { length: 10 }).notNull().references(() => stocks.ticker),
+  title: text("title").notNull(),
+  summary: text("summary"),
+  url: text("url").notNull(),
+  source: text("source"),
+  publishedDate: timestamp("published_date").notNull(),
+  impactedMetrics: jsonb("impacted_metrics"), // Metrics affected by the news (performance, stability, etc.)
+  aiAnalysis: jsonb("ai_analysis"), // AI analysis of the news article
+  sentiment: text("sentiment"), // positive, negative, neutral
+  created: timestamp("created").notNull().defaultNow(),
 });
 
 export const sectors = pgTable("sectors", {
@@ -160,6 +175,10 @@ export const insertStockCacheSchema = createInsertSchema(stockCache).omit({
 // Insert schemas for stock tables
 export const insertStocksSchema = createInsertSchema(stocks);
 export const insertStockDataSchema = createInsertSchema(stockData);
+export const insertStockNewsSchema = createInsertSchema(stockNews).omit({
+  id: true, 
+  created: true
+});
 export const insertSectorsSchema = createInsertSchema(sectors);
 export const insertMarketDataSchema = createInsertSchema(marketData);
 
@@ -174,5 +193,7 @@ export type UserDailyProgress = typeof userDailyProgress.$inferSelect;
 export type StockCache = typeof stockCache.$inferSelect;
 export type Stock = typeof stocks.$inferSelect;
 export type StockDetailedData = typeof stockData.$inferSelect;
+export type StockNews = typeof stockNews.$inferSelect;
+export type InsertStockNews = z.infer<typeof insertStockNewsSchema>;
 export type Sector = typeof sectors.$inferSelect;
 export type MarketData = typeof marketData.$inferSelect;
