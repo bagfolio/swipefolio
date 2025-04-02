@@ -108,7 +108,7 @@ export const stockData = pgTable("stock_data", {
   financialData: jsonb("financial_data"), // JSON object with financial metrics
   institutionalHolders: jsonb("institutional_holders"), // JSON array of institutional holders
   majorHolders: jsonb("major_holders"), // JSON array of major holders
-  newsData: jsonb("news_data"), // JSON array of news articles
+  newsData: jsonb("news"), // JSON array of news articles
 });
 
 export const stockNews = pgTable("stock_news", {

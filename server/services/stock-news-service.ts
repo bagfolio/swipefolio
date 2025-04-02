@@ -5,7 +5,7 @@
  */
 
 import { db } from '../db';
-import { stockNews, stocks } from '../../shared/schema';
+import { stockNews, stocks, stockData } from '../../shared/schema';
 import { eq, desc, and, sql, like } from 'drizzle-orm';
 import { StockNews, InsertStockNews } from '../../shared/schema';
 import { getAIResponse } from '../ai-service';
@@ -322,7 +322,44 @@ export class StockNewsService {
    */
   async getNewsForStockColumnar(ticker: string, limit: number = 5): Promise<any> {
     try {
-      // First try to get the news from our standard method
+      // First try to get the news data directly from the stock_data table using the newsData field (which points to the 'news' column)
+      // We're already importing db, stockData, and eq at the top of the file
+      const result = await db
+        .select({
+          ticker: stockData.ticker,
+          newsData: stockData.newsData,
+        })
+        .from(stockData)
+        .where(eq(stockData.ticker, ticker))
+        .limit(1);
+      
+      // If we found news data in the stock_data table
+      if (result && result.length > 0 && result[0].newsData) {
+        console.log(`Found news data in stock_data table for ${ticker}`);
+        
+        // The data is already in columnar format
+        const newsData = result[0].newsData as any;
+        
+        // Apply the limit to each array
+        if (newsData.title && newsData.title.length > 0) {
+          // Ensure the limit doesn't exceed the available data
+          const effectiveLimit = Math.min(limit, newsData.title.length);
+          
+          // Limit the arrays
+          Object.keys(newsData).forEach(key => {
+            if (Array.isArray(newsData[key])) {
+              newsData[key] = newsData[key].slice(0, effectiveLimit);
+            }
+          });
+          
+          return {
+            success: true,
+            data: newsData
+          };
+        }
+      }
+      
+      // If no data in the stock_data table, fallback to our standard method and transform
       const newsItems = await this.getNewsForStock(ticker, limit);
       
       // Transform to columnar format

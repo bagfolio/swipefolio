@@ -1028,6 +1028,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Stock News API Endpoint with columnar format
+  app.get("/api/pg/stock/:ticker/news", async (req, res) => {
+    try {
+      const ticker = req.params.ticker.toUpperCase();
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      
+      const result = await stockNewsService.getNewsForStockColumnar(ticker, limit);
+      res.json(result);
+    } catch (error: any) {
+      console.error(`Error fetching columnar news for ${req.params.ticker}:`, error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch news data",
+        message: error.message
+      });
+    }
+  });
+  
   // Stock News Analysis API Endpoint
   app.post("/api/stocks/news/analyze", async (req, res) => {
     try {

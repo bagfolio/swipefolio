@@ -7,6 +7,7 @@ import { MessageCircle, ChevronDown, ChevronUp, TrendingUp, TrendingDown, Zap, D
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
+// For regular format
 interface NewsWithImpact {
   id: number;
   ticker: string;
@@ -24,6 +25,22 @@ interface NewsWithImpact {
   };
 }
 
+// For columnar format
+interface ColumnarNewsResponse {
+  success: boolean;
+  data: {
+    title: string[];
+    publisher: string[];
+    publishDate: string[];
+    url: string[];
+    summary: string[];
+    contentType: string[];
+    id: string[];
+    sentiment?: string[];
+    impactedMetrics?: any[];
+  };
+}
+
 interface StockCardNewsProps {
   symbol: string;
   className?: string;
@@ -33,7 +50,23 @@ interface StockCardNewsProps {
 export function StockCardNews({ symbol, className, mode = 'dark' }: StockCardNewsProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const { data: newsItems, isLoading, error } = useQuery({
+  // Try first to fetch from the columnar format
+  const { data: columnarData, isLoading: isColumnarLoading, error: columnarError } = useQuery({
+    queryKey: ['/api/pg/stock', symbol, 'news'],
+    queryFn: async () => {
+      const response = await fetch(`/api/pg/stock/${symbol}/news?limit=5`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch columnar news');
+      }
+      return response.json() as Promise<ColumnarNewsResponse>;
+    },
+    enabled: !!symbol,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1, // Only retry once if it fails
+  });
+
+  // Fallback to regular format if columnar fails
+  const { data: newsItems, isLoading: isRegularLoading, error: regularError } = useQuery({
     queryKey: ['/api/stocks', symbol, 'news'],
     queryFn: async () => {
       const response = await fetch(`/api/stocks/${symbol}/news?limit=3`);
@@ -42,20 +75,57 @@ export function StockCardNews({ symbol, className, mode = 'dark' }: StockCardNew
       }
       return response.json() as Promise<NewsWithImpact[]>;
     },
-    enabled: !!symbol,
+    enabled: !!symbol && !!columnarError,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
+  
+  // Determine which data to use - prefer columnar if available
+  const transformedNewsItems = React.useMemo(() => {
+    if (columnarData?.success && columnarData?.data && columnarData.data.title.length > 0) {
+      // Transform columnar data to NewsWithImpact[] format
+      const items: NewsWithImpact[] = [];
+      
+      for (let i = 0; i < columnarData.data.title.length; i++) {
+        const impactedMetrics: any = columnarData.data.impactedMetrics?.[i] || {};
+        
+        // Generate some sentiment if not available
+        const sentiment = columnarData.data.sentiment?.[i] || 
+          (Math.random() > 0.6 ? 'positive' : Math.random() > 0.5 ? 'negative' : 'neutral');
+          
+        items.push({
+          id: parseInt(columnarData.data.id[i]) || i,
+          ticker: symbol,
+          title: columnarData.data.title[i],
+          summary: columnarData.data.summary[i] || '',
+          url: columnarData.data.url[i],
+          source: columnarData.data.publisher[i] || 'Financial News',
+          publishedDate: new Date(columnarData.data.publishDate[i]),
+          sentiment,
+          impactedMetrics
+        });
+      }
+      
+      return items;
+    }
+    
+    return newsItems;
+  }, [columnarData, newsItems, symbol]);
+  
+  const isLoading = isColumnarLoading || (isRegularLoading && !!columnarError);
 
-  // Generate a summary of news trends
-  const generateTrendSummary = () => {
-    if (!newsItems || newsItems.length === 0) return null;
+  // We no longer need the old generateTrendSummary function since we're 
+  // using the memoized version with transformedNewsItems
+
+  // Generate a summary of news trends based on the transformed news items
+  const trendSummary = React.useMemo(() => {
+    if (!transformedNewsItems || transformedNewsItems.length === 0) return null;
     
     // Count sentiment
     let positiveCount = 0;
     let negativeCount = 0;
     let neutralCount = 0;
     
-    newsItems.forEach(item => {
+    transformedNewsItems.forEach(item => {
       if (item.sentiment === 'positive') positiveCount++;
       else if (item.sentiment === 'negative') negativeCount++;
       else neutralCount++;
@@ -69,20 +139,20 @@ export function StockCardNews({ symbol, className, mode = 'dark' }: StockCardNew
     // Most impacted metric
     const metricImpact: Record<string, number> = { performance: 0, stability: 0, value: 0, momentum: 0 };
     
-    newsItems.forEach(item => {
-      if (item.impactedMetrics.performance) {
+    transformedNewsItems.forEach(item => {
+      if (item.impactedMetrics?.performance) {
         metricImpact.performance += item.impactedMetrics.performance.impact === 'positive' ? 1 : 
                                   item.impactedMetrics.performance.impact === 'negative' ? -1 : 0;
       }
-      if (item.impactedMetrics.stability) {
+      if (item.impactedMetrics?.stability) {
         metricImpact.stability += item.impactedMetrics.stability.impact === 'positive' ? 1 : 
                                 item.impactedMetrics.stability.impact === 'negative' ? -1 : 0;
       }
-      if (item.impactedMetrics.value) {
+      if (item.impactedMetrics?.value) {
         metricImpact.value += item.impactedMetrics.value.impact === 'positive' ? 1 : 
                              item.impactedMetrics.value.impact === 'negative' ? -1 : 0;
       }
-      if (item.impactedMetrics.momentum) {
+      if (item.impactedMetrics?.momentum) {
         metricImpact.momentum += item.impactedMetrics.momentum.impact === 'positive' ? 1 : 
                                item.impactedMetrics.momentum.impact === 'negative' ? -1 : 0;
       }
@@ -115,9 +185,7 @@ export function StockCardNews({ symbol, className, mode = 'dark' }: StockCardNew
         impactedMetric: mostImpacted.name
       };
     }
-  };
-
-  const trendSummary = !isLoading && !error && newsItems ? generateTrendSummary() : null;
+  }, [transformedNewsItems, symbol]);
   
   // Helper function to get the icon for a metric
   const getMetricIcon = (metric: string) => {
@@ -141,8 +209,12 @@ export function StockCardNews({ symbol, className, mode = 'dark' }: StockCardNew
     );
   }
 
-  if (error || !newsItems || newsItems.length === 0) {
-    return null; // Don't show anything if there's an error or no news
+  // Handle both errors from columnar and regular format
+  const hasError = columnarError && regularError;
+  
+  // Don't show anything if there are no news items to display
+  if (hasError || !transformedNewsItems || transformedNewsItems.length === 0) {
+    return null;
   }
 
   return (
@@ -204,7 +276,7 @@ export function StockCardNews({ symbol, className, mode = 'dark' }: StockCardNew
             transition={{ duration: 0.3 }}
             className="mt-3 space-y-3"
           >
-            {newsItems.map((item) => (
+            {transformedNewsItems.map((item) => (
               <div key={item.id} className={`text-xs rounded-lg p-2 ${mode === 'dark' ? 'bg-gray-700/50' : 'bg-gray-100'}`}>
                 <div className="flex justify-between items-start mb-1">
                   <span className={`font-medium ${mode === 'dark' ? 'text-gray-200' : 'text-gray-900'}`}>

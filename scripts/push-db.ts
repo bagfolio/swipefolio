@@ -53,10 +53,30 @@ async function main() {
         upgrades_downgrades JSONB,
         financial_data JSONB,
         institutional_holders JSONB,
-        major_holders JSONB
+        major_holders JSONB,
+        news JSONB
       )
     `);
     console.log('Created stock_data table');
+    
+    // Add the 'news' column to stock_data if it doesn't exist
+    // This is important because our schema refers to the column as 'newsData' but maps to 'news'
+    console.log('Checking if news column exists in stock_data table...');
+    await db.execute(sql`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 
+          FROM information_schema.columns 
+          WHERE table_name = 'stock_data' AND column_name = 'news'
+        ) THEN
+          ALTER TABLE stock_data ADD COLUMN news JSONB;
+          RAISE NOTICE 'Added news column to stock_data table';
+        ELSE
+          RAISE NOTICE 'News column already exists in stock_data table';
+        END IF;
+      END $$;
+    `);
     
     // Create sectors table
     await db.execute(sql`
