@@ -16,7 +16,8 @@ import {
   BarChart3,
   Layers,
   Check,
-  X
+  X,
+  Building
 } from "lucide-react";
 import { motion, useAnimation, useMotionValue, useTransform, PanInfo, AnimationControls } from "framer-motion";
 import OverallAnalysisCard from "@/components/overall-analysis-card";
@@ -218,9 +219,26 @@ export default function StockCard({
      });
   };
 
-  // Drag handler with improved sensitivity for iOS
+  // Reference to track start time of drag
+  const dragStartTimeRef = useRef<number>(0);
+  
+  // Track when drag starts
+  const handleDragStart = () => {
+    dragStartTimeRef.current = Date.now();
+  };
+  
+  // Drag handler with improved sensitivity for iOS and delay to prevent accidental swipes
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (!cardControls) return; // Not interactive if no controls
+
+    // Calculate how long the drag lasted
+    const dragDuration = Date.now() - dragStartTimeRef.current;
+    
+    // Ignore very quick drags (less than 100ms) which are likely accidental or part of a scroll
+    if (dragDuration < 100) {
+      cardControls.start({ x: 0, transition: { type: "spring", stiffness: 400, damping: 25 } });
+      return;
+    }
 
     // Higher threshold for right swipe (to invest) to prevent accidental triggers
     const rightThreshold = 120; 
@@ -286,6 +304,7 @@ export default function StockCard({
     dragConstraints={{ left: 0, right: 0 }}
     dragElastic={0.5}
     dragPropagation // Allow scroll events to propagate
+    onDragStart={handleDragStart}
     onDragEnd={handleDragEnd}
     animate={cardControls} // Use controls from parent (can be undefined)
     style={{
@@ -521,9 +540,57 @@ export default function StockCard({
              {/* Synopsis */}
              <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden mb-4">
                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30 rounded-xl opacity-30"></div>
-                 <div className="p-4 border-b border-slate-100 relative"> {/* Price Trend */}</div>
-                 <div className="p-4 border-b border-slate-100 relative"> {/* Company Overview */}</div>
-                 <div className="p-4 relative"> {/* Portfolio Role */}</div>
+                 
+                 {/* Price Trend */}
+                 <div className="p-4 border-b border-slate-100 relative">
+                     <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
+                         <TrendingUp size={16} className="text-blue-500 mr-2" />
+                         Price Trend
+                     </h3>
+                     <p className="text-sm text-slate-600 leading-relaxed">
+                         {stock.change >= 0 
+                            ? `${stock.name} has shown positive momentum, rising ${stock.change}% recently.` 
+                            : `${stock.name} has been under pressure, falling ${Math.abs(stock.change)}% recently.`} 
+                         The current price of ${stock.price.toFixed(2)} places it 
+                         {stock.metrics.value.color === "green" 
+                            ? " at an attractive valuation compared to peers."
+                            : " above average valuation metrics for its sector."}
+                     </p>
+                 </div>
+                 
+                 {/* Company Overview */}
+                 <div className="p-4 border-b border-slate-100 relative">
+                     <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
+                         <Building size={16} className="text-indigo-500 mr-2" />
+                         Company Overview
+                     </h3>
+                     <p className="text-sm text-slate-600 leading-relaxed">
+                         {stock.description.length > 200 
+                            ? stock.description.substring(0, 200) + "..." 
+                            : stock.description}
+                     </p>
+                 </div>
+                 
+                 {/* Portfolio Role */}
+                 <div className="p-4 relative">
+                     <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
+                         <BarChart3 size={16} className="text-amber-500 mr-2" />
+                         Portfolio Role
+                     </h3>
+                     <p className="text-sm text-slate-600 leading-relaxed">
+                         This {stock.industry} stock 
+                         {stock.metrics.stability.color === "green" 
+                            ? " offers strong stability and could serve as a defensive holding."
+                            : stock.metrics.performance.color === "green"
+                                ? " provides growth potential and could boost portfolio returns."
+                                : " has balanced metrics and fits well in a diversified portfolio."}
+                         {stock.metrics.stability.value === "Excellent" || stock.metrics.performance.value === "Excellent" 
+                            ? " Rated high quality by our analysis."
+                            : stock.metrics.stability.value === "Good" || stock.metrics.performance.value === "Good"
+                                ? " Considered medium quality in our assessment."
+                                : " Currently rated lower in our quality metrics."}
+                     </p>
+                 </div>
              </div>
              {/* Comparison */}
              <div className="bg-white border-t border-b border-slate-100 comparative-analysis-container" onClick={(e) => { /* Stop propagation for inner clicks */ }}>
@@ -541,21 +608,24 @@ export default function StockCard({
 
       {/* Action Buttons - Render only for interactive card */}
       {cardControls && (
-        <div className="fixed bottom-8 left-0 right-0 px-5 z-30 flex justify-center space-x-3">
+        <div className="fixed bottom-8 left-0 right-0 px-5 z-30 flex justify-center space-x-6">
+            {/* Card shadow/gradient edge */}
+            <div className="absolute inset-x-5 bottom-0 h-24 bg-gradient-to-t from-white to-transparent opacity-90 -z-10 pointer-events-none"></div>
+            
             <button
-                className="px-6 py-3 rounded-xl bg-red-500 text-white font-medium shadow-lg flex items-center justify-center w-1/3 hover:bg-red-600 active:scale-95 transition-all duration-150"
+                className="px-8 py-4 rounded-xl bg-red-500 text-white font-semibold shadow-xl flex items-center justify-center w-5/12 hover:bg-red-600 active:scale-95 transition-all duration-150 border border-red-400"
                 onClick={() => onNext && onNext()}
             >
-                <X className="mr-2" size={18} />
+                <X className="mr-2" size={20} />
                 Skip
             </button>
             
             <button
-                className="px-6 py-3 rounded-xl bg-green-500 text-white font-medium shadow-lg flex items-center justify-center w-1/3 hover:bg-green-600 active:scale-95 transition-all duration-150"
+                className="px-8 py-4 rounded-xl bg-green-500 text-white font-semibold shadow-xl flex items-center justify-center w-5/12 hover:bg-green-600 active:scale-95 transition-all duration-150 border border-green-400"
                 data-testid="buy-button"
                 onClick={handleOpenCalculatorClick}
             >
-                <Check className="mr-2" size={18} />
+                <Check className="mr-2" size={20} />
                 Buy
             </button>
         </div>
