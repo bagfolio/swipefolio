@@ -322,23 +322,23 @@ export class StockNewsService {
    */
   async getNewsForStockColumnar(ticker: string, limit: number = 5): Promise<any> {
     try {
-      // First try to get the news data directly from the stock_data table using the newsData field (which points to the 'news' column)
+      // First try to get the news data directly from the stock_data table using the news field
       // We're already importing db, stockData, and eq at the top of the file
       const result = await db
         .select({
           ticker: stockData.ticker,
-          newsData: stockData.newsData,
+          news: stockData.news,
         })
         .from(stockData)
         .where(eq(stockData.ticker, ticker))
         .limit(1);
       
       // If we found news data in the stock_data table
-      if (result && result.length > 0 && result[0].newsData) {
+      if (result && result.length > 0 && result[0].news) {
         console.log(`Found news data in stock_data table for ${ticker}`);
         
         // The data is already in columnar format
-        const newsData = result[0].newsData as any;
+        const newsData = result[0].news as any;
         
         // Apply the limit to each array
         if (newsData.title && newsData.title.length > 0) {

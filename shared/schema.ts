@@ -75,40 +75,41 @@ export const stockCache = pgTable("stock_cache", {
   updatedAt: timestamp("updated_at").notNull().default(new Date()),
 });
 
-// New stock tables based on the provided database schema
+// Stock tables based on the stock_data_integration_guide.md structure
 export const stocks = pgTable("stocks", {
   ticker: varchar("ticker", { length: 10 }).primaryKey(),
   companyName: text("company_name").notNull(),
   sector: text("sector"),
   industry: text("industry"),
-  currentPrice: numeric("current_price"),
+  country: text("country"),
+  exchange: text("exchange"),
+  currency: text("currency"),
   marketCap: numeric("market_cap"),
+  currentPrice: numeric("current_price"),
+  targetPrice: numeric("target_price"),
+  priceToEarnings: numeric("price_to_earnings"),
   dividendYield: numeric("dividend_yield"),
   beta: numeric("beta"),
-  peRatio: numeric("pe_ratio"),
-  eps: numeric("eps"),
-  fiftyTwoWeekHigh: numeric("fifty_two_week_high"),
-  fiftyTwoWeekLow: numeric("fifty_two_week_low"),
-  averageVolume: numeric("average_volume"),
-  description: text("description"),
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
 });
 
 export const stockData = pgTable("stock_data", {
   ticker: varchar("ticker", { length: 10 }).primaryKey().references(() => stocks.ticker),
-  closingHistory: jsonb("closing_history"), // JSON array of historical closing prices
-  dividends: jsonb("dividends"), // JSON array of dividend data
-  incomeStatement: jsonb("income_statement"), // JSON object with income statement data
-  balanceSheet: jsonb("balance_sheet"), // JSON object with balance sheet data
-  cashFlow: jsonb("cash_flow"), // JSON object with cash flow data
-  recommendations: jsonb("recommendations"), // JSON array of analyst recommendations
-  earningsDates: jsonb("earnings_dates"), // JSON array of upcoming earnings dates
-  earningsHistory: jsonb("earnings_history"), // JSON array of historical earnings
-  earningsTrend: jsonb("earnings_trend"), // JSON object with earnings trend data
-  upgradesDowngrades: jsonb("upgrades_downgrades"), // JSON array of analyst upgrades/downgrades
-  financialData: jsonb("financial_data"), // JSON object with financial metrics
-  institutionalHolders: jsonb("institutional_holders"), // JSON array of institutional holders
-  majorHolders: jsonb("major_holders"), // JSON array of major holders
-  newsData: jsonb("news"), // JSON array of news articles
+  closingHistory: jsonb("closing_history"), // Historical price data (JSONB)
+  dividends: jsonb("dividends"), // Dividend payment history (JSONB)
+  institutionalHolders: jsonb("institutional_holders"), // Top institutional shareholders (JSONB)
+  majorHolders: jsonb("major_holders"), // Major shareholders percentage breakdown (JSONB)
+  incomeStatement: jsonb("income_statement"), // Income statements (JSONB)
+  balanceSheet: jsonb("balance_sheet"), // Balance sheets (JSONB)
+  cashFlow: jsonb("cash_flow"), // Cash flow statements (JSONB)
+  recommendations: jsonb("recommendations"), // Analyst buy/sell recommendations history (JSONB)
+  earningsDates: jsonb("earnings_dates"), // Historical earnings announcement dates (JSONB)
+  earningsHistory: jsonb("earnings_history"), // Detailed earnings history (JSONB)
+  earningsTrend: jsonb("earnings_trend"), // EPS estimate trends (JSONB)
+  upgradesDowngrades: jsonb("upgrades_downgrades"), // Analyst upgrades/downgrades (JSONB)
+  financialData: jsonb("financial_data"), // Financial metrics (JSONB)
+  news: jsonb("news"), // Latest news articles in columnar format (JSONB)
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
 });
 
 export const stockNews = pgTable("stock_news", {
@@ -116,12 +117,12 @@ export const stockNews = pgTable("stock_news", {
   ticker: varchar("ticker", { length: 10 }).notNull().references(() => stocks.ticker),
   title: text("title").notNull(),
   summary: text("summary"),
-  url: text("url").notNull(),
-  source: text("source"),
   publishedDate: timestamp("published_date").notNull(),
-  impactedMetrics: jsonb("impacted_metrics"), // Metrics affected by the news (performance, stability, etc.)
-  aiAnalysis: jsonb("ai_analysis"), // AI analysis of the news article
+  source: text("source"),
+  url: text("url").notNull(),
   sentiment: text("sentiment"), // positive, negative, neutral
+  aiAnalysis: jsonb("ai_analysis"), // AI analysis of the news article (JSONB)
+  impactedMetrics: jsonb("impacted_metrics"), // Metrics affected by the news (JSONB)
   created: timestamp("created").notNull().defaultNow(),
 });
 
@@ -129,14 +130,18 @@ export const sectors = pgTable("sectors", {
   sectorKey: varchar("sector_key", { length: 50 }).primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
-  metrics: jsonb("metrics"), // JSON object with sector metrics
+  performanceData: jsonb("performance_data"), // Sector performance data (JSONB)
+  companies: jsonb("companies"), // Companies in this sector (JSONB)
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
 });
 
 export const marketData = pgTable("market_data", {
-  market: varchar("market", { length: 20 }).primaryKey(),
+  marketKey: varchar("market_key", { length: 50 }).primaryKey(),
   name: text("name").notNull(),
-  metrics: jsonb("metrics"), // JSON object with market metrics
-  lastUpdated: timestamp("last_updated").notNull().default(new Date()),
+  description: text("description"),
+  indices: jsonb("indices"), // Market indices data (JSONB)
+  performanceData: jsonb("performance_data"), // Market performance data (JSONB) 
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
 });
 
 // Insert schemas

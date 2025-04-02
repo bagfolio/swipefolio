@@ -16,33 +16,35 @@ async function main() {
     // Create tables if they don't exist
     console.log('Creating stock tables if they don\'t exist...');
     
-    // Create stocks table
+    // Create stocks table based on the stock_data_integration_guide.md
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS ${stocks} (
         ticker VARCHAR(10) PRIMARY KEY,
         company_name TEXT NOT NULL,
         sector TEXT,
         industry TEXT,
-        current_price NUMERIC,
+        country TEXT,
+        exchange TEXT,
+        currency TEXT,
         market_cap NUMERIC,
+        current_price NUMERIC,
+        target_price NUMERIC,
+        price_to_earnings NUMERIC,
         dividend_yield NUMERIC,
         beta NUMERIC,
-        pe_ratio NUMERIC,
-        eps NUMERIC,
-        fifty_two_week_high NUMERIC,
-        fifty_two_week_low NUMERIC,
-        average_volume NUMERIC,
-        description TEXT
+        last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('Created stocks table');
     
-    // Create stock_data table
+    // Create stock_data table based on the stock_data_integration_guide.md
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS ${stockData} (
         ticker VARCHAR(10) PRIMARY KEY REFERENCES ${stocks}(ticker),
         closing_history JSONB,
         dividends JSONB,
+        institutional_holders JSONB,
+        major_holders JSONB,
         income_statement JSONB,
         balance_sheet JSONB,
         cash_flow JSONB,
@@ -52,15 +54,14 @@ async function main() {
         earnings_trend JSONB,
         upgrades_downgrades JSONB,
         financial_data JSONB,
-        institutional_holders JSONB,
-        major_holders JSONB,
-        news JSONB
+        news JSONB,
+        last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('Created stock_data table');
     
     // Add the 'news' column to stock_data if it doesn't exist
-    // This is important because our schema refers to the column as 'newsData' but maps to 'news'
+    // This ensures the news column is present in older database schemas
     console.log('Checking if news column exists in stock_data table...');
     await db.execute(sql`
       DO $$
@@ -78,41 +79,45 @@ async function main() {
       END $$;
     `);
     
-    // Create sectors table
+    // Create sectors table based on the stock_data_integration_guide.md
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS ${sectors} (
         sector_key VARCHAR(50) PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
-        metrics JSONB
+        performance_data JSONB,
+        companies JSONB,
+        last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('Created sectors table');
     
-    // Create market_data table
+    // Create market_data table based on the stock_data_integration_guide.md
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS ${marketData} (
-        market VARCHAR(20) PRIMARY KEY,
+        market_key VARCHAR(50) PRIMARY KEY,
         name TEXT NOT NULL,
-        metrics JSONB,
+        description TEXT,
+        indices JSONB,
+        performance_data JSONB,
         last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
     console.log('Created market_data table');
     
-    // Create stock_news table
+    // Create stock_news table based on the stock_data_integration_guide.md
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS ${stockNews} (
         id SERIAL PRIMARY KEY,
         ticker VARCHAR(10) NOT NULL REFERENCES ${stocks}(ticker),
         title TEXT NOT NULL,
         summary TEXT,
-        url TEXT NOT NULL,
-        source TEXT,
         published_date TIMESTAMP NOT NULL,
-        impacted_metrics JSONB,
-        ai_analysis JSONB,
+        source TEXT,
+        url TEXT NOT NULL,
         sentiment TEXT,
+        ai_analysis JSONB,
+        impacted_metrics JSONB,
         created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
