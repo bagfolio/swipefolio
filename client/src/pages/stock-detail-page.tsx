@@ -72,7 +72,7 @@ export default function StockDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-black">
+      <div className="flex items-center justify-center min-h-screen bg-slate-900">
         <div className="animate-spin w-10 h-10 border-4 border-cyan-400 border-t-transparent rounded-full"></div>
       </div>
     );
@@ -80,7 +80,7 @@ export default function StockDetailPage() {
 
   if (!stack || stocks.length === 0) {
     return (
-      <div className="flex items-center justify-center flex-col min-h-screen bg-black">
+      <div className="flex items-center justify-center flex-col min-h-screen bg-slate-900">
         <p className="text-white mb-4">No stocks available for this industry.</p>
         <button 
           onClick={handleBack}
@@ -100,12 +100,12 @@ export default function StockDetailPage() {
     : stocks[0]; // Loop back to the first stock if we're at the end
 
   return (
-    <div className="flex flex-col min-h-screen bg-black text-white">
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-slate-800 to-slate-900 text-white">
       {/* Back button placed at the top-left corner */}
       <div className="absolute top-4 left-4 z-20">
         <button 
           onClick={handleBack}
-          className="text-cyan-400 hover:bg-gray-800 p-2 rounded-full transition-colors bg-black/60 backdrop-blur-sm"
+          className="text-cyan-400 hover:bg-gray-800 p-2 rounded-full transition-colors bg-slate-800/60 backdrop-blur-sm"
         >
           <ArrowLeft size={20} />
         </button>
@@ -129,7 +129,7 @@ export default function StockDetailPage() {
       </div>
 
       {/* Modern Buy/Skip Buttons */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black to-transparent z-10">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-900 to-transparent z-10">
         <div className="flex justify-between gap-4 max-w-md mx-auto">
           <button
             onClick={handleNextStock}

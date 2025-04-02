@@ -21,7 +21,7 @@ function CongratulationsPopup({
   onReturn: () => void 
 }) {
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center">
       <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4 animate-in zoom-in-95 duration-300">
         <div className="text-center mb-4">
           <h2 className="text-2xl font-bold mb-2">Stack Complete! 🎉</h2>
