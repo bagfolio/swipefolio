@@ -37,6 +37,9 @@ import { motion, useAnimation, useMotionValue, useTransform, PanInfo, AnimationC
 import OverallAnalysisCard from "@/components/overall-analysis-card";
 
 import { AnalystRecommendations } from "@/components/stock-detail/analyst-recommendations";
+import { ModernAnalystRating } from "@/components/stock-detail/modern-analyst-rating";
+import { SwipeableNews } from "@/components/stock-detail/swipeable-news";
+import { ManagementSection } from "@/components/stock-detail/management-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import AskAI from "./ask-ai";
@@ -755,23 +758,24 @@ export default function StockCard({
                      );
                  })}
              </div>
-             {/* News Notification - Important Updates */}
+             {/* Modern Swipeable News */}
              <div className="p-4 bg-gradient-to-br from-blue-50 to-white border-b border-slate-100">
-               <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
-                 <MessageCircle size={16} className="text-blue-500 mr-2" />
-                 Market News
-               </h3>
-               <StockCardNews symbol={stock.ticker} mode="light" />
+               <SwipeableNews symbol={stock.ticker} />
              </div>
 
-             {/* Analyst Recommendations */}
+             {/* Modern Analyst Ratings */}
              <div className="mb-4">
-               <AnalystRecommendations 
+               <ModernAnalystRating 
                  symbol={stock.ticker}
                  recommendations={stockWithMetrics.recommendations}
                  priceTarget={stockWithMetrics.priceTarget}
                  currentPrice={stock.price}
                />
+             </div>
+             
+             {/* Management Section */}
+             <div className="mb-4">
+               <ManagementSection symbol={stock.ticker} />
              </div>
 
              {/* Synopsis */}
