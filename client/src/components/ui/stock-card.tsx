@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { motion, useAnimation, useMotionValue, useTransform, PanInfo, AnimationControls } from "framer-motion";
 import OverallAnalysisCard from "@/components/overall-analysis-card";
+import { StockNews } from "@/components/stock-detail/stock-news";
+import { AnalystRecommendations } from "@/components/stock-detail/analyst-recommendations";
 import { Skeleton } from "@/components/ui/skeleton";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import AskAI from "./ask-ai";
@@ -639,6 +641,21 @@ export default function StockCard({
                      );
                  })}
              </div>
+             {/* News */}
+             <div className="mb-4">
+               <StockNews symbol={stock.ticker} />
+             </div>
+
+             {/* Analyst Recommendations */}
+             <div className="mb-4">
+               <AnalystRecommendations 
+                 symbol={stock.ticker}
+                 recommendations={stock.recommendations}
+                 priceTarget={stock.priceTarget}
+                 currentPrice={stock.price}
+               />
+             </div>
+
              {/* Synopsis */}
              <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden mb-4">
                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30 rounded-xl opacity-30"></div>
