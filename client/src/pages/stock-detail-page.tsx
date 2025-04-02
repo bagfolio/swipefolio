@@ -114,9 +114,9 @@ export default function StockDetailPage() {
       
       {/* Live Data button removed as requested */}
 
-      {/* Main content with stacked cards */}
-      <div className="flex-1 relative flex items-center justify-center p-4">
-        <div className="w-full h-[600px] relative">
+      {/* Main content with stacked cards - fixed positioning */}
+      <div className="flex-1 relative flex items-center justify-center">
+        <div className="w-full max-w-md h-[80vh] relative mx-auto">
           <AnimatePresence initial={false}>
             {stocks.length > 0 && stocks
               .slice(currentStockIndex, Math.min(currentStockIndex + 2, stocks.length))
