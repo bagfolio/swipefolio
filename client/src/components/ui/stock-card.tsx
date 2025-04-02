@@ -222,17 +222,59 @@ export default function StockCard({
         // Format metrics from PostgreSQL into the expected format
         const formattedMetrics = formatMetricsFromDatabase(metricsQuery.data);
         
-        // Create a new object with merged data
-        // formattedMetrics is already in the correct format
+        console.log(`Got metrics for ${stock.ticker}:`, metricsQuery.data);
+        console.log(`Formatted metrics:`, formattedMetrics);
+        
+        // The proper way to merge metrics is to keep the structure intact
+        // but merge at the detailed level to preserve existing values
         return {
           ...stock,
           metrics: {
-            // Replace stock.metrics with formatted metrics from PostgreSQL
-            // This ensures we're using the PostgreSQL data for all metrics
-            ...formattedMetrics
+            performance: {
+              ...stock.metrics.performance,
+              details: {
+                ...stock.metrics.performance.details,
+                // Override with PostgreSQL values where available
+                ...(formattedMetrics.performance.details || {})
+              },
+              value: formattedMetrics.performance.value || stock.metrics.performance.value,
+              color: formattedMetrics.performance.color || stock.metrics.performance.color,
+            },
+            stability: {
+              ...stock.metrics.stability,
+              details: {
+                ...stock.metrics.stability.details,
+                // Override with PostgreSQL values where available
+                ...(formattedMetrics.stability.details || {})
+              },
+              value: formattedMetrics.stability.value || stock.metrics.stability.value,
+              color: formattedMetrics.stability.color || stock.metrics.stability.color,
+            },
+            value: {
+              ...stock.metrics.value,
+              details: {
+                ...stock.metrics.value.details,
+                // Override with PostgreSQL values where available
+                ...(formattedMetrics.value.details || {})
+              },
+              value: formattedMetrics.value.value || stock.metrics.value.value,
+              color: formattedMetrics.value.color || stock.metrics.value.color,
+            },
+            momentum: {
+              ...stock.metrics.momentum,
+              details: {
+                ...stock.metrics.momentum.details,
+                // Override with PostgreSQL values where available
+                ...(formattedMetrics.momentum.details || {})
+              },
+              value: formattedMetrics.momentum.value || stock.metrics.momentum.value,
+              color: formattedMetrics.momentum.color || stock.metrics.momentum.color,
+            },
+            // Keep potential if it exists
+            ...(stock.metrics.potential ? { potential: stock.metrics.potential } : {})
           },
-          // Also update any other fields that come from metrics
-          rating: stock.rating, // Keep any existing fields
+          // Keep any existing fields
+          rating: stock.rating,
           smartScore: stock.smartScore,
           oneYearReturn: stock.oneYearReturn,
           predictedPrice: stock.predictedPrice,

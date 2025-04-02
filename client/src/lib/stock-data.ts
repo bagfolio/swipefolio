@@ -183,9 +183,9 @@ export function formatMetricsFromDatabase(rawMetrics: any): any {
     value: getMetricScore(rawMetrics.performance || 0),
     color: getMetricColor(rawMetrics.performance || 0),
     details: {
-      revenueGrowth: rawMetrics.revenueGrowth || 0,
-      profitMargin: rawMetrics.profitMargin || 0,
-      returnOnCapital: rawMetrics.returnOnEquity || 0, // Using ROE as proxy for ROC
+      revenueGrowth: rawMetrics.revenueGrowth !== null ? rawMetrics.revenueGrowth : 0,
+      profitMargin: rawMetrics.profitMargin !== null ? rawMetrics.profitMargin : 0,
+      returnOnCapital: rawMetrics.returnOnEquity !== null ? rawMetrics.returnOnEquity : 0,
     },
     explanation: `Based on revenue growth (${formatNumber(rawMetrics.revenueGrowth || 0)}%), 
                   profit margin (${formatNumber(rawMetrics.profitMargin || 0)}%), 
@@ -197,8 +197,8 @@ export function formatMetricsFromDatabase(rawMetrics: any): any {
     value: getMetricScore(rawMetrics.stability || 0),
     color: getMetricColor(rawMetrics.stability || 0),
     details: {
-      volatility: rawMetrics.volatility || 0,
-      beta: rawMetrics.beta || 0,
+      volatility: rawMetrics.volatility !== null ? rawMetrics.volatility : 0,
+      beta: rawMetrics.beta !== null ? rawMetrics.beta : 0,
       dividendConsistency: rawMetrics.dividendYield > 0 ? "Good" : "N/A",
     },
     explanation: `Based on volatility metrics, beta of ${formatNumber(rawMetrics.beta || 0)}, 
@@ -210,9 +210,9 @@ export function formatMetricsFromDatabase(rawMetrics: any): any {
     value: getMetricScore(rawMetrics.value || 0),
     color: getMetricColor(rawMetrics.value || 0),
     details: {
-      peRatio: rawMetrics.peRatio || 0,
-      pbRatio: rawMetrics.pbRatio || 0,
-      dividendYield: rawMetrics.dividendYield || 0,
+      peRatio: rawMetrics.peRatio !== null ? rawMetrics.peRatio : 0,
+      pbRatio: rawMetrics.pbRatio !== null ? rawMetrics.pbRatio : 0,
+      dividendYield: rawMetrics.dividendYield !== null ? rawMetrics.dividendYield : 0,
     },
     explanation: `Based on P/E ratio (${formatNumber(rawMetrics.peRatio || 0)}), 
                   P/B ratio (${formatNumber(rawMetrics.pbRatio || 0)}), 
@@ -224,15 +224,17 @@ export function formatMetricsFromDatabase(rawMetrics: any): any {
     value: getMetricScore(rawMetrics.momentum || 0),
     color: getMetricColor(rawMetrics.momentum || 0),
     details: {
-      threeMonthReturn: rawMetrics.threeMonthReturn || 0,
-      relativePerformance: rawMetrics.relativePerformance || 0,
-      rsi: rawMetrics.rsi || 50, // Default to neutral RSI
-      oneYearReturn: rawMetrics.oneYearReturn || 0
+      threeMonthReturn: rawMetrics.threeMonthReturn !== null ? rawMetrics.threeMonthReturn : 0,
+      relativePerformance: rawMetrics.relativePerformance !== null ? rawMetrics.relativePerformance : 0,
+      rsi: rawMetrics.rsi !== null ? rawMetrics.rsi : 50, // Default to neutral RSI
+      oneYearReturn: rawMetrics.oneYearReturn !== null ? rawMetrics.oneYearReturn : 0
     },
     explanation: `Based on recent price momentum, relative performance versus the market, 
                   and technical indicators.`
   };
   
+  // Need to keep any existing metrics data, especially for metrics that might be null in PostgreSQL
+  // This ensures we're preserving existing data but prioritizing PostgreSQL values when available
   return { performance, stability, value, momentum };
 }
 
