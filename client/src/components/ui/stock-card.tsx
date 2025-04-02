@@ -28,12 +28,13 @@ import PurchaseSuccessModal from "./purchase-success-modal";
 
 interface StockCardProps {
   stock: StockData;
-  onNext: () => void;
-  onPrevious: () => void;
+  onNext?: () => void; // Optional for background card
+  onPrevious?: () => void; // Optional for background card
   currentIndex: number;
   totalCount: number;
-  nextStock?: StockData;
+  nextStock?: StockData; // No longer needed with the new implementation
   displayMode?: 'simple' | 'realtime';
+  isBackground?: boolean; // Whether this card is a background card or not
 }
 
 type TimeFrame = "1D" | "5D" | "1M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX";
@@ -135,7 +136,8 @@ export default function StockCard({
   currentIndex, 
   totalCount,
   nextStock,
-  displayMode = 'realtime'
+  displayMode = 'realtime',
+  isBackground = false
 }: StockCardProps) {
   const cardControls = useAnimation();
   const x = useMotionValue(0);
@@ -178,7 +180,9 @@ export default function StockCard({
   const handleSuccessModalClose = () => {
     setModalState('closed'); // Close the modal
     setPurchaseData(null);
-    onNext(); // Trigger moving to the next card AFTER closing
+    if (onNext) {
+      onNext(); // Trigger moving to the next card AFTER closing if onNext is provided
+    }
   };
 
   // Use static data only
@@ -271,7 +275,9 @@ export default function StockCard({
           opacity: 0,
           transition: { duration: 0.3 }
         }).then(() => {
-          onNext();
+          if (onNext) {
+            onNext();
+          }
           cardControls.set({ x: 0, opacity: 1 });
           setSwipeDirection(null);
         });
@@ -301,7 +307,9 @@ export default function StockCard({
           opacity: 0,
           transition: { duration: 0.3 }
         }).then(() => {
-          onPrevious();
+          if (onPrevious) {
+            onPrevious();
+          }
           cardControls.set({ x: 0, opacity: 1 });
           setSwipeDirection(null);
         });
@@ -313,7 +321,9 @@ export default function StockCard({
           opacity: 0,
           transition: { duration: 0.3 }
         }).then(() => {
-          onNext();
+          if (onNext) {
+            onNext();
+          }
           cardControls.set({ x: 0, opacity: 1 });
           setSwipeDirection(null);
         });
@@ -504,6 +514,83 @@ export default function StockCard({
 
     setIsMetricPopupOpen(true);
   };
+
+  // Handle background card styling
+  if (isBackground) {
+    return (
+      <div className="relative h-full w-full overflow-hidden pointer-events-none">
+        <div 
+          className="absolute inset-0 bg-gradient-to-b from-gray-900 to-black rounded-xl overflow-y-auto"
+          style={{
+            transform: 'scale(0.92) translateY(28px)',
+            opacity: 0.7,
+            filter: 'blur(1.5px)',
+            boxShadow: "0 20px 50px -15px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)",
+            borderRadius: "16px"
+          }}
+        >
+          {/* Simplified Card Content - visible but not interactive */}
+          <div className="p-5 border-b border-gray-800">
+            <div className="flex justify-between items-start">
+              <div>
+                <h2 className="text-xl md:text-2xl font-bold text-white mb-1">
+                  {stock.name} <span className="text-gray-400">({stock.ticker})</span>
+                </h2>
+              </div>
+              
+              <div className="flex flex-col items-end">
+                <div className={`flex items-center py-1.5 px-4 rounded-full ${stock.change >= 0 ? 'bg-green-900/30 text-green-300 border border-green-700/30' : 'bg-red-900/30 text-red-300 border border-red-700/30'} shadow-lg`}>
+                  <span className="font-bold text-2xl">${stock.price.toFixed(2)}</span>
+                  <span className="ml-2 text-sm font-medium">{stock.change >= 0 ? '+' : ''}{stock.change}%</span>
+                </div>
+              </div>
+            </div>
+
+            <p className="mt-3 text-sm text-gray-300 leading-relaxed line-clamp-2">
+              {stock.description}
+            </p>
+          </div>
+          
+          {/* Performance Metrics - Simplified for background card */}
+          <div className="grid grid-cols-2 gap-5 p-5 border-b border-gray-800">
+            <h3 className="text-white text-lg font-bold col-span-2 mb-1 flex items-center">
+              <TrendingUp className="w-5 h-5 mr-2 text-blue-400" />
+              Stock Metrics
+            </h3>
+            
+            {Object.entries(stock.metrics).map(([key, metricObj]) => {
+              const metricName = key.charAt(0).toUpperCase() + key.slice(1);
+
+              return (
+                <div 
+                  key={key}
+                  className={`p-4 rounded-xl relative ${
+                    metricObj.color === 'green' ? 'bg-gradient-to-br from-green-900/40 to-black border border-green-500/30' :
+                    metricObj.color === 'yellow' ? 'bg-gradient-to-br from-yellow-900/40 to-black border border-yellow-500/30' : 
+                    'bg-gradient-to-br from-red-900/40 to-black border border-red-500/30'
+                  } shadow-lg`}
+                >
+                  <div 
+                    className={`text-2xl font-bold ${
+                      metricObj.color === 'green' ? 'text-green-300' :
+                      metricObj.color === 'yellow' ? 'text-yellow-300' : 
+                      'text-red-300'
+                    }`}
+                  >
+                    {metricObj.value}
+                  </div>
+                  
+                  <div className="text-white text-sm font-medium capitalize mt-1">
+                    {metricName}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Render appropriate stock card based on display mode
   if (displayMode === 'simple') {

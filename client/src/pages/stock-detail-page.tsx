@@ -113,18 +113,35 @@ export default function StockDetailPage() {
       
       {/* Live Data button removed as requested */}
 
-      {/* Main content */}
+      {/* Main content - Stack of Cards */}
       <div className="flex-1 relative">
         {stocks.length > 0 && (
-          <StockCard
-            stock={currentStock}
-            onNext={handleNextStock}
-            onPrevious={handlePreviousStock}
-            currentIndex={currentStockIndex}
-            totalCount={stocks.length}
-            nextStock={nextStock}
-            displayMode={useRealTimeData ? 'realtime' : 'simple'}
-          />
+          <div className="relative h-full w-full">
+            {/* Background Card - The next stock in the stack */}
+            {nextStock && currentStockIndex < stocks.length - 1 && (
+              <div className="absolute inset-0 z-0">
+                <StockCard
+                  stock={nextStock}
+                  currentIndex={currentStockIndex + 1}
+                  totalCount={stocks.length}
+                  displayMode={useRealTimeData ? 'realtime' : 'simple'}
+                  isBackground={true}
+                />
+              </div>
+            )}
+            
+            {/* Foreground Card - Current stock */}
+            <div className="absolute inset-0 z-10">
+              <StockCard
+                stock={currentStock}
+                onNext={handleNextStock}
+                onPrevious={handlePreviousStock}
+                currentIndex={currentStockIndex}
+                totalCount={stocks.length}
+                displayMode={useRealTimeData ? 'realtime' : 'simple'}
+              />
+            </div>
+          </div>
         )}
       </div>
 
