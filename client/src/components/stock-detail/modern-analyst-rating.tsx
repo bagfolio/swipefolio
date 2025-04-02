@@ -242,34 +242,50 @@ export function ModernAnalystRating({
             {/* Circular Gauge Component */}
             {recommendationData && (
               <div className="flex flex-col items-center mb-6">
-                {/* Gauge display */}
-                <div className="relative w-48 h-24 overflow-hidden">
-                  {/* Gauge Background */}
-                  <div className="absolute w-full h-full bottom-0 rounded-t-full overflow-hidden">
-                    {/* Color segments */}
-                    <div className="absolute w-full h-full" 
-                         style={{
-                           background: 'linear-gradient(90deg, #ef4444 0%, #f97316 20%, #eab308 40%, #84cc16 60%, #22c55e 80%)',
-                           clipPath: 'polygon(0% 100%, 50% 0%, 100% 100%)',
-                         }} />
-                  </div>
-                  
-                  {/* Labels */}
-                  <div className="absolute bottom-0 left-0 ml-2 text-xs font-semibold text-gray-600">
-                    Strong<br/>sell
-                  </div>
-                  <div className="absolute bottom-0 right-0 mr-2 text-xs font-semibold text-gray-600">
-                    Strong<br/>buy
-                  </div>
-                  <div className="absolute top-5 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-600">
-                    Neutral
-                  </div>
-                  
-                  {/* Pointer */}
-                  <div className="absolute bottom-0 left-1/2 w-1 h-20 origin-bottom transform -translate-x-1/2"
-                       style={{ transform: `translateX(-50%) rotate(${gaugeAngle - 90}deg)` }}>
-                    <div className="w-2 h-2 bg-black dark:bg-white rounded-full absolute top-0 left-1/2 transform -translate-x-1/2" />
-                    <div className="w-0.5 h-20 bg-black dark:bg-white absolute top-2 left-1/2 transform -translate-x-1/2" />
+                {/* Semicircular Gauge Display */}
+                <div className="relative w-64 h-36 mx-auto mb-2">
+                  {/* Gauge Background - Semicircle */}
+                  <div className="absolute w-full h-full">
+                    <svg viewBox="0 0 200 120" className="w-full h-full">
+                      {/* Background track */}
+                      <path 
+                        d="M20,100 A80,80 0 0,1 180,100" 
+                        stroke="#e5e7eb" 
+                        strokeWidth="10" 
+                        fill="none"
+                        className="dark:stroke-gray-700"
+                      />
+                      
+                      {/* Colored segments - overlaid on the track */}
+                      <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#ef4444" /> {/* Strong Sell - Red */}
+                        <stop offset="25%" stopColor="#f97316" /> {/* Sell - Orange */}
+                        <stop offset="50%" stopColor="#eab308" /> {/* Hold - Yellow */}
+                        <stop offset="75%" stopColor="#84cc16" /> {/* Buy - Light Green */}
+                        <stop offset="100%" stopColor="#22c55e" /> {/* Strong Buy - Green */}
+                      </linearGradient>
+                      
+                      <path 
+                        d="M20,100 A80,80 0 0,1 180,100" 
+                        stroke="url(#gauge-gradient)" 
+                        strokeWidth="10" 
+                        fill="none"
+                      />
+                      
+                      {/* Tick marks and labels */}
+                      <text x="20" y="115" className="text-xs font-medium" fill="currentColor">Sell</text>
+                      <text x="95" y="32" className="text-xs font-medium" fill="currentColor" textAnchor="middle">Neutral</text>
+                      <text x="180" y="115" className="text-xs font-medium" fill="currentColor" textAnchor="end">Buy</text>
+                      <text x="60" y="115" className="text-xs font-medium" fill="currentColor">Strong sell</text>
+                      <text x="140" y="115" className="text-xs font-medium" fill="currentColor" textAnchor="end">Strong buy</text>
+                      
+                      {/* Needle */}
+                      <g transform={`rotate(${gaugeAngle}, 100, 100)`}>
+                        <line x1="100" y1="100" x2="100" y2="40" stroke="currentColor" strokeWidth="2" />
+                        <circle cx="100" cy="100" r="5" fill="currentColor" />
+                        <circle cx="100" cy="40" r="3" fill="currentColor" />
+                      </g>
+                    </svg>
                   </div>
                 </div>
                 

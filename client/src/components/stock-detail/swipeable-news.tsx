@@ -130,8 +130,11 @@ export function SwipeableNews({ symbol, className }: SwipeableNewsProps) {
         // Generate sentiment if not available
         const sentiment = columnarData.data.sentiment?.[i] || 'neutral';
           
+        // Create a guaranteed unique ID using the index and timestamp
+        const uniqueId = `news-${symbol}-${i}-${Date.now()}`;
+          
         items.push({
-          id: parseInt(columnarData.data.id[i]) || i,
+          id: uniqueId,
           ticker: symbol,
           title: columnarData.data.title[i],
           summary: columnarData.data.summary[i] || '',

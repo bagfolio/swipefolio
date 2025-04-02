@@ -160,6 +160,15 @@ export function ManagementSection({ symbol, className }: ManagementSectionProps)
     }
   };
   
+  const getRiskLevelClass = (risk: string) => {
+    switch (risk.toLowerCase()) {
+      case 'low': return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+      case 'medium': return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+      case 'high': return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+      default: return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
+    }
+  };
+  
   if (isLoading) {
     return (
       <Card className={cn("w-full", className)}>
@@ -186,15 +195,15 @@ export function ManagementSection({ symbol, className }: ManagementSectionProps)
         <CardDescription>Internal factors and ownership structure</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Tabs defaultValue="ownership">
+        <Tabs defaultValue="management">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="ownership">
-              <PieChart className="h-4 w-4 mr-2" />
-              Ownership
-            </TabsTrigger>
             <TabsTrigger value="management">
               <Shield className="h-4 w-4 mr-2" />
               ESG & Governance
+            </TabsTrigger>
+            <TabsTrigger value="ownership">
+              <PieChart className="h-4 w-4 mr-2" />
+              Ownership
             </TabsTrigger>
           </TabsList>
           
@@ -205,46 +214,97 @@ export function ManagementSection({ symbol, className }: ManagementSectionProps)
               <h3 className="text-sm font-semibold mb-3">Who Really Owns {symbol}?</h3>
               
               {majorHolders ? (
-                <div className="space-y-4">
-                  {/* Pie chart representation for ownership */}
-                  <div className="relative w-full h-24">
-                    <div className="flex h-full">
-                      {/* Insiders Slice */}
-                      <div 
-                        className="h-full bg-blue-500" 
-                        style={{ width: `${majorHolders.insidersPercentHeld * 100}%` }}
-                      />
-                      {/* Institutions Slice */}
-                      <div 
-                        className="h-full bg-green-500" 
-                        style={{ width: `${majorHolders.institutionsPercentHeld * 100}%` }}
-                      />
-                      {/* Public Float (remaining) */}
-                      <div 
-                        className="h-full bg-gray-300" 
-                        style={{ width: `${100 - ((majorHolders.insidersPercentHeld + majorHolders.institutionsPercentHeld) * 100)}%` }}
-                      />
-                    </div>
-                    
-                    {/* Labels */}
-                    <div className="absolute top-0 left-0 right-0 bottom-0 flex flex-col justify-center p-2">
-                      <div className="text-xs font-medium">
-                        <span className="inline-block w-3 h-3 bg-blue-500 mr-1"></span>
-                        Insiders: {(majorHolders.insidersPercentHeld * 100).toFixed(2)}%
+                <div className="space-y-6">
+                  {/* Modern stacked bar representation for ownership */}
+                  <div className="space-y-6">
+                    {/* Note about percentages */}
+                    {majorHolders.institutionsPercentHeld + majorHolders.insidersPercentHeld > 1.0 && (
+                      <div className="rounded-md p-3 bg-blue-50 dark:bg-blue-950/50 text-sm">
+                        <p className="text-blue-800 dark:text-blue-300 flex items-start">
+                          <Info className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
+                          <span>
+                            Ownership totals may exceed 100% due to reporting differences 
+                            and potential double-counting when institutions own shares controlled by insiders.
+                          </span>
+                        </p>
                       </div>
-                      <div className="text-xs font-medium">
-                        <span className="inline-block w-3 h-3 bg-green-500 mr-1"></span>
-                        Institutions: {(majorHolders.institutionsPercentHeld * 100).toFixed(2)}%
-                      </div>
-                      <div className="text-xs font-medium">
-                        <span className="inline-block w-3 h-3 bg-gray-300 mr-1"></span>
-                        Public Float: {(100 - ((majorHolders.insidersPercentHeld + majorHolders.institutionsPercentHeld) * 100)).toFixed(2)}%
-                      </div>
-                    </div>
-                  </div>
+                    )}
                   
-                  <div className="text-xs text-muted-foreground">
-                    Based on {majorHolders.institutionsCount} institutional holders
+                    {/* Ownership Bars - new modern design */}
+                    <div className="space-y-4">
+                      {/* Insiders */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center">
+                            <span className="inline-block w-3 h-3 rounded-sm bg-blue-500 mr-2"></span>
+                            <span className="font-medium">Insiders</span>
+                          </div>
+                          <div className="text-sm font-bold">{(majorHolders.insidersPercentHeld * 100).toFixed(1)}%</div>
+                        </div>
+                        <div className="h-2.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-blue-500 rounded-full" 
+                            style={{ width: `${Math.min(majorHolders.insidersPercentHeld * 100, 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Shares held by company executives, board members, and major individual owners
+                        </p>
+                      </div>
+                      
+                      {/* Institutions */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center">
+                            <span className="inline-block w-3 h-3 rounded-sm bg-green-500 mr-2"></span>
+                            <span className="font-medium">Institutions</span>
+                          </div>
+                          <div className="text-sm font-bold">{(majorHolders.institutionsPercentHeld * 100).toFixed(1)}%</div>
+                        </div>
+                        <div className="h-2.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-green-500 rounded-full" 
+                            style={{ width: `${Math.min(majorHolders.institutionsPercentHeld * 100, 100)}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between">
+                          <p className="text-xs text-muted-foreground">
+                            {majorHolders.institutionsCount} institutional investors
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {(majorHolders.institutionsFloatPercentHeld * 100).toFixed(1)}% of float
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Public */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center">
+                            <span className="inline-block w-3 h-3 rounded-sm bg-gray-400 mr-2"></span>
+                            <span className="font-medium">Public Float</span>
+                          </div>
+                          <div className="text-sm font-bold">
+                            {(Math.max(0, 100 - (
+                              (majorHolders.insidersPercentHeld * 100) + 
+                              (majorHolders.institutionsPercentHeld * 100)))).toFixed(1)}%
+                          </div>
+                        </div>
+                        <div className="h-2.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gray-400 rounded-full" 
+                            style={{ 
+                              width: `${Math.max(0, 100 - (
+                                (majorHolders.insidersPercentHeld * 100) + 
+                                (majorHolders.institutionsPercentHeld * 100)))}%` 
+                            }}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Shares available to the general public for trading
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -357,29 +417,45 @@ export function ManagementSection({ symbol, className }: ManagementSectionProps)
             <div>
               <h3 className="text-sm font-semibold mb-3">ESG Performance</h3>
               
-              <div className="grid grid-cols-4 gap-2">
-                <div className="p-2 border rounded-md">
-                  <div className="text-xs text-muted-foreground">Overall</div>
-                  <div className={cn("text-xl font-semibold", getScoreColor(esgData.esgScore))}>
-                    {esgData.esgScore}/100
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="p-4 border rounded-lg shadow-sm bg-card">
+                  <div className="text-sm text-muted-foreground mb-1">Overall</div>
+                  <div className={cn("text-3xl font-bold flex items-baseline", getScoreColor(esgData.esgScore))}>
+                    {esgData.esgScore}
+                    <span className="text-xs text-muted-foreground ml-1">(out of 100)</span>
                   </div>
                 </div>
-                <div className="p-2 border rounded-md">
-                  <div className="text-xs text-muted-foreground">Environmental</div>
-                  <div className={cn("text-xl font-semibold", getScoreColor(esgData.environmentalScore))}>
-                    {esgData.environmentalScore}
+                
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="p-3 border rounded-lg shadow-sm bg-card flex justify-between items-center">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Environmental</div>
+                      <div className={cn("text-xl font-bold", getScoreColor(esgData.environmentalScore))}>
+                        {esgData.environmentalScore}
+                      </div>
+                    </div>
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center bg-green-50 dark:bg-green-900/20">
+                      <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-white font-bold", 
+                        esgData.environmentalScore >= 70 ? "bg-green-500" :
+                        esgData.environmentalScore >= 50 ? "bg-yellow-500" : "bg-red-500")}>
+                        {esgData.environmentalScore}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="p-2 border rounded-md">
-                  <div className="text-xs text-muted-foreground">Social</div>
-                  <div className={cn("text-xl font-semibold", getScoreColor(esgData.socialScore))}>
-                    {esgData.socialScore}
-                  </div>
-                </div>
-                <div className="p-2 border rounded-md">
-                  <div className="text-xs text-muted-foreground">Governance</div>
-                  <div className={cn("text-xl font-semibold", getScoreColor(esgData.governanceScore))}>
-                    {esgData.governanceScore}
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 border rounded-lg shadow-sm bg-card">
+                      <div className="text-sm text-muted-foreground">Social</div>
+                      <div className={cn("text-xl font-bold", getScoreColor(esgData.socialScore))}>
+                        {esgData.socialScore}
+                      </div>
+                    </div>
+                    <div className="p-3 border rounded-lg shadow-sm bg-card">
+                      <div className="text-sm text-muted-foreground">Governance</div>
+                      <div className={cn("text-xl font-bold", getScoreColor(esgData.governanceScore))}>
+                        {esgData.governanceScore}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -389,44 +465,68 @@ export function ManagementSection({ symbol, className }: ManagementSectionProps)
             <div className="pt-4 border-t">
               <h3 className="text-sm font-semibold mb-3">Governance & Risk Assessment</h3>
               
-              <div className="space-y-2">
-                <div className="flex justify-between items-center p-2 border rounded-md">
-                  <div className="flex items-center">
-                    <AlertTriangle className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>Management Risk</span>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 border rounded-lg shadow-sm bg-card">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center">
+                      <AlertTriangle className="h-5 w-5 mr-2 text-muted-foreground" />
+                      <span className="font-medium">Management</span>
+                    </div>
+                    <div className={cn("px-2 py-1 rounded text-sm font-semibold", 
+                      getRiskLevelClass(esgData.managementRisk))}>
+                      {esgData.managementRisk}
+                    </div>
                   </div>
-                  <div className={cn("font-medium", getRiskColor(esgData.managementRisk))}>
-                    {esgData.managementRisk}
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center p-2 border rounded-md">
-                  <div className="flex items-center">
-                    <Users className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>Board Risk</span>
-                  </div>
-                  <div className={cn("font-medium", getRiskColor(esgData.boardRisk))}>
-                    {esgData.boardRisk}
+                  <div className="text-xs text-muted-foreground">
+                    Measures risk associated with management decisions and practices
                   </div>
                 </div>
                 
-                <div className="flex justify-between items-center p-2 border rounded-md">
-                  <div className="flex items-center">
-                    <ClipboardCheck className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>Audit Risk</span>
+                <div className="p-3 border rounded-lg shadow-sm bg-card">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center">
+                      <Users className="h-5 w-5 mr-2 text-muted-foreground" />
+                      <span className="font-medium">Board</span>
+                    </div>
+                    <div className={cn("px-2 py-1 rounded text-sm font-semibold", 
+                      getRiskLevelClass(esgData.boardRisk))}>
+                      {esgData.boardRisk}
+                    </div>
                   </div>
-                  <div className={cn("font-medium", getRiskColor(esgData.auditRisk))}>
-                    {esgData.auditRisk}
+                  <div className="text-xs text-muted-foreground">
+                    Evaluates board structure, independence, and oversight
                   </div>
                 </div>
                 
-                <div className="flex justify-between items-center p-2 border rounded-md">
-                  <div className="flex items-center">
-                    <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>Compensation Risk</span>
+                <div className="p-3 border rounded-lg shadow-sm bg-card">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center">
+                      <ClipboardCheck className="h-5 w-5 mr-2 text-muted-foreground" />
+                      <span className="font-medium">Audit</span>
+                    </div>
+                    <div className={cn("px-2 py-1 rounded text-sm font-semibold", 
+                      getRiskLevelClass(esgData.auditRisk))}>
+                      {esgData.auditRisk}
+                    </div>
                   </div>
-                  <div className={cn("font-medium", getRiskColor(esgData.compensationRisk))}>
-                    {esgData.compensationRisk}
+                  <div className="text-xs text-muted-foreground">
+                    Assesses financial reporting and internal controls
+                  </div>
+                </div>
+                
+                <div className="p-3 border rounded-lg shadow-sm bg-card">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center">
+                      <Building2 className="h-5 w-5 mr-2 text-muted-foreground" />
+                      <span className="font-medium">Compensation</span>
+                    </div>
+                    <div className={cn("px-2 py-1 rounded text-sm font-semibold", 
+                      getRiskLevelClass(esgData.compensationRisk))}>
+                      {esgData.compensationRisk}
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Reviews executive pay structure and alignment with performance
                   </div>
                 </div>
               </div>
