@@ -516,7 +516,7 @@ export default function StockCard({
     return (
       <div className="relative h-full w-full overflow-hidden">
         {/* Card stack container */}
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center top-4 md:top-12 -bottom-24">
           {/* Next card in stack (positioned behind) */}
           {nextStock && (
             <div 
@@ -553,7 +553,7 @@ export default function StockCard({
             dragElastic={0.7}
             onDragEnd={handleDragEnd}
             animate={{
-              y,
+              y: indexInStack === 0 ? -250 : 0, // Significantly move top card up 
               scale,
               opacity: stackOpacity
             }}
@@ -796,7 +796,7 @@ export default function StockCard({
 
   // Real-time display mode
   return (
-    <div className="relative h-full" data-testid="stock-card">
+    <div className="relative h-full transform -translate-y-40" data-testid="stock-card">
       {/* Blurred background stock (next in stack) - visible during swipes */}
       {nextStock && (
         <div 
