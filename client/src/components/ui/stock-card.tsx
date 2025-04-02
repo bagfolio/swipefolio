@@ -145,7 +145,7 @@ export default function StockCard({
   // Calculate stacking variables
   const zIndex = 100 - indexInStack; // Higher z-index for top card
   const scale = 1 - indexInStack * 0.05; // Card underneath is smaller
-  const y = 0; // Keep cards at the same vertical position
+  const y = -indexInStack * 20; // Offset each card up by 20px relative to its index
   const stackOpacity = indexInStack === 0 ? 1 : 0.9; // Slight transparency for cards underneath
   const cardControls = useAnimation();
   const x = useMotionValue(0);
@@ -180,7 +180,7 @@ export default function StockCard({
     amount: number; 
     projectedReturn: number 
   } | null>(null);
-  
+
   // Handle purchase completion - transition from calculator to success modal
   const handlePurchaseComplete = (data: { shares: number; amount: number; projectedReturn: number }) => {
     setPurchaseData(data);
@@ -231,7 +231,7 @@ export default function StockCard({
   const openPortfolioCalculator = () => {
     setModalState('calculator');
   };
-  
+
   // Function to handle investment button click - used by the Buy button in stock detail page
   const handleInvestButtonClick = () => {
     openPortfolioCalculator();
@@ -241,7 +241,7 @@ export default function StockCard({
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     // Only allow the top card to be dragged
     if (indexInStack !== 0) return;
-    
+
     const threshold = 100;
 
     if (displayMode === 'realtime') {
@@ -252,7 +252,7 @@ export default function StockCard({
         if (navigator.vibrate) {
           navigator.vibrate(50);
         }
-        
+
         // Spring back to center and show calculator
         cardControls.start({
           x: 0,
@@ -265,12 +265,12 @@ export default function StockCard({
             duration: 0.3
           }
         });
-        
+
         // Open calculator after animation completes
         setTimeout(() => {
           setModalState('calculator');
         }, 150);
-        
+
         setSwipeDirection(null);
       } 
       // Left swipe (negative x) - Skip to next card
@@ -284,14 +284,14 @@ export default function StockCard({
         // Let the parent know to show the next card
         // AnimatePresence will handle the animation
         onNext();
-        
+
         // Reset for potential re-use
         cardControls.set({ 
           x: 0, 
           opacity: 1,
           scale: 1 
         });
-        
+
         setSwipeDirection(null);
       } 
       // Not enough drag - Spring back
@@ -586,20 +586,20 @@ export default function StockCard({
                     <h2 className="text-xl md:text-2xl font-bold text-white mb-1 group-hover:text-blue-300 transition-colors">{stock.name} <span className="text-gray-400 group-hover:text-blue-400 transition-colors">({stock.ticker})</span></h2>
                     <BarChart3 size={20} className="text-gray-400 group-hover:text-blue-300 transition-colors" />
                   </a>
-                  
+
                   {/* Day's range information */}
                   <div className="flex items-center text-xs text-gray-400 mt-1 mb-2">
                     <span className="mr-2">Day's Range:</span>
                     <span className="font-medium">${(parseFloat(stock.price.toFixed(2)) * 0.98).toFixed(2)} - ${(parseFloat(stock.price.toFixed(2)) * 1.02).toFixed(2)}</span>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-col items-end">
                   <div className={`flex items-center py-1.5 px-4 rounded-full ${stock.change >= 0 ? 'bg-green-900/30 text-green-300 border border-green-700/30' : 'bg-red-900/30 text-red-300 border border-red-700/30'} shadow-lg`}>
                     <span className="font-bold text-2xl">${stock.price.toFixed(2)}</span>
                     <span className="ml-2 text-sm font-medium">{stock.change >= 0 ? '+' : ''}{stock.change}%</span>
                   </div>
-                  
+
                   <span className="text-xs text-gray-500 mt-2">Updated: {new Date().toLocaleDateString()}</span>
                 </div>
               </div>
@@ -615,7 +615,7 @@ export default function StockCard({
                 <TrendingUp className="w-5 h-5 mr-2 text-blue-400" />
                 Stock Metrics
               </h3>
-              
+
               {Object.entries(stock.metrics).map(([key, metricObj]) => {
                 const metricName = key.charAt(0).toUpperCase() + key.slice(1);
 
@@ -641,7 +641,7 @@ export default function StockCard({
                         'text-red-400'
                       }`} />
                     </div>
-                    
+
                     <div 
                       className={`text-2xl font-bold ${
                         metricObj.color === 'green' ? 'text-green-300' :
@@ -651,11 +651,11 @@ export default function StockCard({
                     >
                       {metricObj.value}
                     </div>
-                    
+
                     <div className="text-white text-sm font-medium capitalize mt-1 mb-3">
                       {metricName}
                     </div>
-                    
+
                     {/* Subtle glow effect */}
                     <div className={`absolute bottom-1 left-1 w-12 h-12 rounded-full opacity-20 blur-xl -z-10 ${
                       metricObj.color === 'green' ? 'bg-green-400' :
@@ -737,7 +737,7 @@ export default function StockCard({
                 <BarChart3 className="w-5 h-5 mr-2 text-blue-400" />
                 Stock Analysis
               </h3>
-              
+
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -759,7 +759,7 @@ export default function StockCard({
                 </h3>
                 <ComparativeAnalysis currentStock={stock} />
               </motion.div>
-              
+
               {/* Swipe call-to-action */}
               <div className="mt-8 mb-2 flex justify-center">
                 <div className="text-gray-500 text-sm flex items-center">
@@ -816,7 +816,7 @@ export default function StockCard({
                 <div className="text-xl font-bold text-white">{nextStock.ticker}</div>
                 <div className="text-sm text-gray-300">{nextStock.name}</div>
               </div>
-              
+
               {/* Simplified chart area */}
               <div className="flex-1 bg-slate-800/50 backdrop-blur-sm flex items-center justify-center">
                 <div className="text-center text-gray-200">
@@ -917,7 +917,7 @@ export default function StockCard({
               </span>
             </div>
           </div>
-          
+
           {/* Day's range information */}
           <div className="mt-1 flex items-center text-xs text-slate-500">
             <span className="mr-2">Day's Range:</span>
@@ -1117,7 +1117,7 @@ export default function StockCard({
         >
           <ComparativeAnalysis currentStock={stock} />
         </div>
-        
+
         {/* Ask AI Component has been removed */}
 
         {/* Bottom Swipe Instruction and View Details button */}
@@ -1173,7 +1173,7 @@ export default function StockCard({
           stock={stock}
         />
       )}
-      
+
       {/* Purchase Success Modal - Unified state management */}
       {modalState === 'success' && purchaseData && (
         <PurchaseSuccessModal
