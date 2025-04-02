@@ -1,6 +1,7 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { Link } from "wouter";
 import { StockData } from "@/lib/stock-data";
+import { useQuery } from "@tanstack/react-query";
 import {
   Info,
   ChevronLeft,
@@ -21,10 +22,10 @@ import {
 } from "lucide-react";
 import { motion, useAnimation, useMotionValue, useTransform, PanInfo, AnimationControls } from "framer-motion";
 import OverallAnalysisCard from "@/components/overall-analysis-card";
-import { Skeleton } from "@/components/ui/skeleton"; // Keep if used, else remove
+import { Skeleton } from "@/components/ui/skeleton";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import AskAI from "./ask-ai";
-import { getIndustryAverages } from "@/lib/industry-data"; // Keep if needed for metric data preparation
+import { getIndustryAverages } from "@/lib/industry-data";
 
 
 // Define Metric structure used in handleMetricClick callback
@@ -53,13 +54,13 @@ type TimeFrame = "1D" | "5D" | "1M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX";
 // Helper functions (generateTimeBasedData, getTimeScaleLabels, getIndustryAverageData)
 const generateTimeBasedData = (data: number[], timeFrame: TimeFrame) => {
   switch(timeFrame) {
-    case "1D": return data.map((point, i) => point * (1 + Math.sin(i * 0.5) * 0.03));
-    case "5D": return data.map((point, i) => point * (1 + Math.sin(i * 0.3) * 0.05));
+    case "1D": return data.map((point: number, i: number) => point * (1 + Math.sin(i * 0.5) * 0.03));
+    case "5D": return data.map((point: number, i: number) => point * (1 + Math.sin(i * 0.3) * 0.05));
     case "1M": return data;
-    case "6M": return data.map((point, i) => point * (1 + (i/data.length) * 0.1));
-    case "1Y": return data.map((point, i) => point * (1 + Math.sin(i * 0.2) * 0.08 + (i/data.length) * 0.15));
-    case "5Y": return data.map((point, i) => point * (1 + Math.sin(i * 0.1) * 0.12 + (i/data.length) * 0.3));
-    case "MAX": return data.map((point, i) => point * (1 + Math.sin(i * 0.05) * 0.15 + (i/data.length) * 0.5));
+    case "6M": return data.map((point: number, i: number) => point * (1 + (i/data.length) * 0.1));
+    case "1Y": return data.map((point: number, i: number) => point * (1 + Math.sin(i * 0.2) * 0.08 + (i/data.length) * 0.15));
+    case "5Y": return data.map((point: number, i: number) => point * (1 + Math.sin(i * 0.1) * 0.12 + (i/data.length) * 0.3));
+    case "MAX": return data.map((point: number, i: number) => point * (1 + Math.sin(i * 0.05) * 0.15 + (i/data.length) * 0.5));
     default: return data;
   }
 };
@@ -134,25 +135,98 @@ export default function StockCard({
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Internal state for UI ONLY within the card
-  const [timeFrame, setTimeFrame] = useState<TimeFrame>("1D");
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>("1M");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  // Modal states are removed
-
-  // Chart data logic
-  const chartData = useMemo(() => generateTimeBasedData(stock.chartData, timeFrame), [stock.chartData, timeFrame]);
+  const [availablePeriods, setAvailablePeriods] = useState<string[]>([]);
+  
+  // Fetch available periods for the stock
+  const periodsQuery = useQuery({
+    queryKey: ['/api/stock/available-periods', stock.ticker],
+    queryFn: async () => {
+      try {
+        const response = await fetch(`/api/stock/${stock.ticker}/available-periods`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch available periods for ${stock.ticker}`);
+        }
+        return response.json();
+      } catch (error) {
+        console.error('Error fetching available periods:', error);
+        return { availablePeriods: ['5D', '1W', '1M', '3M', '6M', '1Y', '5Y'] };
+      }
+    },
+    staleTime: 60 * 1000, // 1 minute
+  });
+  
+  // Set available periods when data is received
+  useEffect(() => {
+    if (periodsQuery.data?.availablePeriods) {
+      setAvailablePeriods(periodsQuery.data.availablePeriods);
+      
+      // If the current timeFrame isn't available, set it to the first available one
+      if (periodsQuery.data.availablePeriods.includes('1M')) {
+        setTimeFrame('1M');
+      } else if (periodsQuery.data.availablePeriods.length > 0) {
+        // Filter out non-timeframe keys like "last_update"
+        const validPeriods = periodsQuery.data.availablePeriods.filter((p: string) => 
+          ['1D', '5D', '1W', '1M', '3M', '6M', '1Y', '5Y'].includes(p)
+        );
+        if (validPeriods.length > 0) {
+          setTimeFrame(validPeriods[0] as TimeFrame);
+        }
+      }
+    }
+  }, [periodsQuery.data]);
+  
+  // Fetch price history data
+  const historyQuery = useQuery({
+    queryKey: ['/api/stock/history', stock.ticker, timeFrame],
+    queryFn: async () => {
+      try {
+        const response = await fetch(`/api/stock/${stock.ticker}/history?period=${timeFrame}`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch price history for ${stock.ticker}`);
+        }
+        return response.json();
+      } catch (error) {
+        console.error('Error fetching price history:', error);
+        return null;
+      }
+    },
+    staleTime: 60 * 1000, // 1 minute
+    enabled: Boolean(timeFrame), // Only run query when timeFrame is available
+  });
+  
+  // Use real data from API if available, otherwise fallback to generated data
+  const chartData = useMemo(() => {
+    // If we have real data from the API, use it
+    if (historyQuery.data?.prices && Array.isArray(historyQuery.data.prices)) {
+      return historyQuery.data.prices;
+    }
+    // Otherwise, fallback to the static/transformed data
+    return generateTimeBasedData(stock.chartData, timeFrame);
+  }, [historyQuery.data, stock.chartData, timeFrame]);
+  
   const displayPrice = stock.price.toFixed(2);
   const realTimeChange = stock.change;
-  const minValue = Math.min(...chartData) - 5;
-  const maxValue = Math.max(...chartData) + 5;
+  const minValue = Math.min(...(chartData || [1])) - 5;
+  const maxValue = Math.max(...(chartData || [1])) + 5;
   const timeScaleLabels = useMemo(() => getTimeScaleLabels(timeFrame), [timeFrame]);
   const priceRangeMin = Math.floor(minValue);
   const priceRangeMax = Math.ceil(maxValue);
   const latestTradingDay = new Date().toISOString().split('T')[0];
 
-  // Refresh handler
+  // Refresh handler to refetch data from API
   const refreshData = async () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 1000);
+    try {
+      // Refetch both API calls
+      await periodsQuery.refetch();
+      await historyQuery.refetch();
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 1000);
+    }
   };
 
   // Handler to prepare data and call parent's onMetricClick
@@ -358,7 +432,20 @@ export default function StockCard({
       {/* --- Time frame selector (realtime mode only) --- */}
       {displayMode === 'realtime' && (
           <div className="sticky top-0 z-20 flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">
-               {["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"].map((period) => (
+               {periodsQuery.isLoading ? (
+                 // Show loading state for time periods
+                 <div className="flex justify-center space-x-1">
+                   {["1M", "3M", "6M"].map((period) => (
+                     <Skeleton key={period} className="w-10 h-6 rounded-full" />
+                   ))}
+                 </div>
+               ) : (
+                 // Show available periods from API, filtering out non-timeframe keys
+                 (availablePeriods || ["5D", "1M", "3M", "6M", "1Y"])
+                   .filter(period => 
+                     ["1D", "5D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y", "MAX"].includes(period)
+                   )
+                   .map((period) => (
                    <button
                        key={period}
                        className={`px-3 py-1 text-xs rounded-full transition-all duration-200 ${
@@ -370,7 +457,7 @@ export default function StockCard({
                    >
                        {period}
                    </button>
-               ))}
+               )))}
            </div>
       )}
       {displayMode === 'simple' && <div className="pt-4"></div>}
@@ -527,7 +614,7 @@ export default function StockCard({
                         </div>
                         <div className="absolute inset-0 pl-12 pr-4"> {/* Chart Path */}
                            <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
-                             <path d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} ${chartData.map((point, i) => `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`).join(' ')} L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100}`} className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                             <path d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} ${chartData.map((point: number, i: number) => `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`).join(' ')} L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100}`} className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                            </svg>
                         </div>
                     </div>
