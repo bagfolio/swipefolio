@@ -634,8 +634,8 @@ export default function StockCard({
       {/* Action Buttons - Render only for interactive card */}
       {cardControls && (
         <div className="fixed bottom-12 left-0 right-0 px-5 z-30 flex justify-center space-x-8">
-            {/* Card shadow/gradient edge - dark gradient extending to bottom */}
-            <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black to-transparent opacity-90 -z-10 pointer-events-none"></div>
+            {/* Card shadow/gradient edge - full height dark gradient */}
+            <div className="absolute inset-x-0 bottom-0 h-[100vh] bg-gradient-to-t from-black via-black/70 to-transparent opacity-90 -z-10 pointer-events-none transition-opacity duration-300"></div>
             
             <button
                 className="px-8 py-4 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white font-semibold shadow-xl flex items-center justify-center w-5/12 hover:from-red-600 hover:to-red-700 active:scale-95 transition-all duration-300 border border-red-400"
