@@ -224,48 +224,78 @@ export function StockCardNews({ symbol, className, mode = 'dark' }: StockCardNew
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className={cn(
-          "rounded-xl p-3 shadow-lg border", 
+          "rounded-xl p-3 shadow-lg border cursor-pointer", 
           mode === 'dark' 
-            ? 'bg-gray-800 text-white border-gray-700' 
-            : 'bg-white text-gray-800 border-gray-200'
+            ? 'bg-gray-800 text-white border-gray-700 hover:bg-gray-750' 
+            : 'bg-white text-gray-800 border-gray-200 hover:bg-blue-50 hover:border-blue-200'
         )}
+        onClick={() => setExpanded(!expanded)}
       >
+        {/* Visual indicator for clickable area */}
+        <div className={cn(
+          "absolute inset-0 rounded-xl",
+          expanded ? "bg-blue-500/5" : "",
+          "pointer-events-none"
+        )} />
+        
         {/* News trend summary */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2 mb-2">
             <Badge className={cn(
-              "text-xs font-medium",
+              "text-xs font-semibold px-2 py-1",
               trendSummary?.sentiment === 'positive' 
-                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' 
+                ? 'bg-green-500/20 text-green-500 hover:bg-green-500/30 ring-1 ring-green-500/30' 
                 : trendSummary?.sentiment === 'negative'
-                  ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                  : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
+                  ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30 ring-1 ring-red-500/30'
+                  : 'bg-blue-500/20 text-blue-500 hover:bg-blue-500/30 ring-1 ring-blue-500/30'
             )}>
-              {trendSummary?.sentiment === 'positive' ? <TrendingUp className="w-3 h-3 mr-1" /> : 
-               trendSummary?.sentiment === 'negative' ? <TrendingDown className="w-3 h-3 mr-1" /> : 
-               <MessageCircle className="w-3 h-3 mr-1" />}
-              News
+              {trendSummary?.sentiment === 'positive' ? <TrendingUp className="w-3.5 h-3.5 mr-1" /> : 
+               trendSummary?.sentiment === 'negative' ? <TrendingDown className="w-3.5 h-3.5 mr-1" /> : 
+               <MessageCircle className="w-3.5 h-3.5 mr-1" />}
+              Latest News
             </Badge>
             
             {trendSummary?.impactedMetric && (
-              <Badge variant="outline" className="text-xs font-medium">
+              <Badge variant="outline" className="text-xs font-medium px-2 py-1">
                 {getMetricIcon(trendSummary.impactedMetric)}
                 <span className="ml-1 capitalize">{trendSummary.impactedMetric}</span>
               </Badge>
             )}
           </div>
           
-          <button 
-            onClick={() => setExpanded(!expanded)}
-            className={`${mode === 'dark' ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'} focus:outline-none`}
+          <div 
+            className={cn(
+              "flex items-center justify-center w-7 h-7 rounded-full transition-colors",
+              mode === 'dark' 
+                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white' 
+                : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+            )}
           >
             {expanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-          </button>
+          </div>
         </div>
         
-        <p className={`text-sm ${mode === 'dark' ? 'text-gray-300' : 'text-gray-700'} leading-tight mb-1`}>
+        <p className={cn(
+          "text-sm leading-tight mb-1",
+          mode === 'dark' ? 'text-gray-300' : 'text-gray-700',
+          "font-medium"
+        )}>
           {trendSummary?.message}
         </p>
+        
+        {/* Tap to show more text */}
+        <div className={cn(
+          "text-xs mt-2 flex items-center",
+          !expanded && "opacity-75",
+          mode === 'dark' ? 'text-blue-400' : 'text-blue-600'
+        )}>
+          {!expanded && (
+            <>
+              <span>Tap to {expanded ? 'hide' : 'show'} news details</span>
+              <ChevronDown className="h-3 w-3 ml-1" />
+            </>
+          )}
+        </div>
         
         {/* Expanded news details */}
         {expanded && (
@@ -275,9 +305,18 @@ export function StockCardNews({ symbol, className, mode = 'dark' }: StockCardNew
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
             className="mt-3 space-y-3"
+            onClick={(e) => e.stopPropagation()} // Prevent collapsing when clicking news items
           >
             {transformedNewsItems.map((item) => (
-              <div key={item.id} className={`text-xs rounded-lg p-2 ${mode === 'dark' ? 'bg-gray-700/50' : 'bg-gray-100'}`}>
+              <div 
+                key={item.id} 
+                className={cn(
+                  "text-xs rounded-lg p-3 transition-all duration-150",
+                  mode === 'dark' 
+                    ? 'bg-gray-700/50 hover:bg-gray-700' 
+                    : 'bg-gray-100 hover:bg-gray-50 hover:shadow-md'
+                )}
+              >
                 <div className="flex justify-between items-start mb-1">
                   <span className={`font-medium ${mode === 'dark' ? 'text-gray-200' : 'text-gray-900'}`}>
                     {item.title.length > 60 ? item.title.substring(0, 60) + '...' : item.title}
@@ -306,7 +345,8 @@ export function StockCardNews({ symbol, className, mode = 'dark' }: StockCardNew
                     href={item.url} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className={`text-xs ${mode === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'}`}
+                    className={`text-xs px-2 py-1 rounded ${mode === 'dark' ? 'bg-blue-900/50 text-blue-400 hover:bg-blue-900/80' : 'bg-blue-100 text-blue-600 hover:bg-blue-200'}`}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     Read more
                   </a>

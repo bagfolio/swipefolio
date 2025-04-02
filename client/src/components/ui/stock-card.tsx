@@ -643,8 +643,12 @@ export default function StockCard({
                      );
                  })}
              </div>
-             {/* News Notification */}
-             <div className="p-4 bg-white border-b border-slate-100">
+             {/* News Notification - Important Updates */}
+             <div className="p-4 bg-gradient-to-br from-blue-50 to-white border-b border-slate-100">
+               <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
+                 <MessageCircle size={16} className="text-blue-500 mr-2" />
+                 Market News
+               </h3>
                <StockCardNews symbol={stock.ticker} mode="light" />
              </div>
 
