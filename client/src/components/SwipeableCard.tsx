@@ -74,7 +74,12 @@ export default function SwipeableCard({
       onDragEnd={handleDragEnd}
       initial={{ scale, y: yOffset }}
       animate={{ scale, y: yOffset }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      transition={{ 
+        type: "spring", 
+        stiffness: 250, // Reduced stiffness for slower animation
+        damping: 25,   // Increased damping for smoother motion
+        duration: 0.8  // Extended duration 
+      }}
       whileTap={{ cursor: "grabbing" }}
     >
       <div className="p-6 bg-white">

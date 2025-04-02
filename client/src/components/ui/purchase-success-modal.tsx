@@ -41,11 +41,11 @@ export default function PurchaseSuccessModal({
       const confettiTimer = setTimeout(() => {
         setShowConfetti(true);
         
-        // Hide confetti after a short burst
+        // Hide confetti after a longer duration for more satisfaction
         setTimeout(() => {
           setShowConfetti(false);
-        }, 2000);
-      }, 150);
+        }, 3500); // Extended duration for slower confetti
+      }, 250); // Slight increase in initial delay
       
       return () => {
         clearTimeout(confettiTimer);
@@ -64,30 +64,35 @@ export default function PurchaseSuccessModal({
     <AnimatePresence mode="wait" key="success-modal">
       {isOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-[9999]" style={{ isolation: 'isolate' }}>
-          {/* Confetti effect - centered burst */}
+          {/* Improved Confetti effect - bigger and slower */}
           {showConfetti && (
             <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-[55]">
-              <div className="relative w-24 h-24">
-                {Array.from({ length: 60 }).map((_, i) => {
+              <div className="relative w-full h-full">
+                {Array.from({ length: 80 }).map((_, i) => {
                   // Generate random direction for each confetti piece
                   const angle = (Math.random() * 360); // random angle in degrees
-                  const distance = 50 + Math.random() * 100; // random distance from center
+                  const distance = 50 + Math.random() * 200; // increased distance from center
                   const tx = Math.cos(angle * Math.PI / 180) * distance; // x-coordinate
                   const ty = Math.sin(angle * Math.PI / 180) * distance; // y-coordinate
                   const rotation = Math.random() * 720 - 360; // random rotation
+                  const size = 3 + Math.random() * 5; // varied sizes for confetti
+                  const height = 6 + Math.random() * 7; // varied heights for confetti
 
                   return (
                     <div
                       key={i}
-                      className="absolute top-1/2 left-1/2 w-2 h-5 rounded-sm animate-confetti-burst"
+                      className="absolute top-1/2 left-1/2 rounded-sm animate-confetti-slow"
                       style={{
-                        backgroundColor: ['#26a269', '#33d17a', '#f6d32d', '#1c71d8', '#c061cb', '#ed333b'][i % 6],
+                        backgroundColor: ['#26a269', '#33d17a', '#f6d32d', '#1c71d8', '#c061cb', '#ed333b', '#ff9e3b', '#3584e4'][i % 8],
                         '--tx': `${tx}px`,
                         '--ty': `${ty}px`,
                         '--r': `${rotation}deg`,
+                        width: `${size}px`,
+                        height: `${height}px`,
                         transform: 'translate(-50%, -50%)',
-                        opacity: 0.9,
-                        animationDelay: `${Math.random() * 0.2}s`,
+                        opacity: 0.95,
+                        animationDelay: `${Math.random() * 0.4}s`, // more varied delays
+                        animationDuration: `${1.5 + Math.random() * 1.5}s`, // slower animation
                       } as React.CSSProperties}
                     />
                   );

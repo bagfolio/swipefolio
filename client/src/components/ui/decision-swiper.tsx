@@ -175,6 +175,12 @@ export function DecisionSwiper({
             rotate,
             opacity
           }}
+          transition={{
+            type: "spring",
+            stiffness: 250, // Reduced stiffness for slower movement
+            damping: 25,    // Increased damping for smoother feel
+            duration: 0.8   // Longer duration overall
+          }}
           whileTap={{ scale: 0.98 }}
         >
           <Card className="w-full h-full overflow-hidden shadow-lg">

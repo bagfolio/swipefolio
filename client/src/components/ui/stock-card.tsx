@@ -260,9 +260,9 @@ export default function StockCard({
         x: 0, 
         transition: { 
           type: "spring", 
-          stiffness: 300, 
-          damping: 30,
-          duration: 0.7
+          stiffness: 250,  // Reduced stiffness for slower animation
+          damping: 35,     // Increased damping for smoother return
+          duration: 0.8    // Extended duration
         }
       });
       return;
@@ -288,9 +288,9 @@ export default function StockCard({
           rotate: [5, 0],
           transition: { 
             type: "spring", 
-            stiffness: 300,  // Stiffer for more controlled feel
-            damping: 20,     // Less damping for more bounce
-            duration: 0.8,   // Longer duration for very noticeable animation
+            stiffness: 280,  // Slightly reduced stiffness for smoother animation
+            damping: 22,     // Slightly adjusted damping for better bounce
+            duration: 0.85,  // Even longer duration for very satisfying animation
             ease: "easeInOut"
           }
         });
@@ -305,9 +305,9 @@ export default function StockCard({
         x: 0, 
         transition: { 
           type: "spring", 
-          stiffness: 300, 
-          damping: 28,
-          duration: 0.7,
+          stiffness: 250,  // Reduced stiffness for slower movement
+          damping: 30,     // Increased damping for smoother animation
+          duration: 0.8,   // Extended duration
           ease: "easeOut"
         }
       });
@@ -355,8 +355,25 @@ export default function StockCard({
         style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }} 
     >
 
-      {/* --- No category at the top --- */}
-      <div className="pt-4"></div>
+      {/* --- Time frame selector (realtime mode only) --- */}
+      {displayMode === 'realtime' && (
+          <div className="sticky top-0 z-20 flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">
+               {["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"].map((period) => (
+                   <button
+                       key={period}
+                       className={`px-3 py-1 text-xs rounded-full transition-all duration-200 ${
+                           timeFrame === period
+                               ? `${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm' : 'text-red-600 bg-red-50 border border-red-200 shadow-sm'} font-medium`
+                               : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                       }`}
+                       onClick={() => setTimeFrame(period as TimeFrame)}
+                   >
+                       {period}
+                   </button>
+               ))}
+           </div>
+      )}
+      {displayMode === 'simple' && <div className="pt-4"></div>}
 
       {/* --- Content Specific to Mode --- */}
       {displayMode === 'simple' ? (
