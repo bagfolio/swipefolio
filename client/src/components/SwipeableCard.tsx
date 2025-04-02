@@ -33,11 +33,11 @@ export default function SwipeableCard({
   // Calculate z-index based on position in stack
   const zIndex = totalInStack - indexInStack;
   
-  // Scaling for cards in the stack
-  const scale = 1 - indexInStack * 0.05;
+  // Scaling for cards in the stack (less reduction for better visibility)
+  const scale = 1 - indexInStack * 0.03;
   
-  // Slight vertical offset for stacked appearance
-  const yOffset = indexInStack * 10;
+  // Slight vertical offset for stacked appearance (smaller offset to show more of the card)
+  const yOffset = indexInStack * 15;
   
   // Handle drag end
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -59,12 +59,12 @@ export default function SwipeableCard({
   return (
     <motion.div
       ref={cardRef}
-      className="absolute top-0 left-0 right-0 bg-white rounded-xl shadow-lg overflow-hidden"
+      className="absolute top-0 left-0 right-0 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100"
       style={{
         x,
         y: yOffset, // Using yOffset for the y position
         rotate,
-        opacity,
+        opacity: indexInStack === 0 ? opacity : 0.95, // Keep back card visible
         zIndex,
         scale,
       }}
@@ -77,8 +77,8 @@ export default function SwipeableCard({
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
       whileTap={{ cursor: "grabbing" }}
     >
-      <div className="p-6">
-        <h3 className="text-lg font-semibold mb-2">{card.title}</h3>
+      <div className="p-6 bg-white">
+        <h3 className="text-lg font-semibold mb-3">{card.title}</h3>
         <div className="prose prose-sm">
           <div dangerouslySetInnerHTML={{ __html: card.content || "" }} />
         </div>

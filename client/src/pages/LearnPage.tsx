@@ -50,7 +50,7 @@ export default function LearnPage() {
   const [earnedXp, setEarnedXp] = useState(0);
   
   // Number of cards to display in the stack visually (current card + preview cards)
-  const CARDS_TO_RENDER = 3;
+  const CARDS_TO_RENDER = 2; // We'll only show 2 cards - the current one and the one behind it
   
   // Get stack details
   const { data: stack, isLoading: isLoadingStack } = useQuery<Stack>({
@@ -196,8 +196,8 @@ export default function LearnPage() {
       
       {/* Main content */}
       <main className="flex-1 flex items-center justify-center p-4 relative">
-        <div className="w-full max-w-md h-[500px] relative">
-          <div className="relative h-full w-full">
+        <div className="w-full max-w-md h-[500px] relative transform-gpu">
+          <div className="relative h-full w-full perspective-1000">
             <AnimatePresence initial={false}>
               {/* Render a slice of cards from the current index */}
               {cards
