@@ -1,0 +1,522 @@
+# Stock Data Access & Storage Guide
+
+This document provides a comprehensive guide on how to access and store stock data from the API. It covers all available data types and endpoints with practical examples.
+
+## API Base URL
+
+When deployed, your base URL will be:
+```
+https://your-domain.com/api
+```
+
+For local development:
+```
+http://localhost:5000/api
+```
+
+## API Endpoints
+
+### 1. Get List of Available Stocks
+
+```
+GET /pg/stocks
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "count": 50,
+  "data": [
+    {"ticker": "AAPL", "company_name": "Apple Inc", "sector": "Technology", "industry": "Consumer Electronics"},
+    {"ticker": "AMZN", "company_name": "Amazon.com Inc", "sector": "Consumer Cyclical", "industry": "Internet Retail"},
+    // more stocks...
+  ]
+}
+```
+
+### 2. Get Complete Stock Data
+
+```
+GET /pg/stock/{ticker}
+```
+
+**Example:**
+```
+GET /pg/stock/AAPL
+```
+
+This returns all available data for the stock in a single response. It's comprehensive but can be large.
+
+### 3. Get Basic Stock Information
+
+```
+GET /pg/stock/{ticker}/basic
+```
+
+**Example:**
+```
+GET /pg/stock/AAPL/basic
+```
+
+Returns basic company information including:
+- Company name
+- Sector
+- Industry
+- Current price
+- Market cap
+- 52-week high/low
+
+### 4. Get Specific Stock Data Type
+
+```
+GET /pg/stock/{ticker}/{data_type}
+```
+
+The `{data_type}` parameter must be one of:
+- `closing_history` - Historical closing price data
+- `dividends` - Dividend history
+- `institutional_holders` - Institutional shareholders
+- `major_holders` - Major shareholders breakdown
+- `income_statement` - Income statement data
+- `balance_sheet` - Balance sheet data
+- `cash_flow` - Cash flow statement
+- `recommendations` - Analyst recommendations
+- `earnings_dates` - Upcoming earnings dates
+- `earnings_history` - Past earnings results
+- `earnings_trend` - Earnings trends/forecasts
+- `upgrades_downgrades` - Analyst upgrades/downgrades
+- `financial_data` - Key financial metrics
+- `news` - Latest news articles
+
+**Example:**
+```
+GET /pg/stock/AAPL/news
+```
+
+## Columnar Data Format
+
+All stock data is returned in a columnar format, which means instead of an array of objects, you get an object with arrays:
+
+### Traditional format (NOT used):
+```json
+[
+  { "date": "2024-01-01", "close": 190.50 },
+  { "date": "2024-01-02", "close": 191.25 },
+  { "date": "2024-01-03", "close": 192.35 }
+]
+```
+
+### Columnar format (what our API returns):
+```json
+{
+  "date": ["2024-01-01", "2024-01-02", "2024-01-03"],
+  "close": [190.50, 191.25, 192.35]
+}
+```
+
+## Data Type Details & Examples
+
+### 1. Closing History
+
+```
+GET /pg/stock/AAPL/closing_history
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "Date": ["2024-04-01", "2024-04-02", ...],
+    "Close": [175.34, 176.45, ...],
+    "Open": [174.23, 175.89, ...],
+    "High": [176.12, 177.25, ...],
+    "Low": [173.85, 175.22, ...],
+    "Volume": [67584300, 72158900, ...]
+  }
+}
+```
+
+**How to use it:**
+```javascript
+// JavaScript example
+const closingData = data.data;
+for (let i = 0; i < closingData.Date.length; i++) {
+  console.log(`${closingData.Date[i]}: ${closingData.Close[i]}`);
+}
+```
+
+### 2. Dividends
+
+```
+GET /pg/stock/AAPL/dividends
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "Date": ["2024-02-09", "2023-11-10", ...],
+    "Dividends": [0.24, 0.24, ...]
+  }
+}
+```
+
+### 3. News
+
+```
+GET /pg/stock/AAPL/news
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "title": ["Apple Announces New iPhone", "Apple Services Revenue Hits Record High", ...],
+    "publisher": ["CNBC", "Bloomberg", ...],
+    "publishDate": ["2024-04-02", "2024-04-01", ...],
+    "url": ["https://example.com/news1", "https://example.com/news2", ...],
+    "summary": ["Apple unveiled the latest iPhone model...", "Apple's services division posted record revenue...", ...],
+    "contentType": ["STORY", "STORY", ...],
+    "id": ["unique-id-1", "unique-id-2", ...]
+  }
+}
+```
+
+### 4. Institutional Holders
+
+```
+GET /pg/stock/AAPL/institutional_holders
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "Holder": ["Vanguard Group Inc", "Blackrock Inc", ...],
+    "Shares": [1324743901, 1057747493, ...],
+    "Date Reported": ["2023-12-31", "2023-12-31", ...],
+    "% Out": [8.45, 6.75, ...],
+    "Value": [229845734509, 183479119858, ...]
+  }
+}
+```
+
+### 5. Financial Statements (Income Statement, Balance Sheet, Cash Flow)
+
+```
+GET /pg/stock/AAPL/income_statement
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "dates": ["2023-09-30", "2022-09-30", "2021-09-30", "2020-09-30"],
+    "Revenue": [383293000000, 394328000000, 365817000000, 274515000000],
+    "Cost of Revenue": [214137000000, 223546000000, 212981000000, 169559000000],
+    "Gross Profit": [169156000000, 170782000000, 152836000000, 104956000000],
+    "Operating Expense": [214137000000, 223546000000, 212981000000, 169559000000],
+    "Operating Income": [114870000000, 119437000000, 108949000000, 66288000000],
+    // other line items...
+  }
+}
+```
+
+### 6. Earnings History
+
+```
+GET /pg/stock/AAPL/earnings_history
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "epsActual": [1.98, 1.52, 1.88, 1.46],
+    "epsEstimate": [1.94, 1.43, 1.82, 1.39],
+    "epsDifference": [0.04, 0.09, 0.06, 0.07],
+    "surprisePercent": [2.06, 6.29, 3.30, 5.04],
+    "quarter": ["2024-03-31", "2023-12-31", "2023-09-30", "2023-06-30"]
+  }
+}
+```
+
+### 7. Recommendations
+
+```
+GET /pg/stock/AAPL/recommendations
+```
+
+**Example Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "Date": ["2024-04-01", "2024-03-01", ...],
+    "Firm": ["Morgan Stanley", "Goldman Sachs", ...],
+    "To Grade": ["Overweight", "Buy", ...],
+    "From Grade": ["Equal-Weight", "Neutral", ...],
+    "Action": ["Upgrade", "Upgrade", ...]
+  }
+}
+```
+
+## Storing Data in Your Application
+
+### Option 1: Direct Database Integration
+
+You can directly store the columnar data in your application's database:
+
+**Example PostgreSQL Schema:**
+```sql
+CREATE TABLE stock_data (
+  id SERIAL PRIMARY KEY,
+  ticker VARCHAR(10) NOT NULL,
+  data_type VARCHAR(30) NOT NULL,
+  data JSONB NOT NULL,
+  last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(ticker, data_type)
+);
+```
+
+**Example Insert:**
+```python
+import psycopg2
+import json
+import requests
+from psycopg2.extras import Json
+
+# Fetch data from API
+ticker = 'AAPL'
+data_type = 'news'
+response = requests.get(f'http://localhost:5000/api/pg/stock/{ticker}/{data_type}')
+data = response.json()['data']
+
+# Connect to your database
+conn = psycopg2.connect("your_connection_string")
+cur = conn.cursor()
+
+# Insert or update
+cur.execute("""
+    INSERT INTO stock_data (ticker, data_type, data) 
+    VALUES (%s, %s, %s)
+    ON CONFLICT (ticker, data_type) 
+    DO UPDATE SET data = %s, last_updated = CURRENT_TIMESTAMP
+""", (ticker, data_type, Json(data), Json(data)))
+
+conn.commit()
+cur.close()
+conn.close()
+```
+
+### Option 2: Cache in Local Storage (Web Apps)
+
+For web applications, you can cache the data in localStorage:
+
+```javascript
+// Fetch data
+async function fetchStockData(ticker, dataType) {
+  const response = await fetch(`https://your-api.com/api/pg/stock/${ticker}/${dataType}`);
+  const result = await response.json();
+  
+  if (result.success) {
+    // Store in localStorage with expiration time
+    const expiration = Date.now() + (60 * 60 * 1000); // 1 hour
+    const storageItem = {
+      data: result.data,
+      expiration: expiration
+    };
+    
+    localStorage.setItem(`stock_${ticker}_${dataType}`, JSON.stringify(storageItem));
+    return result.data;
+  }
+  
+  return null;
+}
+
+// Retrieve data with expiration check
+function getStockData(ticker, dataType) {
+  const storageKey = `stock_${ticker}_${dataType}`;
+  const storedItem = localStorage.getItem(storageKey);
+  
+  if (storedItem) {
+    const item = JSON.parse(storedItem);
+    
+    // Check if data is still valid
+    if (Date.now() < item.expiration) {
+      return item.data;
+    } else {
+      // Data expired, remove it
+      localStorage.removeItem(storageKey);
+    }
+  }
+  
+  // Fetch fresh data
+  return fetchStockData(ticker, dataType);
+}
+```
+
+### Option 3: Redux Store (React Applications)
+
+For React applications using Redux:
+
+```javascript
+// Action types
+const FETCH_STOCK_DATA_REQUEST = 'FETCH_STOCK_DATA_REQUEST';
+const FETCH_STOCK_DATA_SUCCESS = 'FETCH_STOCK_DATA_SUCCESS';
+const FETCH_STOCK_DATA_FAILURE = 'FETCH_STOCK_DATA_FAILURE';
+
+// Action creators
+function fetchStockData(ticker, dataType) {
+  return async (dispatch) => {
+    dispatch({ type: FETCH_STOCK_DATA_REQUEST, ticker, dataType });
+    
+    try {
+      const response = await fetch(`https://your-api.com/api/pg/stock/${ticker}/${dataType}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        dispatch({
+          type: FETCH_STOCK_DATA_SUCCESS,
+          ticker,
+          dataType,
+          data: result.data,
+          receivedAt: Date.now()
+        });
+      } else {
+        dispatch({
+          type: FETCH_STOCK_DATA_FAILURE,
+          ticker,
+          dataType,
+          error: result.error
+        });
+      }
+    } catch (error) {
+      dispatch({
+        type: FETCH_STOCK_DATA_FAILURE,
+        ticker,
+        dataType,
+        error: error.message
+      });
+    }
+  };
+}
+
+// Reducer
+function stockDataReducer(state = {}, action) {
+  switch (action.type) {
+    case FETCH_STOCK_DATA_SUCCESS:
+      return {
+        ...state,
+        [action.ticker]: {
+          ...state[action.ticker],
+          [action.dataType]: {
+            data: action.data,
+            lastUpdated: action.receivedAt
+          }
+        }
+      };
+    // Handle other cases...
+    default:
+      return state;
+  }
+}
+```
+
+## Working with Columnar Data
+
+Here are examples of how to work with the columnar data format:
+
+### Example 1: Creating a Table from Historical Prices
+
+```javascript
+function renderPriceTable(closingHistory) {
+  const tableRows = [];
+  
+  for (let i = 0; i < closingHistory.Date.length; i++) {
+    tableRows.push(`
+      <tr>
+        <td>${closingHistory.Date[i]}</td>
+        <td>${closingHistory.Open[i].toFixed(2)}</td>
+        <td>${closingHistory.High[i].toFixed(2)}</td>
+        <td>${closingHistory.Low[i].toFixed(2)}</td>
+        <td>${closingHistory.Close[i].toFixed(2)}</td>
+        <td>${closingHistory.Volume[i].toLocaleString()}</td>
+      </tr>
+    `);
+  }
+  
+  return `
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Open</th>
+          <th>High</th>
+          <th>Low</th>
+          <th>Close</th>
+          <th>Volume</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRows.join('')}
+      </tbody>
+    </table>
+  `;
+}
+```
+
+### Example 2: Creating a News List
+
+```javascript
+function renderNewsList(newsData) {
+  const newsItems = [];
+  
+  for (let i = 0; i < newsData.title.length; i++) {
+    const date = new Date(newsData.publishDate[i]).toLocaleDateString();
+    newsItems.push(`
+      <div class="news-item">
+        <h3><a href="${newsData.url[i]}" target="_blank">${newsData.title[i]}</a></h3>
+        <div class="meta">${date} - ${newsData.publisher[i]}</div>
+        <p>${newsData.summary[i]}</p>
+      </div>
+    `);
+  }
+  
+  return `
+    <div class="news-container">
+      ${newsItems.join('')}
+    </div>
+  `;
+}
+```
+
+## Error Handling
+
+All API endpoints follow a consistent error handling pattern:
+
+```json
+{
+  "success": false,
+  "error": "Detailed error message"
+}
+```
+
+Always check the `success` property before processing the response.
+
+## Rate Limits and Caching
+
+- The API supports efficient client-side caching with `Cache-Control` headers
+- Consider implementing a caching strategy to reduce API calls
+- Rate limits are set to 100 requests per minute per IP address
+
+## Need Help?
+
+If you need additional assistance or encounter issues with accessing the stock data API, please contact the API administrator.
