@@ -417,7 +417,7 @@ name: stock.name
   >
     {/* Inner container for scrolling content */}
     {/* Ensure background color matches card */}
-    <div className={`h-full overflow-y-auto overflow-x-hidden pb-16 stock-card ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black' : 'bg-white'}`}>
+    <div className={`absolute inset-0 overflow-y-auto overflow-x-hidden pb-16 stock-card-scroll-content ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black text-white' : 'bg-white text-slate-900'}`}>
 
       {/* --- Common Top Section (Page Indicator/Timeframe) --- */}
       {displayMode === 'simple' && (
