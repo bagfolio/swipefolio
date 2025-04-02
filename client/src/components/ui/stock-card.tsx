@@ -34,9 +34,6 @@ interface StockCardProps {
   totalCount: number;
   nextStock?: StockData;
   displayMode?: 'simple' | 'realtime';
-  // New stacking props
-  indexInStack?: number; // Position in stack (0 = top card)
-  totalInStack?: number; // Total cards in stack
 }
 
 type TimeFrame = "1D" | "5D" | "1M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX";
@@ -138,15 +135,8 @@ export default function StockCard({
   currentIndex, 
   totalCount,
   nextStock,
-  displayMode = 'realtime',
-  indexInStack = 0,  // Default to top card
-  totalInStack = 1   // Default to single card
+  displayMode = 'realtime'
 }: StockCardProps) {
-  // Calculate stacking variables
-  const zIndex = 100 - indexInStack; // Higher z-index for top card
-  const scale = indexInStack === 0 ? 1 : 0.92; // Only slight reduction for background card
-  // No vertical positioning - fixed in center for all cards
-  const stackOpacity = indexInStack === 0 ? 1 : 0.7; // More transparency for cards underneath
   const cardControls = useAnimation();
   const x = useMotionValue(0);
   // Smoother opacity transform for better visual experience
@@ -155,9 +145,6 @@ export default function StockCard({
   const cardRotate = useTransform(x, [-300, 0, 300], [-6, 0, 6]);
   // Scale effect for better tactile feel
   const cardScale = useTransform(x, [-300, -150, 0, 150, 300], [0.95, 0.97, 1, 0.97, 0.95]);
-  // Preview opacity for the next card
-  // We deleted the transform-based opacity effect in favor of direct calculations
-  // to avoid TypeScript errors and simplify the animation logic
   const cardRef = useRef<HTMLDivElement>(null);
 
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("1D");
@@ -237,11 +224,8 @@ export default function StockCard({
     openPortfolioCalculator();
   };
 
-  // Simplified drag handler that works with AnimatePresence
+  // Enhanced drag handler with smoother transitions and feedback
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    // Only allow the top card to be dragged
-    if (indexInStack !== 0) return;
-    
     const threshold = 100;
 
     if (displayMode === 'realtime') {
@@ -253,7 +237,7 @@ export default function StockCard({
           navigator.vibrate(50);
         }
         
-        // Spring back to center and show calculator
+        // Start spring-back animation first
         cardControls.start({
           x: 0,
           opacity: 1,
@@ -262,14 +246,14 @@ export default function StockCard({
             type: "spring", 
             stiffness: 400, 
             damping: 30,
-            duration: 0.3
+            duration: 0.4
           }
         });
         
-        // Open calculator after animation completes
+        // THEN, after a short delay, set the modal state to 'calculator'
         setTimeout(() => {
           setModalState('calculator');
-        }, 150);
+        }, 150); // 150ms delay
         
         setSwipeDirection(null);
       } 
@@ -281,18 +265,16 @@ export default function StockCard({
           navigator.vibrate(30);
         }
 
-        // Let the parent know to show the next card
-        // AnimatePresence will handle the animation
-        onNext();
-        
-        // Reset for potential re-use
-        cardControls.set({ 
-          x: 0, 
-          opacity: 1,
-          scale: 1 
+        // Animate card off screen to the left
+        cardControls.start({
+          x: -500,
+          opacity: 0,
+          transition: { duration: 0.3 }
+        }).then(() => {
+          onNext();
+          cardControls.set({ x: 0, opacity: 1 });
+          setSwipeDirection(null);
         });
-        
-        setSwipeDirection(null);
       } 
       // Not enough drag - Spring back
       else {
@@ -312,19 +294,31 @@ export default function StockCard({
     } else {
       // Simple mode swipe handling
       if (info.offset.x > threshold) {
-        // Right swipe - Go to previous
+        // Right swipe
         setSwipeDirection("right");
-        onPrevious();
-        cardControls.set({ x: 0, opacity: 1, scale: 1 });
-        setSwipeDirection(null);
+        cardControls.start({
+          x: window.innerWidth,
+          opacity: 0,
+          transition: { duration: 0.3 }
+        }).then(() => {
+          onPrevious();
+          cardControls.set({ x: 0, opacity: 1 });
+          setSwipeDirection(null);
+        });
       } else if (info.offset.x < -threshold) {
-        // Left swipe - Go to next
+        // Left swipe
         setSwipeDirection("left");
-        onNext();
-        cardControls.set({ x: 0, opacity: 1, scale: 1 });
-        setSwipeDirection(null);
+        cardControls.start({
+          x: -window.innerWidth,
+          opacity: 0,
+          transition: { duration: 0.3 }
+        }).then(() => {
+          onNext();
+          cardControls.set({ x: 0, opacity: 1 });
+          setSwipeDirection(null);
+        });
       } else {
-        // Not enough drag - Return to center
+        // Return to center
         cardControls.start({
           x: 0,
           opacity: 1,
@@ -516,7 +510,7 @@ export default function StockCard({
     return (
       <div className="relative h-full w-full overflow-hidden">
         {/* Card stack container */}
-        <div className="absolute inset-0 flex items-center justify-center top-4 md:top-12 -bottom-24">
+        <div className="absolute inset-0 flex items-center justify-center">
           {/* Next card in stack (positioned behind) */}
           {nextStock && (
             <div 
@@ -527,9 +521,9 @@ export default function StockCard({
                 filter: 'blur(3px)'
               }}
             >
-              {/* Very simple next card preview - improved with slate instead of black */}
-              <div className="w-full h-full bg-slate-800 py-12 px-4 flex flex-col items-center justify-center">
-                <div className="bg-slate-700/60 rounded-xl p-6 border border-slate-600/40 shadow-xl backdrop-blur-sm w-11/12 max-w-md flex flex-col items-center text-center space-y-4">
+              {/* Very simple next card preview */}
+              <div className="w-full h-full bg-gray-900 py-12 px-4 flex flex-col items-center justify-center">
+                <div className="bg-black/40 rounded-xl p-6 border border-gray-700/40 shadow-xl backdrop-blur-sm w-11/12 max-w-md flex flex-col items-center text-center space-y-4">
                   <h2 className="text-2xl font-bold text-white">{nextStock.name}</h2>
                   <p className="text-xl font-medium text-gray-300">{nextStock.ticker}</p>
                   <div className={`text-lg font-bold px-4 py-1 rounded-full ${nextStock.change >= 0 ? 'text-green-300 bg-green-900/30' : 'text-red-300 bg-red-900/30'}`}>
@@ -537,8 +531,8 @@ export default function StockCard({
                   </div>
 
                   {/* Blurred content suggestion */}
-                  <div className="w-3/4 h-2 bg-gray-500/50 rounded-full mt-2"></div>
-                  <div className="w-2/3 h-2 bg-gray-500/50 rounded-full"></div>
+                  <div className="w-3/4 h-2 bg-gray-700/50 rounded-full mt-2"></div>
+                  <div className="w-2/3 h-2 bg-gray-700/50 rounded-full"></div>
                 </div>
               </div>
             </div>
@@ -546,25 +540,17 @@ export default function StockCard({
 
           {/* Main stock card - enhanced with softer shadows and better rounded corners */}
           <motion.div
-            className="absolute inset-0 bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl overflow-y-auto"
+            className="absolute inset-0 z-10 bg-gradient-to-b from-gray-900 to-black rounded-xl overflow-y-auto"
             ref={cardRef}
-            drag={indexInStack === 0 ? "x" : false}
+            drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.7}
             onDragEnd={handleDragEnd}
-            animate={{
-              translateY: indexInStack === 0 ? "-100px" : "0px", // Fixed positioning
-              scale,
-              opacity: stackOpacity
-            }}
-            transition={{ type: "spring", stiffness: 400, damping: 40 }}
+            animate={cardControls}
             whileDrag={{ scale: 0.98 }}
             style={{
-              x,
-              rotateZ: cardRotate,
               boxShadow: "0 20px 50px -15px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)",
-              borderRadius: "16px",
-              zIndex
+              borderRadius: "16px"
             }}
           >
             {/* Page indicator */}
@@ -626,9 +612,9 @@ export default function StockCard({
                     transition={{ duration: 0.4, delay: Math.random() * 0.3 }}
                     key={key}
                     className={`p-4 rounded-xl relative ${
-                      metricObj.color === 'green' ? 'bg-gradient-to-br from-green-900/40 to-slate-900 border border-green-500/30' :
-                      metricObj.color === 'yellow' ? 'bg-gradient-to-br from-yellow-900/40 to-slate-900 border border-yellow-500/30' : 
-                      'bg-gradient-to-br from-red-900/40 to-slate-900 border border-red-500/30'
+                      metricObj.color === 'green' ? 'bg-gradient-to-br from-green-900/40 to-black border border-green-500/30' :
+                      metricObj.color === 'yellow' ? 'bg-gradient-to-br from-yellow-900/40 to-black border border-yellow-500/30' : 
+                      'bg-gradient-to-br from-red-900/40 to-black border border-red-500/30'
                     } active:scale-98 transition-all duration-150 cursor-pointer shadow-lg hover:shadow-xl`}
                     onClick={() => handleMetricClick(metricName)}
                     whileHover={{ scale: 1.03 }}
@@ -796,40 +782,21 @@ export default function StockCard({
 
   // Real-time display mode
   return (
-    <div className="relative h-full transform -translate-y-40" data-testid="stock-card">
+    <div className="relative h-full" data-testid="stock-card">
       {/* Blurred background stock (next in stack) - visible during swipes */}
-      {nextStock && (
-        <div 
-          className="absolute inset-0 overflow-hidden pointer-events-none"
-          style={{
-            opacity: Math.abs(x.get()) > 50 ? 0.7 : 0,
-            transform: `translateX(${x.get() < 0 ? '60px' : '-60px'})`,
-            filter: 'blur(5px)',
-            zIndex: 0
-          }}
-        >
-          {/* This is the actual next stock preview - without the black background that causes flashing */}
-          <div className="w-full h-full bg-gradient-to-b from-slate-800 to-slate-900">
-            <div className="h-full w-full flex flex-col">
-              {/* Simplified header with stock symbol and name */}
-              <div className="px-6 py-4 bg-slate-800/70 backdrop-blur-sm">
-                <div className="text-xl font-bold text-white">{nextStock.ticker}</div>
-                <div className="text-sm text-gray-300">{nextStock.name}</div>
-              </div>
-              
-              {/* Simplified chart area */}
-              <div className="flex-1 bg-slate-800/50 backdrop-blur-sm flex items-center justify-center">
-                <div className="text-center text-gray-200">
-                  <div className="text-2xl font-semibold">${nextStock.price.toFixed(2)}</div>
-                  <div className={`text-sm font-medium ${nextStock.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {nextStock.change >= 0 ? '+' : ''}{nextStock.change.toFixed(2)}%
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+      <div 
+        className="absolute inset-0 overflow-hidden blur-xl pointer-events-none opacity-20"
+        style={{
+          clipPath: x.get() > 0 ? 'inset(0 0 0 100%)' : 'inset(0 0 0 0)',
+          opacity: Math.abs(x.get()) > 50 ? 0.2 : 0,
+          transform: `translateX(${x.get() < 0 ? '60px' : '-60px'})`
+        }}
+      >
+        {/* This would ideally be the next stock's preview, simplified here */}
+        <div className="w-full h-full bg-gradient-to-br from-slate-100 to-blue-50 flex items-center justify-center">
+          <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-blue-400/20 to-indigo-300/20"></div>
         </div>
-      )}
+      </div>
       {/* Skipped message - shows when swiping left */}
       {showSkippedMessage && (
         <motion.div
@@ -845,24 +812,14 @@ export default function StockCard({
       )}
 
       <motion.div
-        className="h-full overflow-y-auto overflow-x-hidden pb-16 stock-card absolute inset-0"
+        className="h-full overflow-y-auto overflow-x-hidden pb-16 stock-card"
         ref={cardRef}
-        drag={indexInStack === 0 ? "x" : false}
+        drag="x"
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.7}
         onDragEnd={handleDragEnd}
-        animate={{
-          translateY: indexInStack === 0 ? "-50px" : "0px",
-          scale,
-          opacity: stackOpacity
-        }}
-        transition={{ type: "spring", stiffness: 400, damping: 40 }}
-        style={{ 
-          x, 
-          rotateZ: cardRotate, 
-          scale: cardScale,
-          zIndex
-        }}
+        animate={cardControls}
+        style={{ x, opacity: cardOpacity, rotateZ: cardRotate, scale: cardScale }}
       >
         {/* Time Frame Selector - Enhanced with better visual contrast */}
         <div className="flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">

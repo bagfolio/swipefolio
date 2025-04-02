@@ -8,7 +8,6 @@ import { StockData, getIndustryStocks } from "@/lib/stock-data";
 import StockCard from "@/components/ui/stock-card";
 import StackCompletedModal from "@/components/stack-completed-modal";
 import AIAssistant from "@/components/ui/ai-assistant";
-import { AnimatePresence } from "framer-motion";
 
 export default function StockDetailPage() {
   const { stackId } = useParams<{ stackId: string }>();
@@ -73,7 +72,7 @@ export default function StockDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-900">
+      <div className="flex items-center justify-center min-h-screen bg-black">
         <div className="animate-spin w-10 h-10 border-4 border-cyan-400 border-t-transparent rounded-full"></div>
       </div>
     );
@@ -81,7 +80,7 @@ export default function StockDetailPage() {
 
   if (!stack || stocks.length === 0) {
     return (
-      <div className="flex items-center justify-center flex-col min-h-screen bg-slate-900">
+      <div className="flex items-center justify-center flex-col min-h-screen bg-black">
         <p className="text-white mb-4">No stocks available for this industry.</p>
         <button 
           onClick={handleBack}
@@ -101,12 +100,12 @@ export default function StockDetailPage() {
     : stocks[0]; // Loop back to the first stock if we're at the end
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-slate-800 to-slate-900 text-white">
+    <div className="flex flex-col min-h-screen bg-black text-white">
       {/* Back button placed at the top-left corner */}
       <div className="absolute top-4 left-4 z-20">
         <button 
           onClick={handleBack}
-          className="text-cyan-400 hover:bg-gray-800 p-2 rounded-full transition-colors bg-slate-800/60 backdrop-blur-sm"
+          className="text-cyan-400 hover:bg-gray-800 p-2 rounded-full transition-colors bg-black/60 backdrop-blur-sm"
         >
           <ArrowLeft size={20} />
         </button>
@@ -114,37 +113,23 @@ export default function StockDetailPage() {
       
       {/* Live Data button removed as requested */}
 
-      {/* Fixed center positioning for cards */}
-      <div className="flex-1 relative flex items-center justify-center">
-        <div className="w-full max-w-md h-[500px] relative mx-auto">
-          <AnimatePresence initial={false}>
-            {stocks.length > 0 && stocks
-              .slice(currentStockIndex, Math.min(currentStockIndex + 2, stocks.length))
-              .reverse() // Render next card first in the DOM so it appears underneath
-              .map((stock, index) => {
-                // index 0 = next card, index 1 = current card (because of reverse)
-                const indexInStack = (1 - index);
-                return (
-                  <StockCard
-                    key={stock.ticker} // IMPORTANT: Use a stable key!
-                    stock={stock}
-                    onNext={handleNextStock}
-                    onPrevious={handlePreviousStock}
-                    currentIndex={currentStockIndex + indexInStack}
-                    totalCount={stocks.length}
-                    displayMode={useRealTimeData ? 'realtime' : 'simple'}
-                    // Pass the stacking props:
-                    indexInStack={indexInStack}
-                    totalInStack={Math.min(2, stocks.length - currentStockIndex)}
-                  />
-                );
-              })}
-          </AnimatePresence>
-        </div>
+      {/* Main content */}
+      <div className="flex-1 relative">
+        {stocks.length > 0 && (
+          <StockCard
+            stock={currentStock}
+            onNext={handleNextStock}
+            onPrevious={handlePreviousStock}
+            currentIndex={currentStockIndex}
+            totalCount={stocks.length}
+            nextStock={nextStock}
+            displayMode={useRealTimeData ? 'realtime' : 'simple'}
+          />
+        )}
       </div>
 
       {/* Modern Buy/Skip Buttons */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-900 to-transparent z-10">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black to-transparent z-10">
         <div className="flex justify-between gap-4 max-w-md mx-auto">
           <button
             onClick={handleNextStock}
