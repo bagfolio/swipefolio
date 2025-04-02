@@ -199,8 +199,19 @@ export default function StockCard({
     return [stock.price, stock.price, stock.price]; // Minimum fallback to show flat line at current price
   }, [historyQuery.data, stock.ticker, timeFrame, stock.price]);
   
-  const displayPrice = stock.price.toFixed(2);
-  const realTimeChange = stock.change;
+  // Format numbers based on the requirements:
+  // - 2 decimal places max for numbers less than 10
+  // - 1 decimal place for numbers 10 or greater
+  const formatNumber = (value: number): string => {
+    if (Math.abs(value) < 10) {
+      return value.toFixed(2);
+    } else {
+      return value.toFixed(1);
+    }
+  };
+  
+  const displayPrice = formatNumber(stock.price);
+  const realTimeChange = parseFloat(formatNumber(stock.change));
   const minValue = Math.min(...(chartData || [1])) - 5;
   const maxValue = Math.max(...(chartData || [1])) + 5;
   const timeScaleLabels = useMemo(() => getTimeScaleLabels(timeFrame), [timeFrame]);
@@ -247,24 +258,24 @@ export default function StockCard({
      const metricValues = [];
      if (metricName === "Performance") {
         const perfDetails = metricDetails as { revenueGrowth: number; profitMargin: number; returnOnCapital: number; revenueGrowthExplanation?: string; profitMarginExplanation?: string; returnOnCapitalExplanation?: string; };
-        metricValues.push( { label: "Revenue Growth", value: perfDetails.revenueGrowth, suffix: "%", explanation: perfDetails.revenueGrowthExplanation || "..." } );
-        metricValues.push( { label: "Profit Margin", value: perfDetails.profitMargin, suffix: "%", explanation: perfDetails.profitMarginExplanation || "..." } );
-        metricValues.push( { label: "Return on Capital", value: perfDetails.returnOnCapital, suffix: "%", explanation: perfDetails.returnOnCapitalExplanation || "..." } );
+        metricValues.push( { label: "Revenue Growth", value: typeof perfDetails.revenueGrowth === 'number' ? formatNumber(perfDetails.revenueGrowth) : perfDetails.revenueGrowth, suffix: "%", explanation: perfDetails.revenueGrowthExplanation || "..." } );
+        metricValues.push( { label: "Profit Margin", value: typeof perfDetails.profitMargin === 'number' ? formatNumber(perfDetails.profitMargin) : perfDetails.profitMargin, suffix: "%", explanation: perfDetails.profitMarginExplanation || "..." } );
+        metricValues.push( { label: "Return on Capital", value: typeof perfDetails.returnOnCapital === 'number' ? formatNumber(perfDetails.returnOnCapital) : perfDetails.returnOnCapital, suffix: "%", explanation: perfDetails.returnOnCapitalExplanation || "..." } );
      } else if (metricName === "Stability") {
          const stabDetails = metricDetails as { volatility: number; beta: number; dividendConsistency: string; volatilityExplanation?: string; betaExplanation?: string; dividendConsistencyExplanation?: string; };
-         metricValues.push( { label: "Volatility", value: stabDetails.volatility, suffix: "", explanation: stabDetails.volatilityExplanation || "..." } );
-         metricValues.push( { label: "Beta", value: stabDetails.beta, suffix: "", explanation: stabDetails.betaExplanation || "..." } );
+         metricValues.push( { label: "Volatility", value: typeof stabDetails.volatility === 'number' ? formatNumber(stabDetails.volatility) : stabDetails.volatility, suffix: "", explanation: stabDetails.volatilityExplanation || "..." } );
+         metricValues.push( { label: "Beta", value: typeof stabDetails.beta === 'number' ? formatNumber(stabDetails.beta) : stabDetails.beta, suffix: "", explanation: stabDetails.betaExplanation || "..." } );
          metricValues.push( { label: "Dividend Consistency", value: stabDetails.dividendConsistency, suffix: "", explanation: stabDetails.dividendConsistencyExplanation || "..." } );
      } else if (metricName === "Value") {
          const valDetails = metricDetails as { peRatio: number; pbRatio: number; dividendYield: number | "N/A"; peRatioExplanation?: string; pbRatioExplanation?: string; dividendYieldExplanation?: string; };
-         metricValues.push( { label: "P/E Ratio", value: valDetails.peRatio, suffix: "", explanation: valDetails.peRatioExplanation || "..." } );
-         metricValues.push( { label: "P/B Ratio", value: valDetails.pbRatio, suffix: "", explanation: valDetails.pbRatioExplanation || "..." } );
-         metricValues.push( { label: "Dividend Yield", value: valDetails.dividendYield === "N/A" ? "N/A" : valDetails.dividendYield, suffix: valDetails.dividendYield === "N/A" ? "" : "%", explanation: valDetails.dividendYieldExplanation || "..." } );
+         metricValues.push( { label: "P/E Ratio", value: typeof valDetails.peRatio === 'number' ? formatNumber(valDetails.peRatio) : valDetails.peRatio, suffix: "", explanation: valDetails.peRatioExplanation || "..." } );
+         metricValues.push( { label: "P/B Ratio", value: typeof valDetails.pbRatio === 'number' ? formatNumber(valDetails.pbRatio) : valDetails.pbRatio, suffix: "", explanation: valDetails.pbRatioExplanation || "..." } );
+         metricValues.push( { label: "Dividend Yield", value: valDetails.dividendYield === "N/A" ? "N/A" : typeof valDetails.dividendYield === 'number' ? formatNumber(valDetails.dividendYield) : valDetails.dividendYield, suffix: valDetails.dividendYield === "N/A" ? "" : "%", explanation: valDetails.dividendYieldExplanation || "..." } );
      } else if (metricName === "Momentum") {
          const momDetails = metricDetails as { threeMonthReturn: number; relativePerformance: number; rsi: number; threeMonthReturnExplanation?: string; relativePerformanceExplanation?: string; rsiExplanation?: string; };
-         metricValues.push( { label: "3-Month Return", value: momDetails.threeMonthReturn, suffix: "%", explanation: momDetails.threeMonthReturnExplanation || "..." } );
-         metricValues.push( { label: "Relative Performance", value: momDetails.relativePerformance, suffix: "%", explanation: momDetails.relativePerformanceExplanation || "..." } );
-         metricValues.push( { label: "RSI", value: momDetails.rsi, suffix: "", explanation: momDetails.rsiExplanation || "..." } );
+         metricValues.push( { label: "3-Month Return", value: typeof momDetails.threeMonthReturn === 'number' ? formatNumber(momDetails.threeMonthReturn) : momDetails.threeMonthReturn, suffix: "%", explanation: momDetails.threeMonthReturnExplanation || "..." } );
+         metricValues.push( { label: "Relative Performance", value: typeof momDetails.relativePerformance === 'number' ? formatNumber(momDetails.relativePerformance) : momDetails.relativePerformance, suffix: "%", explanation: momDetails.relativePerformanceExplanation || "..." } );
+         metricValues.push( { label: "RSI", value: typeof momDetails.rsi === 'number' ? formatNumber(momDetails.rsi) : momDetails.rsi, suffix: "", explanation: momDetails.rsiExplanation || "..." } );
      }
 
      const industryAverage = displayMode === 'realtime'
@@ -474,13 +485,13 @@ export default function StockCard({
                       </a>
                       <div className="flex items-center text-xs text-gray-400 mt-1 mb-2">
                         <span className="mr-2">Day's Range:</span>
-                        <span className="font-medium">${(parseFloat(stock.price.toFixed(2)) * 0.98).toFixed(2)} - ${(parseFloat(stock.price.toFixed(2)) * 1.02).toFixed(2)}</span>
+                        <span className="font-medium">${formatNumber(stock.price * 0.98)} - ${formatNumber(stock.price * 1.02)}</span>
                       </div>
                     </div>
                     <div className="flex flex-col items-end">
                       <div className={`flex items-center py-1.5 px-4 rounded-full ${stock.change >= 0 ? 'bg-green-900/30 text-green-300 border border-green-700/30' : 'bg-red-900/30 text-red-300 border border-red-700/30'} shadow-lg`}>
-                        <span className="font-bold text-2xl">${stock.price.toFixed(2)}</span>
-                        <span className="ml-2 text-sm font-medium">{stock.change >= 0 ? '+' : ''}{stock.change}%</span>
+                        <span className="font-bold text-2xl">${formatNumber(stock.price)}</span>
+                        <span className="ml-2 text-sm font-medium">{stock.change >= 0 ? '+' : ''}{formatNumber(stock.change)}%</span>
                       </div>
                       <span className="text-xs text-gray-500 mt-2">Updated: {new Date().toLocaleDateString()}</span>
                     </div>
@@ -515,7 +526,7 @@ export default function StockCard({
                               <Info size={16} className={`${ metricObj.color === 'green' ? 'text-green-400' : metricObj.color === 'yellow' ? 'text-yellow-400' : 'text-red-400' }`} />
                            </div>
                            <div className={`text-2xl font-bold ${ metricObj.color === 'green' ? 'text-green-300' : metricObj.color === 'yellow' ? 'text-yellow-300' : 'text-red-300' }`}>
-                               {metricObj.value}
+                               {typeof metricObj.value === 'number' ? formatNumber(metricObj.value) : metricObj.value}
                            </div>
                            <div className="text-white text-sm font-medium capitalize mt-1 mb-3">
                                {metricName}
@@ -593,13 +604,13 @@ export default function StockCard({
                     <div className="ml-2 flex items-center">
                       <span className={`flex items-center text-sm font-semibold px-2 py-0.5 rounded-full ${realTimeChange >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
                         {realTimeChange >= 0 ? <TrendingUp size={14} className="mr-1" /> : <ChevronLeft size={14} className="mr-1 rotate-90" />}
-                        {realTimeChange >= 0 ? '+' : ''}{realTimeChange}%
+                        {realTimeChange >= 0 ? '+' : ''}{formatNumber(realTimeChange)}%
                       </span>
                     </div>
                   </div>
                   <div className="mt-1 flex items-center text-xs text-slate-500">
                     <span className="mr-2">Day's Range:</span>
-                    <span className="font-medium">${(parseFloat(displayPrice) * 0.98).toFixed(2)} - ${(parseFloat(displayPrice) * 1.02).toFixed(2)}</span>
+                    <span className="font-medium">${formatNumber(parseFloat(displayPrice) * 0.98)} - ${formatNumber(parseFloat(displayPrice) * 1.02)}</span>
                   </div>
                   <div className="relative mt-3 h-44 py-2"> {/* Chart Area */}
                     <div className="absolute inset-0 px-4"> {/* Chart Visual */}
@@ -636,7 +647,7 @@ export default function StockCard({
                                  </div>
                                  <Info size={15} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
                                </div>
-                               <div className={`text-lg font-semibold text-slate-900`}>{metricObj.value}</div>
+                               <div className={`text-lg font-semibold text-slate-900`}>{typeof metricObj.value === 'number' ? formatNumber(metricObj.value) : metricObj.value}</div>
                                <div className="text-slate-500 text-sm font-medium mt-0.5 capitalize">{metricName}</div>
                             </div>
                         </div>
@@ -674,9 +685,9 @@ export default function StockCard({
                      </h3>
                      <p className="text-sm text-slate-600 leading-relaxed">
                          {stock.change >= 0 
-                            ? `${stock.name} has shown positive momentum, rising ${stock.change}% recently.` 
-                            : `${stock.name} has been under pressure, falling ${Math.abs(stock.change)}% recently.`} 
-                         The current price of ${stock.price.toFixed(2)} places it 
+                            ? `${stock.name} has shown positive momentum, rising ${formatNumber(stock.change)}% recently.` 
+                            : `${stock.name} has been under pressure, falling ${formatNumber(Math.abs(stock.change))}% recently.`} 
+                         The current price of ${formatNumber(stock.price)} places it 
                          {stock.metrics.value.color === "green" 
                             ? " at an attractive valuation compared to peers."
                             : " above average valuation metrics for its sector."}
