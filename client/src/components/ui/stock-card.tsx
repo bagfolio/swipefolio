@@ -144,9 +144,9 @@ export default function StockCard({
 }: StockCardProps) {
   // Calculate stacking variables
   const zIndex = 100 - indexInStack; // Higher z-index for top card
-  const scale = 1 - indexInStack * 0.05; // Card underneath is smaller
-  const y = 0; // Keep cards at the same vertical position
-  const stackOpacity = indexInStack === 0 ? 1 : 0.9; // Slight transparency for cards underneath
+  const scale = indexInStack === 0 ? 1 : 0.92; // Only slight reduction for background card
+  // No vertical positioning - fixed in center for all cards
+  const stackOpacity = indexInStack === 0 ? 1 : 0.7; // More transparency for cards underneath
   const cardControls = useAnimation();
   const x = useMotionValue(0);
   // Smoother opacity transform for better visual experience
@@ -553,7 +553,7 @@ export default function StockCard({
             dragElastic={0.7}
             onDragEnd={handleDragEnd}
             animate={{
-              y: indexInStack === 0 ? -250 : 0, // Significantly move top card up 
+              translateY: indexInStack === 0 ? "-100px" : "0px", // Fixed positioning
               scale,
               opacity: stackOpacity
             }}
@@ -852,7 +852,7 @@ export default function StockCard({
         dragElastic={0.7}
         onDragEnd={handleDragEnd}
         animate={{
-          y,
+          translateY: indexInStack === 0 ? "-50px" : "0px",
           scale,
           opacity: stackOpacity
         }}
