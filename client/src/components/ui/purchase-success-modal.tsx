@@ -40,16 +40,15 @@ export default function PurchaseSuccessModal({
       // Show confetti with a slight delay
       const confettiTimer = setTimeout(() => {
         setShowConfetti(true);
-      }, 300);
-      
-      // Auto-close modal after a delay
-      const closeTimer = setTimeout(() => {
-        onClose();
-      }, 2500); // Auto-close after 2.5 seconds
+        
+        // Hide confetti after a short burst
+        setTimeout(() => {
+          setShowConfetti(false);
+        }, 2000);
+      }, 150);
       
       return () => {
         clearTimeout(confettiTimer);
-        clearTimeout(closeTimer);
       };
     } else {
       document.body.style.overflow = '';
@@ -59,30 +58,40 @@ export default function PurchaseSuccessModal({
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   return (
     <AnimatePresence mode="wait" key="success-modal">
       {isOpen && (
         <div className="fixed inset-0 flex items-center justify-center z-[9999]" style={{ isolation: 'isolate' }}>
-          {/* Confetti effect */}
+          {/* Confetti effect - centered burst */}
           {showConfetti && (
-            <div className="fixed inset-0 overflow-hidden pointer-events-none z-[55]">
-              <div className="absolute -inset-10 flex justify-around">
-                {Array.from({ length: 30 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="w-2 h-8 animate-confetti-fall"
-                    style={{
-                      backgroundColor: ['#26a269', '#33d17a', '#f6d32d', '#1c71d8', '#c061cb', '#ed333b'][i % 6],
-                      left: `${Math.random() * 100}%`,
-                      top: `-${Math.random() * 100 + 20}%`,
-                      transform: `rotate(${Math.random() * 360}deg)`,
-                      animationDelay: `${Math.random() * 1.5}s`,
-                      animationDuration: `${3 + Math.random() * 4}s`,
-                    }}
-                  />
-                ))}
+            <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-[55]">
+              <div className="relative w-24 h-24">
+                {Array.from({ length: 60 }).map((_, i) => {
+                  // Generate random direction for each confetti piece
+                  const angle = (Math.random() * 360); // random angle in degrees
+                  const distance = 50 + Math.random() * 100; // random distance from center
+                  const tx = Math.cos(angle * Math.PI / 180) * distance; // x-coordinate
+                  const ty = Math.sin(angle * Math.PI / 180) * distance; // y-coordinate
+                  const rotation = Math.random() * 720 - 360; // random rotation
+
+                  return (
+                    <div
+                      key={i}
+                      className="absolute top-1/2 left-1/2 w-2 h-5 rounded-sm animate-confetti-burst"
+                      style={{
+                        backgroundColor: ['#26a269', '#33d17a', '#f6d32d', '#1c71d8', '#c061cb', '#ed333b'][i % 6],
+                        '--tx': `${tx}px`,
+                        '--ty': `${ty}px`,
+                        '--r': `${rotation}deg`,
+                        transform: 'translate(-50%, -50%)',
+                        opacity: 0.9,
+                        animationDelay: `${Math.random() * 0.2}s`,
+                      } as React.CSSProperties}
+                    />
+                  );
+                })}
               </div>
             </div>
           )}

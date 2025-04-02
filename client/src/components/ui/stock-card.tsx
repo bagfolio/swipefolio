@@ -256,7 +256,7 @@ export default function StockCard({
   // Outer wrapper - No overflow-hidden, add dragPropagation
   <motion.div
     ref={cardRef}
-    className="h-full w-full rounded-xl shadow-xl" // Base styles, no overflow
+    className="h-full w-full shadow-xl" // Removed rounded corners for full-width appearance
     drag={cardControls ? "x" : false} // Only draggable if interactive
     dragConstraints={{ left: 0, right: 0 }}
     dragElastic={0.5}
@@ -277,7 +277,6 @@ export default function StockCard({
     {/* Inner scroll container - Absolutely positioned */}
     <div
         className={`absolute inset-0 overflow-y-auto overflow-x-hidden pb-16 stock-card-scroll-content ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black text-white' : 'bg-white text-slate-900'}`}
-        // Removed redundant inline style here
     >
 
       {/* --- Common Top Section (Page Indicator/Timeframe) --- */}

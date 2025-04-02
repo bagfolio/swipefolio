@@ -91,13 +91,16 @@ export default {
             transform: "translateX(100%)",
           },
         },
-        "confetti-fall": {
+        "confetti-burst": {
           "0%": { 
-            transform: "translateY(0) rotate(0deg)", 
+            transform: "translate(0, 0) rotate(0deg) scale(0)", 
             opacity: "1" 
           },
+          "50%": {
+            opacity: "1"
+          },
           "100%": { 
-            transform: "translateY(100vh) rotate(720deg)", 
+            transform: "translate(var(--tx), var(--ty)) rotate(var(--r)) scale(1)", 
             opacity: "0" 
           }
         }
@@ -106,7 +109,7 @@ export default {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "shimmer": "shimmer 1.5s infinite",
-        "confetti-fall": "confetti-fall 3s ease-in-out forwards"
+        "confetti-burst": "confetti-burst 1.2s ease-out forwards"
       },
     },
   },

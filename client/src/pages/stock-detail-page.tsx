@@ -216,9 +216,9 @@ const handlePreviousStock = useCallback(() => {
       </div>
 
       {/* Main Card Stack Area */}
-      <div className="flex-1 flex items-center justify-center p-4 pt-12 relative perspective-1000"> {/* Reduced pt */}
-         {/* Adjusted height */}
-         <div className="relative w-full h-full max-w-md">
+      <div className="flex-1 flex items-center justify-center p-0 pt-12 relative perspective-1000"> {/* Removed padding */}
+         {/* Full-width container, no max-width */}
+         <div className="relative w-full h-full">
            <AnimatePresence initial={false} custom={swipeDirection}>
 
              {/* Background Card */}
