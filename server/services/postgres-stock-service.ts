@@ -204,7 +204,7 @@ export class PostgresStockService {
         country: stockInfo[0].country ? String(stockInfo[0].country) : null,
         exchange: stockInfo[0].exchange ? String(stockInfo[0].exchange) : null,
         currency: stockInfo[0].currency ? String(stockInfo[0].currency) : null,
-        lastUpdated: stockInfo[0].lastUpdated ? new Date(stockInfo[0].lastUpdated) : null
+        lastUpdated: stockInfo[0].lastUpdated ? new Date(stockInfo[0].lastUpdated as any) : null
       };
       
       // Get detailed data

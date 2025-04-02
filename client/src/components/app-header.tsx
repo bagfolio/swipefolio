@@ -1,6 +1,7 @@
-import { Bell, Menu, Smartphone } from "lucide-react";
+import { Bell, Menu, Smartphone, Settings } from "lucide-react";
 import { useState } from "react";
 import QRCodeModal from "./qr-code-modal";
+import { Link } from "wouter";
 
 export default function AppHeader() {
   const [showQRModal, setShowQRModal] = useState(false);
@@ -27,6 +28,14 @@ export default function AppHeader() {
           <button className="bg-slate-50 rounded-full p-2 border border-slate-100">
             <Bell className="w-5 h-5 text-slate-500" />
           </button>
+          <Link href="/admin/settings">
+            <button 
+              className="bg-slate-50 rounded-full p-2 border border-slate-100"
+              aria-label="Admin Settings"
+            >
+              <Settings className="w-5 h-5 text-slate-500" />
+            </button>
+          </Link>
         </div>
       </div>
 
