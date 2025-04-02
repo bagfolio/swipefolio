@@ -223,17 +223,19 @@ export default function StockCard({
         const formattedMetrics = formatMetricsFromDatabase(metricsQuery.data);
         
         // Create a new object with merged data
+        // formattedMetrics is already in the correct format
         return {
           ...stock,
           metrics: {
-            ...stock.metrics,
-            ...formattedMetrics.metrics
+            // Replace stock.metrics with formatted metrics from PostgreSQL
+            // This ensures we're using the PostgreSQL data for all metrics
+            ...formattedMetrics
           },
           // Also update any other fields that come from metrics
-          rating: formattedMetrics.rating || stock.rating,
-          smartScore: formattedMetrics.smartScore || stock.smartScore,
-          oneYearReturn: formattedMetrics.oneYearReturn || stock.oneYearReturn,
-          predictedPrice: formattedMetrics.predictedPrice || stock.predictedPrice,
+          rating: stock.rating, // Keep any existing fields
+          smartScore: stock.smartScore,
+          oneYearReturn: stock.oneYearReturn,
+          predictedPrice: stock.predictedPrice,
         };
       } catch (error) {
         console.error('Error formatting metrics:', error);
