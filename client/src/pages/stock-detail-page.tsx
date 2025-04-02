@@ -115,15 +115,13 @@ export default function StockDetailPage() {
       {/* Live Data button removed as requested */}
 
       {/* Main content with stacked cards - fixed positioning with top margin to bring cards higher */}
-      <div className="flex-1 relative flex items-center justify-center -mt-20">
-        <div className="w-full max-w-md h-[80vh] relative mx-auto -mt-10">
+      <div className="flex-1 relative flex items-center justify-center">
+        <div className="w-full max-w-md h-[80vh] relative mx-auto">
           <AnimatePresence initial={false}>
             {stocks.length > 0 && stocks
               .slice(currentStockIndex, Math.min(currentStockIndex + 2, stocks.length))
-              .reverse() // Render next card first in the DOM so it appears underneath
               .map((stock, index) => {
-                // index 0 = next card, index 1 = current card (because of reverse)
-                const indexInStack = (1 - index);
+                const indexInStack = index;
                 return (
                   <StockCard
                     key={stock.ticker} // IMPORTANT: Use a stable key!
