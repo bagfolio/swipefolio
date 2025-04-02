@@ -783,20 +783,34 @@ export default function StockCard({
   // Real-time display mode
   return (
     <div className="relative h-full" data-testid="stock-card">
-      {/* Blurred background stock (next in stack) - visible during swipes */}
-      <div 
-        className="absolute inset-0 overflow-hidden blur-xl pointer-events-none opacity-20"
-        style={{
-          clipPath: x.get() > 0 ? 'inset(0 0 0 100%)' : 'inset(0 0 0 0)',
-          opacity: Math.abs(x.get()) > 50 ? 0.2 : 0,
-          transform: `translateX(${x.get() < 0 ? '60px' : '-60px'})`
-        }}
-      >
-        {/* This would ideally be the next stock's preview, simplified here */}
-        <div className="w-full h-full bg-gradient-to-br from-slate-100 to-blue-50 flex items-center justify-center">
-          <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-blue-400/20 to-indigo-300/20"></div>
+      {/* Next stock preview card */}
+      {nextStock && (
+        <div 
+          className="absolute inset-0 z-0"
+          style={{
+            transform: 'scale(0.95) translateY(10px)',
+            opacity: 0.6,
+            filter: 'blur(2px)'
+          }}
+        >
+          <div className="w-full h-full bg-white rounded-xl shadow-xl overflow-hidden">
+            {/* Simple preview of next stock */}
+            <div className="p-4 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">{nextStock.name}</h3>
+                  <p className="text-sm text-gray-500">{nextStock.ticker}</p>
+                </div>
+                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  nextStock.change >= 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                }`}>
+                  ${nextStock.price.toFixed(2)}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
       {/* Skipped message - shows when swiping left */}
       {showSkippedMessage && (
         <motion.div
