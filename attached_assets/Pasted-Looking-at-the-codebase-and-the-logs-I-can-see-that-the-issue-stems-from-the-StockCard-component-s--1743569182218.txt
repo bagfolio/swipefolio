@@ -1,0 +1,50 @@
+Looking at the codebase and the logs, I can see that the issue stems from the StockCard component's implementation. Let me explain what's happening:
+
+In stock-detail-page.tsx, you're correctly passing the nextStock prop:
+<StockCard
+  stock={currentStock}
+  onNext={handleNextStock}
+  onPrevious={handlePreviousStock}
+  currentIndex={currentStockIndex}
+  totalCount={stocks.length}
+  nextStock={nextStock}
+  displayMode={useRealTimeData ? 'realtime' : 'simple'}
+/>
+However, in stock-card.tsx, the background stock (nextStock) preview is only shown in 'simple' mode, not in 'realtime' mode. The code that handles this is:
+if (displayMode === 'simple') {
+  return (
+    <div className="relative h-full w-full overflow-hidden">
+      {/* Card stack container */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        {/* Next card in stack (positioned behind) */}
+        {nextStock && (
+          <div 
+            className="absolute inset-0 z-0 flex flex-col rounded-xl overflow-hidden"
+            style={{
+              transform: 'scale(0.92) translateY(20px)',
+              opacity: 0.6,
+              filter: 'blur(3px)'
+            }}
+          >
+            {/* Very simple next card preview */}
+            <div className="w-full h-full bg-gray-900 py-12 px-4 flex flex-col items-center justify-center">
+              ...
+            </div>
+          </div>
+        )}
+The issue is that you're seeing a black screen because the app is in 'realtime' mode (displayMode === 'realtime'), which doesn't implement the stacked card preview feature.
+
+To fix this, I'll propose adding the background card preview to the realtime mode:
+
+client/src/components/ui/stock-card.tsx
+This change will:
+
+Show the next stock preview in both simple and realtime modes
+Position it behind the main card with proper scaling and blur effects
+Display basic stock information in a clean format
+The background stock visibility is governed by:
+
+The nextStock prop being passed
+The displayMode prop ('simple' vs 'realtime')
+The z-index layering (z-0 for background, z-10 for main card)
+The transform, opacity, and filter styles for the visual effect

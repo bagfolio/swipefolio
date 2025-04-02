@@ -783,18 +783,18 @@ export default function StockCard({
   // Real-time display mode
   return (
     <div className="relative h-full" data-testid="stock-card">
-      {/* Next stock preview card */}
+      {/* Next stock preview card - Enhanced for better visibility */}
       {nextStock && (
         <div 
           className="absolute inset-0 z-0"
           style={{
-            transform: 'scale(0.95) translateY(10px)',
-            opacity: 0.6,
+            transform: 'scale(0.92) translateY(20px)',
+            opacity: 0.85,
             filter: 'blur(2px)'
           }}
         >
-          <div className="w-full h-full bg-white rounded-xl shadow-xl overflow-hidden">
-            {/* Simple preview of next stock */}
+          <div className="w-full h-full bg-white rounded-xl shadow-xl overflow-hidden border border-gray-200">
+            {/* Enhanced preview of next stock with more visible content */}
             <div className="p-4 border-b border-gray-100">
               <div className="flex items-center justify-between">
                 <div>
@@ -806,6 +806,31 @@ export default function StockCard({
                 }`}>
                   ${nextStock.price.toFixed(2)}
                 </div>
+              </div>
+            </div>
+            
+            {/* Add a chart preview for more visibility */}
+            <div className="p-4 flex justify-center">
+              <div className={`h-24 w-full rounded-lg opacity-50 ${
+                nextStock.change >= 0 ? 'bg-green-50' : 'bg-red-50'
+              }`}>
+                <div className="h-full w-full flex items-center justify-center">
+                  <span className="text-sm text-gray-400">Stock Chart Preview</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Add quality indicator for the background card */}
+            <div className="px-4 pb-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-500">Quality</span>
+                <span className={`text-sm font-medium ${
+                  nextStock.metrics.performance.color === 'green' ? 'text-green-500' : 
+                  nextStock.metrics.performance.color === 'yellow' ? 'text-yellow-500' : 'text-red-500'
+                }`}>
+                  {nextStock.metrics.performance.color === 'green' ? 'High' : 
+                   nextStock.metrics.performance.color === 'yellow' ? 'Medium' : 'Low'}
+                </span>
               </div>
             </div>
           </div>
@@ -826,7 +851,7 @@ export default function StockCard({
       )}
 
       <motion.div
-        className="h-full overflow-y-auto overflow-x-hidden pb-16 stock-card"
+        className="h-full overflow-y-auto overflow-x-hidden pb-16 stock-card relative z-10 bg-white rounded-xl shadow-xl"
         ref={cardRef}
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
