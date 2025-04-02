@@ -8,6 +8,7 @@ import { StockData, getIndustryStocks } from "@/lib/stock-data";
 import StockCard from "@/components/ui/stock-card";
 import StackCompletedModal from "@/components/stack-completed-modal";
 import AIAssistant from "@/components/ui/ai-assistant";
+import { AnimatePresence } from "framer-motion";
 
 export default function StockDetailPage() {
   const { stackId } = useParams<{ stackId: string }>();
@@ -113,19 +114,33 @@ export default function StockDetailPage() {
       
       {/* Live Data button removed as requested */}
 
-      {/* Main content */}
-      <div className="flex-1 relative">
-        {stocks.length > 0 && (
-          <StockCard
-            stock={currentStock}
-            onNext={handleNextStock}
-            onPrevious={handlePreviousStock}
-            currentIndex={currentStockIndex}
-            totalCount={stocks.length}
-            nextStock={nextStock}
-            displayMode={useRealTimeData ? 'realtime' : 'simple'}
-          />
-        )}
+      {/* Main content with stacked cards */}
+      <div className="flex-1 relative flex items-center justify-center p-4">
+        <div className="w-full h-[600px] relative">
+          <AnimatePresence initial={false}>
+            {stocks.length > 0 && stocks
+              .slice(currentStockIndex, Math.min(currentStockIndex + 2, stocks.length))
+              .reverse() // Render next card first in the DOM so it appears underneath
+              .map((stock, index) => {
+                // index 0 = next card, index 1 = current card (because of reverse)
+                const indexInStack = (1 - index);
+                return (
+                  <StockCard
+                    key={stock.ticker} // IMPORTANT: Use a stable key!
+                    stock={stock}
+                    onNext={handleNextStock}
+                    onPrevious={handlePreviousStock}
+                    currentIndex={currentStockIndex + indexInStack}
+                    totalCount={stocks.length}
+                    displayMode={useRealTimeData ? 'realtime' : 'simple'}
+                    // Pass the stacking props:
+                    indexInStack={indexInStack}
+                    totalInStack={Math.min(2, stocks.length - currentStockIndex)}
+                  />
+                );
+              })}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Modern Buy/Skip Buttons */}

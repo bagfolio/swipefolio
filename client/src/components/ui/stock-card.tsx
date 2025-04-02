@@ -34,6 +34,9 @@ interface StockCardProps {
   totalCount: number;
   nextStock?: StockData;
   displayMode?: 'simple' | 'realtime';
+  // New stacking props
+  indexInStack?: number; // Position in stack (0 = top card)
+  totalInStack?: number; // Total cards in stack
 }
 
 type TimeFrame = "1D" | "5D" | "1M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX";
@@ -135,8 +138,15 @@ export default function StockCard({
   currentIndex, 
   totalCount,
   nextStock,
-  displayMode = 'realtime'
+  displayMode = 'realtime',
+  indexInStack = 0,  // Default to top card
+  totalInStack = 1   // Default to single card
 }: StockCardProps) {
+  // Calculate stacking variables
+  const zIndex = 100 - indexInStack; // Higher z-index for top card
+  const scale = 1 - indexInStack * 0.05; // Card underneath is smaller
+  const y = indexInStack * 15; // Card underneath is lower down
+  const stackOpacity = indexInStack === 0 ? 1 : 0.9; // Slight transparency for cards underneath
   const cardControls = useAnimation();
   const x = useMotionValue(0);
   // Smoother opacity transform for better visual experience
@@ -227,8 +237,11 @@ export default function StockCard({
     openPortfolioCalculator();
   };
 
-  // Enhanced drag handler with smoother transitions and feedback
+  // Simplified drag handler that works with AnimatePresence
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    // Only allow the top card to be dragged
+    if (indexInStack !== 0) return;
+    
     const threshold = 100;
 
     if (displayMode === 'realtime') {
@@ -240,7 +253,7 @@ export default function StockCard({
           navigator.vibrate(50);
         }
         
-        // Start spring-back animation first
+        // Spring back to center and show calculator
         cardControls.start({
           x: 0,
           opacity: 1,
@@ -249,14 +262,14 @@ export default function StockCard({
             type: "spring", 
             stiffness: 400, 
             damping: 30,
-            duration: 0.4
+            duration: 0.3
           }
         });
         
-        // THEN, after a short delay, set the modal state to 'calculator'
+        // Open calculator after animation completes
         setTimeout(() => {
           setModalState('calculator');
-        }, 150); // 150ms delay
+        }, 150);
         
         setSwipeDirection(null);
       } 
@@ -268,45 +281,18 @@ export default function StockCard({
           navigator.vibrate(30);
         }
 
-        // First, make sure the next card starts becoming visible
-        // by increasing its opacity early during the current card's exit animation
-        if (nextStock) {
-          // Animate card off screen to the left with a slightly longer duration
-          // to allow the next card to become fully visible before the current card disappears
-          cardControls.start({
-            x: -500,
-            opacity: 0,
-            transition: { 
-              type: "tween",
-              ease: "easeInOut", 
-              duration: 0.4  // Slightly longer duration
-            }
-          }).then(() => {
-            // Only after the exit animation is complete, we move to the next card
-            // This ensures the next card preview is visible during the transition
-            onNext();
-            
-            // Reset the card position with no animation
-            cardControls.set({ 
-              x: 0, 
-              opacity: 1,
-              scale: 1
-            });
-            
-            setSwipeDirection(null);
-          });
-        } else {
-          // If no next stock, just do the standard animation
-          cardControls.start({
-            x: -500,
-            opacity: 0,
-            transition: { duration: 0.3 }
-          }).then(() => {
-            onNext();
-            cardControls.set({ x: 0, opacity: 1, scale: 1 });
-            setSwipeDirection(null);
-          });
-        }
+        // Let the parent know to show the next card
+        // AnimatePresence will handle the animation
+        onNext();
+        
+        // Reset for potential re-use
+        cardControls.set({ 
+          x: 0, 
+          opacity: 1,
+          scale: 1 
+        });
+        
+        setSwipeDirection(null);
       } 
       // Not enough drag - Spring back
       else {
@@ -326,59 +312,19 @@ export default function StockCard({
     } else {
       // Simple mode swipe handling
       if (info.offset.x > threshold) {
-        // Right swipe
+        // Right swipe - Go to previous
         setSwipeDirection("right");
-        cardControls.start({
-          x: window.innerWidth,
-          opacity: 0,
-          transition: { 
-            type: "tween",
-            ease: "easeInOut",
-            duration: 0.4
-          }
-        }).then(() => {
-          onPrevious();
-          cardControls.set({ x: 0, opacity: 1, scale: 1 });
-          setSwipeDirection(null);
-        });
+        onPrevious();
+        cardControls.set({ x: 0, opacity: 1, scale: 1 });
+        setSwipeDirection(null);
       } else if (info.offset.x < -threshold) {
-        // Left swipe - make sure next card is visible during transition
+        // Left swipe - Go to next
         setSwipeDirection("left");
-        
-        // Similar to the realtime mode - ensure smooth transition with next card
-        if (nextStock) {
-          cardControls.start({
-            x: -window.innerWidth,
-            opacity: 0,
-            transition: { 
-              type: "tween", 
-              ease: "easeInOut", 
-              duration: 0.4
-            }
-          }).then(() => {
-            onNext();
-            // Reset with no animation
-            cardControls.set({ 
-              x: 0, 
-              opacity: 1,
-              scale: 1
-            });
-            setSwipeDirection(null);
-          });
-        } else {
-          // Standard behavior if no next stock
-          cardControls.start({
-            x: -window.innerWidth,
-            opacity: 0,
-            transition: { duration: 0.3 }
-          }).then(() => {
-            onNext();
-            cardControls.set({ x: 0, opacity: 1, scale: 1 });
-            setSwipeDirection(null);
-          });
-        }
+        onNext();
+        cardControls.set({ x: 0, opacity: 1, scale: 1 });
+        setSwipeDirection(null);
       } else {
-        // Return to center
+        // Not enough drag - Return to center
         cardControls.start({
           x: 0,
           opacity: 1,
@@ -600,17 +546,25 @@ export default function StockCard({
 
           {/* Main stock card - enhanced with softer shadows and better rounded corners */}
           <motion.div
-            className="absolute inset-0 z-10 bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl overflow-y-auto"
+            className="absolute inset-0 bg-gradient-to-b from-slate-800 to-slate-900 rounded-xl overflow-y-auto"
             ref={cardRef}
-            drag="x"
+            drag={indexInStack === 0 ? "x" : false}
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.7}
             onDragEnd={handleDragEnd}
-            animate={cardControls}
+            animate={{
+              y,
+              scale,
+              opacity: stackOpacity
+            }}
+            transition={{ type: "spring", stiffness: 400, damping: 40 }}
             whileDrag={{ scale: 0.98 }}
             style={{
+              x,
+              rotateZ: cardRotate,
               boxShadow: "0 20px 50px -15px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)",
-              borderRadius: "16px"
+              borderRadius: "16px",
+              zIndex
             }}
           >
             {/* Page indicator */}
@@ -891,14 +845,24 @@ export default function StockCard({
       )}
 
       <motion.div
-        className="h-full overflow-y-auto overflow-x-hidden pb-16 stock-card"
+        className="h-full overflow-y-auto overflow-x-hidden pb-16 stock-card absolute inset-0"
         ref={cardRef}
-        drag="x"
+        drag={indexInStack === 0 ? "x" : false}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.7}
         onDragEnd={handleDragEnd}
-        animate={cardControls}
-        style={{ x, opacity: cardOpacity, rotateZ: cardRotate, scale: cardScale }}
+        animate={{
+          y,
+          scale,
+          opacity: stackOpacity
+        }}
+        transition={{ type: "spring", stiffness: 400, damping: 40 }}
+        style={{ 
+          x, 
+          rotateZ: cardRotate, 
+          scale: cardScale,
+          zIndex
+        }}
       >
         {/* Time Frame Selector - Enhanced with better visual contrast */}
         <div className="flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">
