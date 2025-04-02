@@ -12,6 +12,7 @@ import { postgresStockService } from "./services/postgres-stock-service";
 import { stockService } from "./services/stock-service";
 import { pgStockService } from "./services/pg-stock-service";
 import { stockNewsService } from "./services/stock-news-service";
+import { ownershipService } from "./services/ownership-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Add an endpoint to check and toggle the data source
@@ -1106,6 +1107,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false,
         error: "Failed to fetch stock metrics", 
+        message: error.message 
+      });
+    }
+  });
+  
+  // Get major holders data from PostgreSQL
+  app.get("/api/pg/stock/:symbol/major-holders", async (req, res) => {
+    try {
+      const symbol = req.params.symbol.toUpperCase();
+      console.log(`[API] Getting major holders for ${symbol} from PostgreSQL`);
+      
+      // Get the major holders data using our ownership service
+      const majorHolders = await ownershipService.getMajorHolders(symbol);
+      
+      if (!majorHolders) {
+        return res.status(404).json({ 
+          success: false,
+          error: "Major holders data not found", 
+          message: `No major holders data found for symbol ${symbol} in PostgreSQL database`
+        });
+      }
+      
+      // Return the data
+      res.json({
+        success: true,
+        data: majorHolders
+      });
+    } catch (error: any) {
+      console.error(`[API] Error fetching major holders for ${req.params.symbol}:`, error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch major holders data", 
+        message: error.message 
+      });
+    }
+  });
+  
+  // Get institutional holders data from PostgreSQL
+  app.get("/api/pg/stock/:symbol/institutional-holders", async (req, res) => {
+    try {
+      const symbol = req.params.symbol.toUpperCase();
+      console.log(`[API] Getting institutional holders for ${symbol} from PostgreSQL`);
+      
+      // Get the institutional holders data using our ownership service
+      const institutionalHolders = await ownershipService.getInstitutionalHolders(symbol);
+      
+      if (!institutionalHolders) {
+        return res.status(404).json({ 
+          success: false,
+          error: "Institutional holders data not found", 
+          message: `No institutional holders data found for symbol ${symbol} in PostgreSQL database`
+        });
+      }
+      
+      // Return the data
+      res.json({
+        success: true,
+        data: institutionalHolders
+      });
+    } catch (error: any) {
+      console.error(`[API] Error fetching institutional holders for ${req.params.symbol}:`, error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch institutional holders data", 
         message: error.message 
       });
     }
