@@ -72,6 +72,75 @@ export interface PriceTarget {
   lastUpdated: string;
 }
 
+/**
+ * Fetch analyst recommendations from the PostgreSQL database
+ * @param ticker The stock ticker symbol
+ * @returns Promise with recommendations data or null
+ */
+export async function fetchAnalystRecommendations(ticker: string): Promise<AnalystRecommendation[] | null> {
+  try {
+    const response = await fetch(`/api/pg/stock/${ticker}/recommendations`);
+    if (!response.ok) {
+      console.warn(`Error fetching recommendations for ${ticker}: ${response.statusText}`);
+      return null;
+    }
+    
+    const result = await response.json();
+    if (!result.success || !result.data) {
+      console.warn(`No recommendations data found for ${ticker}`);
+      return null;
+    }
+    
+    // Check if the data is in columnar format and convert it to our AnalystRecommendation format
+    const columnarData = result.data;
+    const recommendations: AnalystRecommendation[] = [];
+    
+    // We need at least these fields to create a valid recommendation
+    if (columnarData.period && 
+        columnarData.strongBuy !== undefined && 
+        columnarData.buy !== undefined && 
+        columnarData.hold !== undefined && 
+        columnarData.sell !== undefined && 
+        columnarData.strongSell !== undefined) {
+      
+      // If we have valid columnar data, create recommendation objects
+      const length = columnarData.period.length;
+      for (let i = 0; i < length; i++) {
+        recommendations.push({
+          period: columnarData.period[i] || '',
+          strongBuy: Number(columnarData.strongBuy[i] || 0),
+          buy: Number(columnarData.buy[i] || 0),
+          hold: Number(columnarData.hold[i] || 0),
+          sell: Number(columnarData.sell[i] || 0),
+          strongSell: Number(columnarData.strongSell[i] || 0),
+          symbol: ticker
+        });
+      }
+      
+      return recommendations;
+    }
+    
+    // Handle legacy or non-columnar format (expect array of recommendation objects)
+    if (Array.isArray(result.data)) {
+      return result.data.map((rec: any) => ({
+        period: rec.period || '',
+        strongBuy: Number(rec.strongBuy || 0),
+        buy: Number(rec.buy || 0),
+        hold: Number(rec.hold || 0),
+        sell: Number(rec.sell || 0),
+        strongSell: Number(rec.strongSell || 0),
+        symbol: ticker
+      }));
+    }
+    
+    console.warn(`Unexpected recommendations data format for ${ticker}`);
+    return null;
+  } catch (error) {
+    console.error(`Failed to fetch recommendations for ${ticker}:`, error);
+    return null;
+  }
+}
+
 export interface StockData {
   name: string;
   ticker: string;

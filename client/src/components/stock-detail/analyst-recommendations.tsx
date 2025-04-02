@@ -1,26 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronUp, ChevronDown, Minus, TrendingUp, TrendingDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface AnalystRecommendation {
-  period: string;
-  strongBuy: number;
-  buy: number;
-  hold: number;
-  sell: number;
-  strongSell: number;
-  symbol: string;
-}
-
-interface PriceTarget {
-  targetHigh: number;
-  targetLow: number;
-  targetMean: number;
-  targetMedian: number;
-  lastUpdated: string;
-}
+import { AnalystRecommendation, PriceTarget, fetchAnalystRecommendations } from '@/lib/stock-data';
 
 interface AnalystRecommendationsProps {
   symbol: string;
@@ -32,14 +15,66 @@ interface AnalystRecommendationsProps {
 
 export function AnalystRecommendations({ 
   symbol, 
-  recommendations, 
+  recommendations: propRecommendations, 
   priceTarget, 
   currentPrice = 0,
   className 
 }: AnalystRecommendationsProps) {
+  const [pgRecommendations, setPgRecommendations] = useState<AnalystRecommendation[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  
+  // Use recommendations from props or from PostgreSQL
+  const recommendations = pgRecommendations || propRecommendations;
+  
+  // Fetch recommendations from PostgreSQL if not provided via props
+  useEffect(() => {
+    async function fetchRecommendations() {
+      if (!propRecommendations && symbol) {
+        setLoading(true);
+        try {
+          const data = await fetchAnalystRecommendations(symbol);
+          if (data) {
+            setPgRecommendations(data);
+            console.log(`Loaded ${data.length} recommendations for ${symbol} from PostgreSQL`);
+          }
+        } catch (error) {
+          console.error(`Error fetching recommendations for ${symbol}:`, error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    }
+    
+    fetchRecommendations();
+  }, [symbol, propRecommendations]);
+  
   const hasRecommendations = recommendations && recommendations.length > 0;
   const hasPriceTarget = priceTarget && 
     (priceTarget.targetMean || priceTarget.targetMedian || priceTarget.targetHigh || priceTarget.targetLow);
+    
+  // Show loading skeleton when fetching recommendations
+  if (loading) {
+    return (
+      <Card className={cn("w-full", className)}>
+        <CardHeader>
+          <CardTitle>Analyst Recommendations</CardTitle>
+          <CardDescription>Professional opinions on {symbol}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-8 w-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-3 w-full" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!hasRecommendations && !hasPriceTarget) {
     return (

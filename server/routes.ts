@@ -1046,6 +1046,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get analyst recommendations for a stock
+  app.get("/api/pg/stock/:ticker/recommendations", async (req, res) => {
+    try {
+      const ticker = req.params.ticker.toUpperCase();
+      
+      const result = await pgStockService.getRecommendations(ticker);
+      if (result) {
+        res.json(result);
+      } else {
+        res.status(404).json({
+          success: false,
+          error: "No recommendations found for this stock",
+          message: `No recommendations data available for ${ticker}`
+        });
+      }
+    } catch (error: any) {
+      console.error(`Error fetching recommendations for ${req.params.ticker}:`, error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch recommendations data",
+        message: error.message
+      });
+    }
+  });
+  
   // Stock News Analysis API Endpoint
   app.post("/api/stocks/news/analyze", async (req, res) => {
     try {

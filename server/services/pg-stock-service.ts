@@ -17,6 +17,83 @@ export class PgStockService {
   constructor() {
     console.log('PgStockService initialized');
   }
+  
+  /**
+   * Get analyst recommendations for a stock ticker
+   * @param ticker The stock ticker symbol
+   * @returns Analyst recommendations data in columnar format
+   */
+  async getRecommendations(ticker: string): Promise<any> {
+    try {
+      // Get detailed data that contains recommendations
+      const result = await pool.query(`
+        SELECT ticker, recommendations 
+        FROM stock_data 
+        WHERE ticker = $1
+      `, [ticker]);
+      
+      if (result.rows.length === 0 || !result.rows[0].recommendations) {
+        console.warn(`No recommendations found for '${ticker}' in PostgreSQL`);
+        return null;
+      }
+      
+      // Extract the recommendations data
+      let recommendations = result.rows[0].recommendations;
+      
+      // Parse the JSON if it's a string
+      if (typeof recommendations === 'string') {
+        try {
+          recommendations = JSON.parse(recommendations);
+        } catch (e) {
+          console.warn(`Error parsing recommendations JSON for ${ticker}:`, e);
+          return null;
+        }
+      }
+      
+      // If recommendations are in an array format, convert to columnar format
+      if (Array.isArray(recommendations)) {
+        // Convert from array of objects to columnar format
+        const columnarData: Record<string, any[]> = {};
+        
+        // Initialize all possible keys
+        if (recommendations.length > 0) {
+          const keys = Object.keys(recommendations[0]);
+          keys.forEach(key => {
+            columnarData[key] = [];
+          });
+          
+          // Fill columnar arrays
+          recommendations.forEach(rec => {
+            keys.forEach(key => {
+              columnarData[key].push(rec[key]);
+            });
+          });
+          
+          return {
+            success: true,
+            data: columnarData
+          };
+        }
+      } else {
+        // Recommendations already in columnar format
+        return {
+          success: true,
+          data: recommendations
+        };
+      }
+      
+      return {
+        success: false,
+        error: "Invalid recommendations data format"
+      };
+    } catch (error) {
+      console.error(`Error fetching recommendations for '${ticker}' from PostgreSQL:`, error);
+      return {
+        success: false,
+        error: "Failed to fetch recommendations data"
+      };
+    }
+  }
 
   /**
    * Load stock data from the database and initialize cache
