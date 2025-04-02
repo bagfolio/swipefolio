@@ -265,16 +265,45 @@ export default function StockCard({
           navigator.vibrate(30);
         }
 
-        // Animate card off screen to the left
-        cardControls.start({
-          x: -500,
-          opacity: 0,
-          transition: { duration: 0.3 }
-        }).then(() => {
-          onNext();
-          cardControls.set({ x: 0, opacity: 1 });
-          setSwipeDirection(null);
-        });
+        // First, make sure the next card starts becoming visible
+        // by increasing its opacity early during the current card's exit animation
+        if (nextStock) {
+          // Animate card off screen to the left with a slightly longer duration
+          // to allow the next card to become fully visible before the current card disappears
+          cardControls.start({
+            x: -500,
+            opacity: 0,
+            transition: { 
+              type: "tween",
+              ease: "easeInOut", 
+              duration: 0.4  // Slightly longer duration
+            }
+          }).then(() => {
+            // Only after the exit animation is complete, we move to the next card
+            // This ensures the next card preview is visible during the transition
+            onNext();
+            
+            // Reset the card position with no animation
+            cardControls.set({ 
+              x: 0, 
+              opacity: 1,
+              scale: 1
+            });
+            
+            setSwipeDirection(null);
+          });
+        } else {
+          // If no next stock, just do the standard animation
+          cardControls.start({
+            x: -500,
+            opacity: 0,
+            transition: { duration: 0.3 }
+          }).then(() => {
+            onNext();
+            cardControls.set({ x: 0, opacity: 1 });
+            setSwipeDirection(null);
+          });
+        }
       } 
       // Not enough drag - Spring back
       else {
@@ -299,24 +328,52 @@ export default function StockCard({
         cardControls.start({
           x: window.innerWidth,
           opacity: 0,
-          transition: { duration: 0.3 }
+          transition: { 
+            type: "tween",
+            ease: "easeInOut",
+            duration: 0.4
+          }
         }).then(() => {
           onPrevious();
           cardControls.set({ x: 0, opacity: 1 });
           setSwipeDirection(null);
         });
       } else if (info.offset.x < -threshold) {
-        // Left swipe
+        // Left swipe - make sure next card is visible during transition
         setSwipeDirection("left");
-        cardControls.start({
-          x: -window.innerWidth,
-          opacity: 0,
-          transition: { duration: 0.3 }
-        }).then(() => {
-          onNext();
-          cardControls.set({ x: 0, opacity: 1 });
-          setSwipeDirection(null);
-        });
+        
+        // Similar to the realtime mode - ensure smooth transition with next card
+        if (nextStock) {
+          cardControls.start({
+            x: -window.innerWidth,
+            opacity: 0,
+            transition: { 
+              type: "tween", 
+              ease: "easeInOut", 
+              duration: 0.4
+            }
+          }).then(() => {
+            onNext();
+            // Reset with no animation
+            cardControls.set({ 
+              x: 0, 
+              opacity: 1,
+              scale: 1
+            });
+            setSwipeDirection(null);
+          });
+        } else {
+          // Standard behavior if no next stock
+          cardControls.start({
+            x: -window.innerWidth,
+            opacity: 0,
+            transition: { duration: 0.3 }
+          }).then(() => {
+            onNext();
+            cardControls.set({ x: 0, opacity: 1 });
+            setSwipeDirection(null);
+          });
+        }
       } else {
         // Return to center
         cardControls.start({
@@ -784,19 +841,38 @@ export default function StockCard({
   return (
     <div className="relative h-full" data-testid="stock-card">
       {/* Blurred background stock (next in stack) - visible during swipes */}
-      <div 
-        className="absolute inset-0 overflow-hidden blur-xl pointer-events-none opacity-20"
-        style={{
-          clipPath: x.get() > 0 ? 'inset(0 0 0 100%)' : 'inset(0 0 0 0)',
-          opacity: Math.abs(x.get()) > 50 ? 0.2 : 0,
-          transform: `translateX(${x.get() < 0 ? '60px' : '-60px'})`
-        }}
-      >
-        {/* This would ideally be the next stock's preview, simplified here */}
-        <div className="w-full h-full bg-gradient-to-br from-slate-100 to-blue-50 flex items-center justify-center">
-          <div className="w-32 h-32 rounded-full bg-gradient-to-tr from-blue-400/20 to-indigo-300/20"></div>
+      {nextStock && (
+        <div 
+          className="absolute inset-0 overflow-hidden pointer-events-none"
+          style={{
+            opacity: Math.abs(x.get()) > 50 ? 0.6 : 0,
+            transform: `translateX(${x.get() < 0 ? '60px' : '-60px'})`,
+            filter: 'blur(5px)',
+            zIndex: 0
+          }}
+        >
+          {/* This is the actual next stock preview */}
+          <div className="w-full h-full bg-black">
+            <div className="h-full w-full flex flex-col">
+              {/* Simplified header with stock symbol and name */}
+              <div className="px-6 py-4 bg-gray-900/70">
+                <div className="text-xl font-bold text-white">{nextStock.ticker}</div>
+                <div className="text-sm text-gray-300">{nextStock.name}</div>
+              </div>
+              
+              {/* Simplified chart area */}
+              <div className="flex-1 bg-gray-900/50 flex items-center justify-center">
+                <div className="text-center text-gray-400">
+                  <div className="text-2xl font-semibold">${nextStock.price.toFixed(2)}</div>
+                  <div className={`text-sm ${nextStock.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {nextStock.change >= 0 ? '+' : ''}{nextStock.change.toFixed(2)}%
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
       {/* Skipped message - shows when swiping left */}
       {showSkippedMessage && (
         <motion.div
