@@ -6,7 +6,7 @@
  */
 
 import { db } from '../server/db';
-import { stocks, stockData, sectors, marketData } from '../shared/schema';
+import { stocks, stockData, sectors, marketData, stockNews } from '../shared/schema';
 import { sql } from 'drizzle-orm';
 
 async function main() {
@@ -79,6 +79,24 @@ async function main() {
       )
     `);
     console.log('Created market_data table');
+    
+    // Create stock_news table
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS ${stockNews} (
+        id SERIAL PRIMARY KEY,
+        ticker VARCHAR(10) NOT NULL REFERENCES ${stocks}(ticker),
+        title TEXT NOT NULL,
+        summary TEXT,
+        url TEXT NOT NULL,
+        source TEXT,
+        published_date TIMESTAMP NOT NULL,
+        impacted_metrics JSONB,
+        ai_analysis JSONB,
+        sentiment TEXT,
+        created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('Created stock_news table');
     
     console.log('Database schema push completed successfully!');
   } catch (error) {
