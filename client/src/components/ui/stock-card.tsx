@@ -154,7 +154,14 @@ export default function StockCard({
       // Log the actual Yahoo Finance data for debugging/reviewing
       console.log(`Yahoo Finance data for ${stock.ticker} with timeFrame: ${timeFrame}`);
       console.log('Quote data:', yahooChartData.quotes);
-      return extractChartPrices(yahooChartData);
+      
+      // Extract close prices and make sure they're numbers
+      const closePrices = yahooChartData.quotes.map(quote => 
+        typeof quote.close === 'number' ? quote.close : 0
+      ).filter(price => price > 0);
+      
+      console.log('Extracted close prices:', closePrices);
+      return closePrices;
     }
     // Fallback to the generated mock data if Yahoo Finance data is not available
     return generateTimeBasedData(stock.chartData, timeFrame);
@@ -613,20 +620,59 @@ export default function StockCard({
                             <span>${Math.round(priceRangeMax)}</span> <span>${Math.round((priceRangeMax + priceRangeMin) / 2)}</span> <span>${Math.round(priceRangeMin)}</span>
                         </div>
                         <div className="absolute inset-0 pl-12 pr-4"> {/* Chart Path */}
-                           <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
-                             <path d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue)) * 100} ${chartPrices.map((point: number, i: number) => `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`).join(' ')} L105,${100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue)) * 100}`} className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                             
-                             {/* Debug points to show actual data points */}
-                             {chartPrices.map((point: number, i: number) => (
-                               <circle 
-                                 key={i}
-                                 cx={`${(i / (chartPrices.length - 1)) * 110 - 5}`}
-                                 cy={`${100 - ((point - minValue) / (maxValue - minValue)) * 100}`}
-                                 r="2"
-                                 className={`${realTimeChange >= 0 ? 'fill-green-600' : 'fill-red-600'}`}
+                           {displayMode === 'realtime' && chartPrices.length > 0 ? (
+                             // Realtime chart with Yahoo Finance data
+                             <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
+                               {/* Area under the line */}
+                               <defs>
+                                 <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                   <stop offset="0%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'} />
+                                   <stop offset="100%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.01)' : 'rgba(239, 68, 68, 0.01)'} />
+                                 </linearGradient>
+                               </defs>
+                               
+                               {/* Chart line */}
+                               <path 
+                                 d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue)) * 100} ${
+                                   chartPrices.map((point: number, i: number) => 
+                                     `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
+                                   ).join(' ')
+                                 } L105,${100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue)) * 100}`} 
+                                 className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} 
+                                 strokeWidth="2.5" 
+                                 strokeLinecap="round" 
+                                 strokeLinejoin="round" 
                                />
-                             ))}
-                           </svg>
+                               
+                               {/* Area fill */}
+                               <path 
+                                 d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue)) * 100} ${
+                                   chartPrices.map((point: number, i: number) => 
+                                     `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
+                                   ).join(' ')
+                                 } L105,${100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue)) * 100} L105,100 L-5,100 Z`} 
+                                 fill="url(#chartGradient)" 
+                                 fillOpacity="0.5"
+                               />
+                               
+                               {/* Data points */}
+                               {chartPrices.map((point: number, i: number) => (
+                                 <circle 
+                                   key={i}
+                                   cx={`${(i / (chartPrices.length - 1)) * 110 - 5}`}
+                                   cy={`${100 - ((point - minValue) / (maxValue - minValue)) * 100}`}
+                                   r="3"
+                                   className={`${realTimeChange >= 0 ? 'fill-green-600 stroke-white' : 'fill-red-600 stroke-white'}`}
+                                   strokeWidth="1.5"
+                                 />
+                               ))}
+                             </svg>
+                           ) : (
+                             // Fallback to mock data chart
+                             <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
+                               <path d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue)) * 100} ${chartPrices.map((point: number, i: number) => `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`).join(' ')} L105,${100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue)) * 100}`} className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                             </svg>
+                           )}
                         </div>
                     </div>
                     <div className="absolute left-0 right-0 bottom-1 pl-12 pr-4 flex justify-between text-[10px] text-slate-900 font-medium pointer-events-none"> {/* X Axis */}
