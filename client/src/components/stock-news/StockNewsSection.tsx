@@ -35,7 +35,7 @@ interface StockNewsItem extends YahooNewsItem {
 
 interface StockNewsSectionProps {
   stock: StockData;
-  theme?: 'dark' | 'light'; // Add theme prop with default to dark
+  // Remove theme prop - we'll use light theme only
 }
 
 // Helper function to format date from timestamp
@@ -145,7 +145,7 @@ const getMetricIcon = (metric: string, sentiment: 'positive' | 'negative' | 'neu
   }
 };
 
-export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock, theme = 'dark' }) => {
+export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => {
   // Fetch news data from the API
   const { data: newsData, isLoading, error } = useQuery<{ items: YahooNewsItem[] }>({
     queryKey: ['/api/yahoo-finance/news', stock.ticker],
@@ -173,33 +173,19 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock, theme
       }))
     : [];
 
-  // Define theme-specific styles
+  // Define light theme styles
   const styles = {
-    container: theme === 'dark' 
-      ? "p-4 bg-gray-800/70 border-t border-b border-gray-700" 
-      : "p-4 bg-white border-t border-b border-slate-100",
-    title: theme === 'dark'
-      ? "text-lg font-bold text-white mb-3 flex items-center"
-      : "font-semibold text-slate-900 mb-3 flex items-center",
-    iconColor: theme === 'dark' ? "text-blue-400" : "text-blue-500",
-    emptyText: theme === 'dark' ? "text-gray-400" : "text-slate-500",
-    errorText: theme === 'dark' ? "text-rose-400" : "text-rose-500",
-    skeletonBg: theme === 'dark' ? "bg-gray-700" : "bg-slate-200",
-    newsItem: theme === 'dark'
-      ? "block p-3 rounded-xl border border-gray-700 hover:border-blue-500 hover:bg-blue-900/10 transition-all duration-200 group"
-      : "block p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-200 group",
-    newsTitle: theme === 'dark'
-      ? "text-sm font-medium text-gray-300 group-hover:text-blue-400 pr-4 transition-colors"
-      : "text-sm font-medium text-slate-700 group-hover:text-blue-600 pr-4 transition-colors",
-    icon: theme === 'dark'
-      ? "w-4 h-4 text-gray-500 group-hover:text-blue-400 transition-colors flex-shrink-0"
-      : "w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors flex-shrink-0",
-    publisherBadge: theme === 'dark'
-      ? "bg-gray-800 rounded-full px-2 py-1 mr-2 text-gray-500"
-      : "bg-slate-100 rounded-full px-2 py-1 mr-2 text-slate-600",
-    metricTag: theme === 'dark'
-      ? "text-xs mr-1 capitalize bg-gray-800 px-2 py-1 rounded-full text-gray-400"
-      : "text-xs mr-1 capitalize bg-slate-100 px-2 py-1 rounded-full text-slate-600"
+    container: "p-4 bg-white border-t border-b border-slate-100",
+    title: "font-semibold text-slate-900 mb-3 flex items-center",
+    iconColor: "text-blue-500",
+    emptyText: "text-slate-500",
+    errorText: "text-rose-500",
+    skeletonBg: "bg-slate-200",
+    newsItem: "block p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-200 group",
+    newsTitle: "text-sm font-medium text-slate-700 group-hover:text-blue-600 pr-4 transition-colors",
+    icon: "w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors flex-shrink-0",
+    publisherBadge: "bg-slate-100 rounded-full px-2 py-1 mr-2 text-slate-600",
+    metricTag: "text-xs mr-1 capitalize bg-slate-100 px-2 py-1 rounded-full text-slate-600"
   };
 
   if (error) {
@@ -272,7 +258,7 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock, theme
                     <div className={styles.publisherBadge}>
                       {newsItem.publisher}
                     </div>
-                    <Clock className={`w-3 h-3 mr-1 ${theme === 'dark' ? 'text-gray-500' : 'text-slate-500'}`} />
+                    <Clock className="w-3 h-3 mr-1 text-slate-500" />
                     {formatNewsDate(newsItem.providerPublishTime)}
                   </div>
                   
