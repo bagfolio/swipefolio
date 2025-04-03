@@ -8,7 +8,7 @@ import { ExternalLink, TrendingUp, TrendingDown, Zap, Scale, DollarSign, BarChar
 import { cn } from '@/lib/utils';
 
 interface NewsWithImpact {
-  id: number;
+  id: number | string; // Allow either number or string ids
   ticker: string;
   title: string;
   summary: string;
@@ -130,8 +130,8 @@ export function SwipeableNews({ symbol, className }: SwipeableNewsProps) {
         // Generate sentiment if not available
         const sentiment = columnarData.data.sentiment?.[i] || 'neutral';
           
-        // Create a guaranteed unique ID using the index and timestamp
-        const uniqueId = `news-${symbol}-${i}-${Date.now()}`;
+        // Create a unique ID that's stable across renders
+        const uniqueId = columnarData.data.id?.[i] || `news-${symbol}-${i}`;
           
         items.push({
           id: uniqueId,
@@ -180,11 +180,36 @@ export function SwipeableNews({ symbol, className }: SwipeableNewsProps) {
   };
 
   // Touch events for mobile
+  // Track where the touch started
+  const touchStartPos = useRef({ x: 0, edgeStart: false });
+  const touchMoveThreshold = 40; // Minimum distance (in pixels) to trigger swipe
+  
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!containerRef.current) return;
-    setIsDragging(true);
-    setStartX(e.touches[0].pageX - containerRef.current.offsetLeft);
-    setScrollLeft(containerRef.current.scrollLeft);
+    
+    const touchX = e.touches[0].pageX;
+    const containerWidth = containerRef.current.clientWidth;
+    
+    // Check if touch started near the edge (30% of the screen width from edges)
+    const edgeThreshold = containerWidth * 0.3;
+    const isNearLeftEdge = touchX < edgeThreshold;
+    const isNearRightEdge = touchX > (containerWidth - edgeThreshold);
+    
+    // Only initiate drag if touch starts near edges
+    if (isNearLeftEdge || isNearRightEdge) {
+      setIsDragging(true);
+      touchStartPos.current = {
+        x: touchX,
+        edgeStart: true
+      };
+      setStartX(touchX - containerRef.current.offsetLeft);
+      setScrollLeft(containerRef.current.scrollLeft);
+    } else {
+      touchStartPos.current = {
+        x: touchX,
+        edgeStart: false
+      };
+    }
   };
 
   const handleTouchEnd = () => {
@@ -192,10 +217,23 @@ export function SwipeableNews({ symbol, className }: SwipeableNewsProps) {
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || !containerRef.current) return;
-    const x = e.touches[0].pageX - containerRef.current.offsetLeft;
-    const walk = (x - startX) * 2;
-    containerRef.current.scrollLeft = scrollLeft - walk;
+    if (!containerRef.current) return;
+    
+    const touchX = e.touches[0].pageX;
+    const touchDelta = Math.abs(touchX - touchStartPos.current.x);
+    
+    // If touch didn't start near edge and now moving significantly, 
+    // prevent scroll (avoids accidental swipes when scrolling vertically)
+    if (!touchStartPos.current.edgeStart && touchDelta > touchMoveThreshold) {
+      return;
+    }
+    
+    // Only scroll if we're in dragging mode
+    if (isDragging) {
+      const x = touchX - containerRef.current.offsetLeft;
+      const walk = (x - startX) * 1.5; // Reduced sensitivity (from 2 to 1.5)
+      containerRef.current.scrollLeft = scrollLeft - walk;
+    }
   };
 
   // Navigation buttons

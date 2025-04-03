@@ -418,41 +418,59 @@ export function ManagementSection({ symbol, className }: ManagementSectionProps)
               <h3 className="text-sm font-semibold mb-3">ESG Performance</h3>
               
               <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="p-4 border rounded-lg shadow-sm bg-card">
+                {/* Overall Score - Larger Card */}
+                <div className="p-4 border rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow">
                   <div className="text-sm text-muted-foreground mb-1">Overall</div>
-                  <div className={cn("text-3xl font-bold flex items-baseline", getScoreColor(esgData.esgScore))}>
+                  <div className={cn("text-4xl font-bold", getScoreColor(esgData.esgScore))}>
                     {esgData.esgScore}
-                    <span className="text-xs text-muted-foreground ml-1">(out of 100)</span>
                   </div>
+                  <div className="text-xs text-muted-foreground mt-1">Score out of 100</div>
                 </div>
                 
                 <div className="grid grid-cols-1 gap-3">
-                  <div className="p-3 border rounded-lg shadow-sm bg-card flex justify-between items-center">
+                  {/* Environmental Score - Consistent Styling */}
+                  <div className="p-3 border rounded-lg shadow-sm bg-card flex justify-between items-center hover:shadow-md transition-shadow">
                     <div>
                       <div className="text-sm text-muted-foreground">Environmental</div>
                       <div className={cn("text-xl font-bold", getScoreColor(esgData.environmentalScore))}>
                         {esgData.environmentalScore}
                       </div>
                     </div>
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center bg-green-50 dark:bg-green-900/20">
-                      <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-white font-bold", 
-                        esgData.environmentalScore >= 70 ? "bg-green-500" :
-                        esgData.environmentalScore >= 50 ? "bg-yellow-500" : "bg-red-500")}>
-                        {esgData.environmentalScore}
-                      </div>
+                    <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-white font-bold", 
+                      esgData.environmentalScore >= 70 ? "bg-green-500" :
+                      esgData.environmentalScore >= 50 ? "bg-yellow-500" : "bg-red-500")}>
+                      {esgData.environmentalScore}
                     </div>
                   </div>
                   
+                  {/* Social and Governance Scores - matching Environmental style */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 border rounded-lg shadow-sm bg-card">
-                      <div className="text-sm text-muted-foreground">Social</div>
-                      <div className={cn("text-xl font-bold", getScoreColor(esgData.socialScore))}>
+                    {/* Social score card */}
+                    <div className="p-3 border rounded-lg shadow-sm bg-card flex justify-between items-center hover:shadow-md transition-shadow">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Social</div>
+                        <div className={cn("text-xl font-bold", getScoreColor(esgData.socialScore))}>
+                          {esgData.socialScore}
+                        </div>
+                      </div>
+                      <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-white font-bold", 
+                        esgData.socialScore >= 70 ? "bg-green-500" :
+                        esgData.socialScore >= 50 ? "bg-yellow-500" : "bg-red-500")}>
                         {esgData.socialScore}
                       </div>
                     </div>
-                    <div className="p-3 border rounded-lg shadow-sm bg-card">
-                      <div className="text-sm text-muted-foreground">Governance</div>
-                      <div className={cn("text-xl font-bold", getScoreColor(esgData.governanceScore))}>
+                    
+                    {/* Governance score card */}
+                    <div className="p-3 border rounded-lg shadow-sm bg-card flex justify-between items-center hover:shadow-md transition-shadow">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Governance</div>
+                        <div className={cn("text-xl font-bold", getScoreColor(esgData.governanceScore))}>
+                          {esgData.governanceScore}
+                        </div>
+                      </div>
+                      <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-white font-bold", 
+                        esgData.governanceScore >= 70 ? "bg-green-500" :
+                        esgData.governanceScore >= 50 ? "bg-yellow-500" : "bg-red-500")}>
                         {esgData.governanceScore}
                       </div>
                     </div>
@@ -466,66 +484,70 @@ export function ManagementSection({ symbol, className }: ManagementSectionProps)
               <h3 className="text-sm font-semibold mb-3">Governance & Risk Assessment</h3>
               
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 border rounded-lg shadow-sm bg-card">
+                {/* Management risk card - improved spacing and smaller text */}
+                <div className="p-3 border rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center">
-                      <AlertTriangle className="h-5 w-5 mr-2 text-muted-foreground" />
-                      <span className="font-medium">Management</span>
+                      <AlertTriangle className="h-4 w-4 mr-1.5 text-muted-foreground" />
+                      <span className="font-medium text-sm">Management</span>
                     </div>
-                    <div className={cn("px-2 py-1 rounded text-sm font-semibold", 
+                    <div className={cn("px-1.5 py-0.5 rounded text-xs font-medium", 
                       getRiskLevelClass(esgData.managementRisk))}>
                       {esgData.managementRisk}
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground leading-tight">
                     Measures risk associated with management decisions and practices
                   </div>
                 </div>
                 
-                <div className="p-3 border rounded-lg shadow-sm bg-card">
+                {/* Board risk card - improved spacing and smaller text */}
+                <div className="p-3 border rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center">
-                      <Users className="h-5 w-5 mr-2 text-muted-foreground" />
-                      <span className="font-medium">Board</span>
+                      <Users className="h-4 w-4 mr-1.5 text-muted-foreground" />
+                      <span className="font-medium text-sm">Board</span>
                     </div>
-                    <div className={cn("px-2 py-1 rounded text-sm font-semibold", 
+                    <div className={cn("px-1.5 py-0.5 rounded text-xs font-medium", 
                       getRiskLevelClass(esgData.boardRisk))}>
                       {esgData.boardRisk}
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground leading-tight">
                     Evaluates board structure, independence, and oversight
                   </div>
                 </div>
                 
-                <div className="p-3 border rounded-lg shadow-sm bg-card">
+                {/* Audit risk card - improved spacing and smaller text */}
+                <div className="p-3 border rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center">
-                      <ClipboardCheck className="h-5 w-5 mr-2 text-muted-foreground" />
-                      <span className="font-medium">Audit</span>
+                      <ClipboardCheck className="h-4 w-4 mr-1.5 text-muted-foreground" />
+                      <span className="font-medium text-sm">Audit</span>
                     </div>
-                    <div className={cn("px-2 py-1 rounded text-sm font-semibold", 
+                    <div className={cn("px-1.5 py-0.5 rounded text-xs font-medium", 
                       getRiskLevelClass(esgData.auditRisk))}>
                       {esgData.auditRisk}
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground leading-tight">
                     Assesses financial reporting and internal controls
                   </div>
                 </div>
                 
-                <div className="p-3 border rounded-lg shadow-sm bg-card">
+                {/* Compensation risk card - improved spacing and smaller text */}
+                <div className="p-3 border rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center">
-                      <Building2 className="h-5 w-5 mr-2 text-muted-foreground" />
-                      <span className="font-medium">Compensation</span>
+                      <Building2 className="h-4 w-4 mr-1.5 text-muted-foreground" />
+                      <span className="font-medium text-sm">Compensation</span>
                     </div>
-                    <div className={cn("px-2 py-1 rounded text-sm font-semibold", 
+                    <div className={cn("px-1.5 py-0.5 rounded text-xs font-medium", 
                       getRiskLevelClass(esgData.compensationRisk))}>
                       {esgData.compensationRisk}
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-muted-foreground leading-tight">
                     Reviews executive pay structure and alignment with performance
                   </div>
                 </div>
