@@ -427,12 +427,12 @@ export default function StockCard({
     // AND they've been dragging for at least 150ms (to prevent accidental swipes)
     const dragDuration = Date.now() - dragStartTimeRef.current;
     
-    if (distanceMoved > 50 && dragDuration > 150) {
+    if (distanceMoved > 20 && dragDuration > 50) {
       isDraggingIntentionallyRef.current = true;
     }
   };
   
-  // Drag handler with significantly reduced sensitivity and higher thresholds
+  // Drag handler with improved responsiveness
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (!cardControls) return; // Not interactive if no controls
 
@@ -442,19 +442,19 @@ export default function StockCard({
         x: 0, 
         transition: { 
           type: "spring", 
-          stiffness: 250,  // Reduced stiffness for slower animation
-          damping: 35,     // Increased damping for smoother return
-          duration: 0.8    // Extended duration
+          stiffness: 180,  // Softer spring
+          damping: 15,     // Less damping for more natural feel
+          duration: 0.4    // Faster reset
         }
       });
       return;
     }
 
-    // Much higher thresholds to require more deliberate movement
-    const rightThreshold = 150; 
-    const leftThreshold = 120;
-    // Higher velocity threshold to require more deliberate swipes
-    const velocityThreshold = 250;
+    // More natural swipe thresholds
+    const rightThreshold = 80; 
+    const leftThreshold = 60;
+    // Lower velocity threshold for more responsive swipes
+    const velocityThreshold = 150;
     
     const dragVelocity = info.velocity.x;
     const dragOffset = info.offset.x;
@@ -467,13 +467,13 @@ export default function StockCard({
         // More dramatic and slower animation with rotation
         cardControls.start({ 
           x: 0, 
-          rotate: [5, 0],
+          rotate: [3, 0],
           transition: { 
             type: "spring", 
-            stiffness: 280,  // Slightly reduced stiffness for smoother animation
-            damping: 22,     // Slightly adjusted damping for better bounce
-            duration: 0.85,  // Even longer duration for very satisfying animation
-            ease: "easeInOut"
+            stiffness: 150,  // Much softer spring
+            damping: 12,     // Lower damping for smooth motion
+            duration: 0.35,  // Faster animation
+            ease: "easeOut"
           }
         });
       } else { // Simple mode: Right swipe = Previous
