@@ -244,74 +244,90 @@ export function ModernAnalystRating({
             {/* Circular Gauge Component */}
             {recommendationData && (
               <div className="flex flex-col items-center mb-6">
-                {/* Semicircular Gauge Display - Based on Reference */}
+                {/* Improved Semicircular Gauge with cleaner design */}
                 <div className="relative w-64 h-36 mx-auto mb-2">
                   <div className="absolute w-full h-full">
                     <svg viewBox="0 0 200 120" className="w-full h-full">
-                      {/* Background track (empty) */}
+                      {/* Background track with lighter coloring */}
+                      <defs>
+                        <linearGradient id="gauge-bg-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#fee2e2" /> {/* Light Red */}
+                          <stop offset="25%" stopColor="#ffedd5" /> {/* Light Orange */}
+                          <stop offset="50%" stopColor="#fef9c3" /> {/* Light Yellow */}
+                          <stop offset="75%" stopColor="#dcfce7" /> {/* Light Green */}
+                          <stop offset="100%" stopColor="#bbf7d0" /> {/* Light Green */}
+                        </linearGradient>
+                        <linearGradient id="gauge-active-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#ef4444" /> {/* Strong Sell - Red */}
+                          <stop offset="25%" stopColor="#f97316" /> {/* Sell - Orange */}
+                          <stop offset="50%" stopColor="#eab308" /> {/* Hold - Yellow */}
+                          <stop offset="75%" stopColor="#84cc16" /> {/* Buy - Light Green */}
+                          <stop offset="100%" stopColor="#22c55e" /> {/* Strong Buy - Green */}
+                        </linearGradient>
+                      </defs>
+                      
+                      {/* Background track filled with gradient */}
                       <path 
                         d="M20,100 A80,80 0 0,1 180,100" 
-                        stroke="#e5e7eb" 
-                        strokeWidth="8" 
+                        stroke="url(#gauge-bg-gradient)" 
+                        strokeWidth="10" 
+                        strokeLinecap="round"
                         fill="none"
-                        className="dark:stroke-gray-700"
+                        className="dark:opacity-40"
                       />
                       
-                      {/* Calculate the gauge segment path based on gauge angle */}
+                      {/* Calculate and render the active segment */}
                       {(() => {
-                        // Convert gauge angle to percentage (0 to 180 degrees maps to 0% to 100%)
-                        const anglePercent = (gaugeAngle + 90) / 180;
-                        // Calculate the ending point of the colored arc
-                        const endX = 20 + (160 * anglePercent);
-                        const endY = 100 - Math.sin(anglePercent * Math.PI) * 80;
+                        // Convert score to angle percentage (0-100 score to 0-180 degrees)
+                        const scorePercent = recommendationData.score / 100;
+                        // Calculate arc length based on score
+                        const arcLength = scorePercent * 180;
                         
-                        // Create the arc path string
-                        const arcPath = `M20,100 A80,80 0 0,1 ${endX},${endY}`;
-                        
-                        // Determine the gradient colors based on the score
-                        let gradientId = "gauge-gradient-" + recommendationData.sentiment.replace(/\s+/g, '-').toLowerCase();
+                        // Get the best color for the pointer based on score
+                        const pointerColor = 
+                          recommendationData.score >= 80 ? "#22c55e" : // Strong Buy - Green
+                          recommendationData.score >= 60 ? "#84cc16" : // Buy - Light Green
+                          recommendationData.score >= 40 ? "#eab308" : // Hold - Yellow
+                          recommendationData.score >= 20 ? "#f97316" : // Sell - Orange
+                          "#ef4444";                                   // Strong Sell - Red
                         
                         return (
                           <>
-                            {/* Create a gradient depending on the position */}
-                            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-                              <stop offset="0%" stopColor="#ef4444" /> {/* Strong Sell - Red */}
-                              <stop offset="25%" stopColor="#f97316" /> {/* Sell - Orange */}
-                              <stop offset="50%" stopColor="#eab308" /> {/* Hold - Yellow */}
-                              <stop offset="75%" stopColor="#84cc16" /> {/* Buy - Light Green */}
-                              <stop offset="100%" stopColor="#22c55e" /> {/* Strong Buy - Green */}
-                            </linearGradient>
-                            
-                            {/* Colored segment - only to the pointer */}
+                            {/* Active gauge segment */}
                             <path 
-                              d={arcPath} 
-                              stroke={`url(#${gradientId})`} 
-                              strokeWidth="8" 
+                              d="M20,100 A80,80 0 0,1 180,100" 
+                              stroke="url(#gauge-active-gradient)"
+                              strokeWidth="10"
+                              strokeLinecap="round"
+                              strokeDasharray={`${arcLength} 180`}
                               fill="none"
+                            />
+                            
+                            {/* Add a circle at the current position */}
+                            <circle 
+                              cx={100 - 80 * Math.cos(gaugeAngle * Math.PI / 180)}
+                              cy={100 - 80 * Math.sin(gaugeAngle * Math.PI / 180)}
+                              r="6" 
+                              fill={pointerColor}
+                              stroke="white"
+                              strokeWidth="2"
                             />
                           </>
                         );
                       })()}
                       
-                      {/* Tick marks and labels - positioned like reference */}
-                      <text x="20" y="85" className="text-xs font-medium" fill="currentColor">Strong</text>
-                      <text x="20" y="98" className="text-xs font-medium" fill="currentColor">sell</text>
+                      {/* Clean, modern style labels */}
+                      <text x="20" y="86" className="text-xs font-medium" fill="currentColor">Strong</text>
+                      <text x="20" y="98" className="text-xs font-medium" fill="currentColor">Sell</text>
                       
                       <text x="73" y="80" className="text-xs font-medium" fill="currentColor">Sell</text>
                       
-                      <text x="100" y="37" className="text-xs font-medium" fill="currentColor" textAnchor="middle">Neutral</text>
+                      <text x="100" y="37" className="text-xs font-medium" fill="currentColor" textAnchor="middle">Hold</text>
                       
-                      <text x="127" y="80" className="text-xs font-medium" fill="currentColor" textAnchor="middle">Buy</text>
+                      <text x="127" y="80" className="text-xs font-medium" fill="currentColor" textAnchor="end">Buy</text>
                       
-                      <text x="180" y="85" className="text-xs font-medium" fill="currentColor" textAnchor="end">Strong</text>
-                      <text x="180" y="98" className="text-xs font-medium" fill="currentColor" textAnchor="end">buy</text>
-                      
-                      {/* Needle with shadow for better visibility */}
-                      <g transform={`rotate(${gaugeAngle}, 100, 100)`}>
-                        <line x1="100" y1="100" x2="100" y2="40" stroke="black" strokeWidth="3" opacity="0.2" />
-                        <line x1="100" y1="100" x2="100" y2="40" stroke="black" strokeWidth="2" />
-                        <circle cx="100" cy="100" r="5" fill="black" />
-                      </g>
+                      <text x="180" y="86" className="text-xs font-medium" fill="currentColor" textAnchor="end">Strong</text>
+                      <text x="180" y="98" className="text-xs font-medium" fill="currentColor" textAnchor="end">Buy</text>
                     </svg>
                   </div>
                 </div>
@@ -443,150 +459,186 @@ export function ModernAnalystRating({
               <div className="space-y-6">
                 <h3 className="text-sm font-semibold">Analyst Rating History</h3>
                 
-                {/* Vertical bar charts with line graph - like reference */}
-                <div className="h-52 mt-4">
+                {/* Improved visualization with modern chart styling */}
+                <div className="h-64 mt-6 bg-white dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-800 shadow-sm p-4">
                   {(() => {
                     const data = getHistoricalData() || [];
-                    const maxTotal = Math.max(...data.map(d => d.total));
-                    const barWidth = 100 / (data.length * 2); // width for each bar, leaving gaps
+                    if (data.length === 0) return <div className="flex h-full items-center justify-center text-sm text-gray-500">No historical data available</div>;
                     
-                    // Calculate the trend scores for line chart
-                    const trendScores = data.map(d => {
-                      // Calculate a score where 100 = all strong buy, 0 = all strong sell
-                      const score = (
-                        (d.strongBuy * 100) + 
-                        (d.buy * 75) + 
-                        (d.hold * 50) + 
-                        (d.sell * 25) + 
-                        (d.strongSell * 0)
-                      ) / d.total;
-                      return score;
+                    // Calculate percentages for each rating type
+                    const processedData = data.map(d => {
+                      const total = d.total;
+                      return {
+                        period: d.period?.substring(0, 7) || 'N/A',
+                        // Convert raw counts to percentages
+                        strongBuy: (d.strongBuy / total) * 100,
+                        buy: (d.buy / total) * 100,
+                        hold: (d.hold / total) * 100,
+                        sell: (d.sell / total) * 100,
+                        strongSell: (d.strongSell / total) * 100,
+                        // Calculate overall score for the trend line
+                        score: (
+                          (d.strongBuy * 100) + 
+                          (d.buy * 75) + 
+                          (d.hold * 50) + 
+                          (d.sell * 25) + 
+                          (d.strongSell * 0)
+                        ) / total
+                      };
                     });
                     
-                    // Calculate points for the trend line
-                    const points = data.map((_, i) => {
-                      const x = (i * 2 + 1) * barWidth; // Center of each bar group
-                      const y = 100 - trendScores[i]; // Invert because SVG 0,0 is top-left
-                      return `${x}%,${y}%`;
+                    // Calculate chart dimensions
+                    const padding = { top: 20, right: 20, bottom: 30, left: 50 };
+                    const chartWidth = 100 - padding.left - padding.right;
+                    const chartHeight = 100 - padding.top - padding.bottom;
+                    
+                    // Calculate x positions for each period
+                    const barWidth = chartWidth / (processedData.length * 1.5);
+                    const barPositions = processedData.map((_, i) => 
+                      padding.left + (i * (chartWidth / (processedData.length - 1 || 1)))
+                    );
+                    
+                    // Calculate points for trend line
+                    const trendPoints = barPositions.map((x, i) => {
+                      // Map score (0-100) to chart height
+                      const y = padding.top + chartHeight - (processedData[i].score / 100) * chartHeight;
+                      return `${x},${y}`;
                     }).join(' ');
                     
                     return (
                       <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
-                        {/* Horizontal grid lines */}
-                        <line x1="0" y1="20" x2="100" y2="20" stroke="#e5e7eb" strokeWidth="0.5" className="dark:stroke-gray-700" />
-                        <line x1="0" y1="40" x2="100" y2="40" stroke="#e5e7eb" strokeWidth="0.5" className="dark:stroke-gray-700" />
-                        <line x1="0" y1="60" x2="100" y2="60" stroke="#e5e7eb" strokeWidth="0.5" className="dark:stroke-gray-700" />
-                        <line x1="0" y1="80" x2="100" y2="80" stroke="#e5e7eb" strokeWidth="0.5" className="dark:stroke-gray-700" />
+                        {/* Chart background and grid */}
+                        <rect x={padding.left} y={padding.top} width={chartWidth} height={chartHeight} 
+                              fill="#f9fafb" className="dark:fill-gray-800" stroke="#f3f4f6" strokeWidth="0.5" />
                         
-                        {/* Y-axis labels */}
-                        <text x="2" y="20" fontSize="3" fill="currentColor" dominantBaseline="middle">Strong Buy</text>
-                        <text x="2" y="40" fontSize="3" fill="currentColor" dominantBaseline="middle">Buy</text>
-                        <text x="2" y="60" fontSize="3" fill="currentColor" dominantBaseline="middle">Hold</text>
-                        <text x="2" y="80" fontSize="3" fill="currentColor" dominantBaseline="middle">Sell</text>
-                        <text x="2" y="100" fontSize="3" fill="currentColor" dominantBaseline="middle">Strong Sell</text>
-                        
-                        {/* Vertical stacked bars */}
-                        {data.map((history, i) => {
-                          const xPos = i * 2 * barWidth + barWidth / 2; // Position bar groups
-                          const barHeight = (value: number) => (value / maxTotal) * 80; // Scale bars to fit
-                          
-                          // Calculate y positions for each segment
-                          const yStrongBuy = 100 - barHeight(history.strongBuy);
-                          const yBuy = yStrongBuy - barHeight(history.buy);
-                          const yHold = yBuy - barHeight(history.hold);
-                          const ySell = yHold - barHeight(history.sell);
-                          // Strong Sell is at the top
-                          
+                        {/* Horizontal grid lines with labels */}
+                        {[0, 25, 50, 75, 100].map(percent => {
+                          const y = padding.top + chartHeight - (percent / 100) * chartHeight;
                           return (
-                            <g key={i}>
-                              {/* Period label */}
-                              <text 
-                                x={`${xPos + barWidth/2}%`} 
-                                y="103" 
-                                fontSize="3" 
-                                fill="currentColor" 
-                                textAnchor="middle"
-                              >
-                                {history.period?.substring(0, 7) || `P${i+1}`}
+                            <g key={percent}>
+                              <line x1={padding.left} y1={y} x2={padding.left + chartWidth} y2={y} 
+                                    stroke="#e5e7eb" className="dark:stroke-gray-700" strokeWidth="0.3" strokeDasharray="1,1" />
+                              <text x={padding.left - 2} y={y} fontSize="2.5" 
+                                    fill="#6b7280" className="dark:fill-gray-400" textAnchor="end" dominantBaseline="middle">
+                                {percent}%
                               </text>
-                              
-                              {/* Stacked bar segments */}
-                              {history.strongBuy > 0 && (
-                                <rect 
-                                  x={`${xPos}%`} 
-                                  y={`${yStrongBuy}%`} 
-                                  width={`${barWidth}%`} 
-                                  height={`${barHeight(history.strongBuy)}%`} 
-                                  fill="#22c55e" // Strong Buy - Green
-                                />
-                              )}
-                              
-                              {history.buy > 0 && (
-                                <rect 
-                                  x={`${xPos}%`} 
-                                  y={`${yBuy}%`} 
-                                  width={`${barWidth}%`} 
-                                  height={`${barHeight(history.buy)}%`} 
-                                  fill="#84cc16" // Buy - Light Green
-                                />
-                              )}
-                              
-                              {history.hold > 0 && (
-                                <rect 
-                                  x={`${xPos}%`} 
-                                  y={`${yHold}%`} 
-                                  width={`${barWidth}%`} 
-                                  height={`${barHeight(history.hold)}%`} 
-                                  fill="#eab308" // Hold - Yellow
-                                />
-                              )}
-                              
-                              {history.sell > 0 && (
-                                <rect 
-                                  x={`${xPos}%`} 
-                                  y={`${ySell}%`} 
-                                  width={`${barWidth}%`} 
-                                  height={`${barHeight(history.sell)}%`} 
-                                  fill="#f97316" // Sell - Orange
-                                />
-                              )}
-                              
-                              {history.strongSell > 0 && (
-                                <rect 
-                                  x={`${xPos}%`} 
-                                  y={`${ySell - barHeight(history.strongSell)}%`} 
-                                  width={`${barWidth}%`} 
-                                  height={`${barHeight(history.strongSell)}%`} 
-                                  fill="#ef4444" // Strong Sell - Red
-                                />
-                              )}
                             </g>
                           );
                         })}
                         
-                        {/* Trend line connecting all points */}
+                        {/* X-axis labels (periods) */}
+                        {barPositions.map((x, i) => (
+                          <text key={i} x={x} y={padding.top + chartHeight + 5} 
+                                fontSize="3" fill="#6b7280" className="dark:fill-gray-400" textAnchor="middle">
+                            {processedData[i].period}
+                          </text>
+                        ))}
+                        
+                        {/* Y-axis label */}
+                        <text x={padding.left - 40} y={padding.top + chartHeight/2} 
+                              fontSize="3" fill="#6b7280" className="dark:fill-gray-400" textAnchor="middle"
+                              transform={`rotate(-90 ${padding.left - 40} ${padding.top + chartHeight/2})`}>
+                          Ratings Distribution
+                        </text>
+                        
+                        {/* Legend */}
+                        <g transform="translate(70, 10)">
+                          {[
+                            { label: "Strong Buy", color: "#22c55e" },
+                            { label: "Buy", color: "#84cc16" },
+                            { label: "Hold", color: "#eab308" },
+                            { label: "Sell", color: "#f97316" },
+                            { label: "Strong Sell", color: "#ef4444" }
+                          ].map((item, i) => (
+                            <g key={i} transform={`translate(0, ${i * 4})`}>
+                              <rect width="3" height="3" fill={item.color} />
+                              <text x="4" y="2.5" fontSize="2.5" fill="#6b7280" className="dark:fill-gray-400" dominantBaseline="middle">{item.label}</text>
+                            </g>
+                          ))}
+                        </g>
+                        
+                        {/* Stacked bar charts */}
+                        {processedData.map((d, i) => {
+                          const x = barPositions[i] - barWidth/2;
+                          let yOffset = padding.top + chartHeight; // Start from bottom
+                          
+                          return (
+                            <g key={i}>
+                              {/* Strong Buy (bottom of stack) */}
+                              {d.strongBuy > 0 && (() => {
+                                const height = (d.strongBuy / 100) * chartHeight;
+                                yOffset -= height;
+                                return (
+                                  <rect x={x} y={yOffset} width={barWidth} height={height} 
+                                        fill="#22c55e" rx="1" />
+                                );
+                              })()}
+                              
+                              {/* Buy */}
+                              {d.buy > 0 && (() => {
+                                const height = (d.buy / 100) * chartHeight;
+                                yOffset -= height;
+                                return (
+                                  <rect x={x} y={yOffset} width={barWidth} height={height} 
+                                        fill="#84cc16" rx="1" />
+                                );
+                              })()}
+                              
+                              {/* Hold */}
+                              {d.hold > 0 && (() => {
+                                const height = (d.hold / 100) * chartHeight;
+                                yOffset -= height;
+                                return (
+                                  <rect x={x} y={yOffset} width={barWidth} height={height} 
+                                        fill="#eab308" rx="1" />
+                                );
+                              })()}
+                              
+                              {/* Sell */}
+                              {d.sell > 0 && (() => {
+                                const height = (d.sell / 100) * chartHeight;
+                                yOffset -= height;
+                                return (
+                                  <rect x={x} y={yOffset} width={barWidth} height={height} 
+                                        fill="#f97316" rx="1" />
+                                );
+                              })()}
+                              
+                              {/* Strong Sell (top of stack) */}
+                              {d.strongSell > 0 && (() => {
+                                const height = (d.strongSell / 100) * chartHeight;
+                                yOffset -= height;
+                                return (
+                                  <rect x={x} y={yOffset} width={barWidth} height={height} 
+                                        fill="#ef4444" rx="1" />
+                                );
+                              })()}
+                            </g>
+                          );
+                        })}
+                        
+                        {/* Trend line showing overall score */}
                         <polyline 
-                          points={points} 
-                          fill="none" 
-                          stroke="#3b82f6" 
-                          strokeWidth="1.5" 
-                          strokeLinecap="round" 
+                          points={trendPoints}
+                          fill="none"
+                          stroke="#3b82f6"
+                          strokeWidth="0.8"
+                          strokeLinecap="round"
                           strokeLinejoin="round"
                         />
                         
-                        {/* Dots at each data point */}
-                        {data.map((_, i) => {
-                          const x = (i * 2 + 1) * barWidth;
-                          const y = 100 - trendScores[i];
+                        {/* Trend data points */}
+                        {barPositions.map((x, i) => {
+                          const y = padding.top + chartHeight - (processedData[i].score / 100) * chartHeight;
                           return (
                             <circle 
                               key={i} 
-                              cx={`${x}%`} 
-                              cy={`${y}%`} 
-                              r="1.5" 
+                              cx={x} 
+                              cy={y} 
+                              r="1.2" 
                               fill="#3b82f6" 
                               stroke="white" 
-                              strokeWidth="0.5"
+                              strokeWidth="0.4"
                             />
                           );
                         })}

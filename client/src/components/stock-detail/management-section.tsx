@@ -458,49 +458,91 @@ export function ManagementSection({ symbol, className }: ManagementSectionProps)
                 
                 <div className="grid grid-cols-1 gap-3">
                   {/* Environmental Score - Consistent Styling */}
-                  <div className="p-3 border rounded-lg shadow-sm bg-card flex justify-between items-center hover:shadow-md transition-shadow">
-                    <div>
-                      <div className="text-sm text-muted-foreground">Environmental</div>
-                      <div className={cn("text-xl font-bold", getScoreColor(esgData.environmentalScore))}>
-                        {esgData.environmentalScore}
+                  <div className="p-3 border rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Environmental</div>
+                        <div className={cn("text-xl font-bold", getScoreColor(esgData.environmentalScore))}>
+                          {esgData.environmentalScore}
+                        </div>
                       </div>
-                    </div>
-                    <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-white font-bold", 
-                      esgData.environmentalScore >= 70 ? "bg-green-500" :
-                      esgData.environmentalScore >= 50 ? "bg-yellow-500" : "bg-red-500")}>
-                      {esgData.environmentalScore}
+                      <div className={cn("w-14 h-14 relative")}>
+                        <svg className="w-full h-full" viewBox="0 0 36 36">
+                          <circle cx="18" cy="18" r="16" fill="none" stroke="#e5e7eb" strokeWidth="2" />
+                          <circle 
+                            cx="18" 
+                            cy="18" 
+                            r="16" 
+                            fill="none" 
+                            stroke={esgData.environmentalScore >= 70 ? "#22c55e" : 
+                                    esgData.environmentalScore >= 50 ? "#eab308" : "#ef4444"} 
+                            strokeWidth="3" 
+                            strokeDasharray={`${esgData.environmentalScore}, 100`}
+                            strokeLinecap="round"
+                            transform="rotate(-90 18 18)"
+                          />
+                        </svg>
+                      </div>
                     </div>
                   </div>
                   
                   {/* Social and Governance Scores - matching Environmental style */}
                   <div className="grid grid-cols-2 gap-3">
                     {/* Social score card */}
-                    <div className="p-3 border rounded-lg shadow-sm bg-card flex justify-between items-center hover:shadow-md transition-shadow">
-                      <div>
-                        <div className="text-sm text-muted-foreground">Social</div>
-                        <div className={cn("text-xl font-bold", getScoreColor(esgData.socialScore))}>
-                          {esgData.socialScore}
+                    <div className="p-3 border rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="text-sm text-muted-foreground">Social</div>
+                          <div className={cn("text-xl font-bold", getScoreColor(esgData.socialScore))}>
+                            {esgData.socialScore}
+                          </div>
                         </div>
-                      </div>
-                      <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-white font-bold", 
-                        esgData.socialScore >= 70 ? "bg-green-500" :
-                        esgData.socialScore >= 50 ? "bg-yellow-500" : "bg-red-500")}>
-                        {esgData.socialScore}
+                        <div className={cn("w-12 h-12 relative")}>
+                          <svg className="w-full h-full" viewBox="0 0 36 36">
+                            <circle cx="18" cy="18" r="16" fill="none" stroke="#e5e7eb" strokeWidth="2" />
+                            <circle 
+                              cx="18" 
+                              cy="18" 
+                              r="16" 
+                              fill="none" 
+                              stroke={esgData.socialScore >= 70 ? "#22c55e" : 
+                                     esgData.socialScore >= 50 ? "#eab308" : "#ef4444"} 
+                              strokeWidth="3" 
+                              strokeDasharray={`${esgData.socialScore}, 100`}
+                              strokeLinecap="round"
+                              transform="rotate(-90 18 18)"
+                            />
+                          </svg>
+                        </div>
                       </div>
                     </div>
                     
                     {/* Governance score card */}
-                    <div className="p-3 border rounded-lg shadow-sm bg-card flex justify-between items-center hover:shadow-md transition-shadow">
-                      <div>
-                        <div className="text-sm text-muted-foreground">Governance</div>
-                        <div className={cn("text-xl font-bold", getScoreColor(esgData.governanceScore))}>
-                          {esgData.governanceScore}
+                    <div className="p-3 border rounded-lg shadow-sm bg-card hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <div className="text-sm text-muted-foreground">Governance</div>
+                          <div className={cn("text-xl font-bold", getScoreColor(esgData.governanceScore))}>
+                            {esgData.governanceScore}
+                          </div>
                         </div>
-                      </div>
-                      <div className={cn("w-12 h-12 rounded-full flex items-center justify-center text-white font-bold", 
-                        esgData.governanceScore >= 70 ? "bg-green-500" :
-                        esgData.governanceScore >= 50 ? "bg-yellow-500" : "bg-red-500")}>
-                        {esgData.governanceScore}
+                        <div className={cn("w-12 h-12 relative")}>
+                          <svg className="w-full h-full" viewBox="0 0 36 36">
+                            <circle cx="18" cy="18" r="16" fill="none" stroke="#e5e7eb" strokeWidth="2" />
+                            <circle 
+                              cx="18" 
+                              cy="18" 
+                              r="16" 
+                              fill="none" 
+                              stroke={esgData.governanceScore >= 70 ? "#22c55e" : 
+                                     esgData.governanceScore >= 50 ? "#eab308" : "#ef4444"} 
+                              strokeWidth="3" 
+                              strokeDasharray={`${esgData.governanceScore}, 100`}
+                              strokeLinecap="round"
+                              transform="rotate(-90 18 18)"
+                            />
+                          </svg>
+                        </div>
                       </div>
                     </div>
                   </div>
