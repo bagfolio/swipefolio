@@ -1,7 +1,7 @@
 import yahooFinance from 'yahoo-finance2';
 import { Request, Response } from 'express';
 
-// Define news item interface based on Yahoo Finance API
+// Define interfaces based on Yahoo Finance API
 interface YahooNewsItem {
   title: string;
   publisher: string;
@@ -17,6 +17,28 @@ interface YahooNewsItem {
   };
   type: string;
   relatedTickers?: string[];
+}
+
+// Recommendation interface based on Yahoo Finance API
+interface YahooRecommendation {
+  buy: number;
+  hold: number;
+  sell: number;
+  strongBuy: number;
+  strongSell: number;
+  period: string;
+  symbol: string;
+}
+
+// Modified recommendation interface with additional calculated metrics
+interface AnalystRecommendation extends YahooRecommendation {
+  total: number;
+  buyPercentage: number;
+  sellPercentage: number;
+  holdPercentage: number;
+  consensus: 'buy' | 'sell' | 'hold' | 'neutral';
+  lastUpdated: string;
+  averageRating: number; // 1-5 scale (1=Strong Sell, 5=Strong Buy)
 }
 
 class YahooFinanceService {
@@ -90,6 +112,94 @@ class YahooFinanceService {
     return intervalMap[interval] || '1d';
   }
 
+  /**
+   * Fetch analyst recommendations for a stock symbol
+   * Uses the quoteSummary endpoint with recommendationTrend module
+   */
+  async getRecommendations(symbol: string): Promise<AnalystRecommendation | null> {
+    try {
+      console.log(`Fetching analyst recommendations for ${symbol}`);
+      
+      // Get the recommendation trend from quoteSummary
+      const quoteSummary = await yahooFinance.quoteSummary(symbol, {
+        modules: ['recommendationTrend']
+      });
+      
+      if (!quoteSummary?.recommendationTrend?.trend || 
+          !Array.isArray(quoteSummary.recommendationTrend.trend) || 
+          quoteSummary.recommendationTrend.trend.length === 0) {
+        console.warn(`No recommendation trends found for ${symbol}`);
+        return null;
+      }
+      
+      // Get the most recent recommendation trend
+      const latestRec = quoteSummary.recommendationTrend.trend[0];
+      
+      // Calculate total recommendations
+      const total = latestRec.strongBuy + latestRec.buy + latestRec.hold + latestRec.sell + latestRec.strongSell;
+      
+      if (total === 0) {
+        console.warn(`No analyst counts available for ${symbol}`);
+        return null;
+      }
+      
+      // Calculate percentages
+      const buyPercentage = ((latestRec.strongBuy + latestRec.buy) / total) * 100;
+      const sellPercentage = ((latestRec.strongSell + latestRec.sell) / total) * 100;
+      const holdPercentage = (latestRec.hold / total) * 100;
+      
+      // Calculate average rating (1=Strong Sell, 5=Strong Buy)
+      const averageRating = (
+        (latestRec.strongBuy * 5) + 
+        (latestRec.buy * 4) + 
+        (latestRec.hold * 3) + 
+        (latestRec.sell * 2) + 
+        (latestRec.strongSell * 1)
+      ) / total;
+      
+      // Determine consensus
+      let consensus: 'buy' | 'sell' | 'hold' | 'neutral' = 'neutral';
+      
+      if (buyPercentage > 60) {
+        consensus = 'buy';
+      } else if (sellPercentage > 60) {
+        consensus = 'sell';
+      } else if (holdPercentage > 60) {
+        consensus = 'hold';
+      } else if (buyPercentage > sellPercentage && buyPercentage > holdPercentage) {
+        consensus = 'buy';
+      } else if (sellPercentage > buyPercentage && sellPercentage > holdPercentage) {
+        consensus = 'sell';
+      } else if (holdPercentage > buyPercentage && holdPercentage > sellPercentage) {
+        consensus = 'hold';
+      }
+      
+      // Format the period date
+      const lastUpdated = latestRec.period ? 
+        new Date(latestRec.period).toLocaleDateString(undefined, { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        }) : 'Unknown';
+      
+      // Return the processed recommendation data
+      return {
+        ...latestRec,
+        symbol: symbol,
+        total,
+        buyPercentage,
+        sellPercentage,
+        holdPercentage,
+        consensus,
+        lastUpdated,
+        averageRating
+      };
+    } catch (error) {
+      console.error(`Error fetching recommendations for ${symbol}:`, error);
+      return null;
+    }
+  }
+  
   /**
    * Fetch news data for a stock symbol
    * Uses quoteSummary with 'assetProfile' module and additional search
@@ -233,6 +343,32 @@ class YahooFinanceService {
       });
     }
   }
+  
+  /**
+   * Handle recommendations data request
+   */
+  async handleRecommendationsRequest(req: Request, res: Response) {
+    const { symbol } = req.params;
+    
+    try {
+      const data = await this.getRecommendations(symbol);
+      
+      if (!data) {
+        return res.status(404).json({
+          error: 'No recommendations found',
+          message: `No analyst recommendations available for ${symbol}`
+        });
+      }
+      
+      res.json(data);
+    } catch (error) {
+      console.error(`Failed to fetch recommendations for ${symbol}:`, error);
+      res.status(500).json({
+        error: 'Failed to fetch recommendations',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
 
   /**
    * Helper to convert range string to Date object
@@ -270,4 +406,4 @@ class YahooFinanceService {
 }
 
 export const yahooFinanceService = new YahooFinanceService();
-export type { YahooNewsItem };
+export type { YahooNewsItem, AnalystRecommendation };

@@ -24,6 +24,24 @@ export interface YahooChartResponse {
   quotes: YahooChartQuote[];
 }
 
+// Analyst recommendation types
+export interface AnalystRecommendation {
+  buy: number;
+  hold: number;
+  sell: number;
+  strongBuy: number;
+  strongSell: number;
+  period: string;
+  symbol: string;
+  total: number;
+  buyPercentage: number;
+  sellPercentage: number;
+  holdPercentage: number;
+  consensus: 'buy' | 'sell' | 'hold' | 'neutral';
+  lastUpdated: string;
+  averageRating: number; // 1-5 scale (1=Strong Sell, 5=Strong Buy)
+}
+
 // Map TimeFrame to Yahoo Finance range parameter
 export const timeFrameToRange: Record<string, string> = {
   "1D": "1d",
@@ -140,4 +158,37 @@ function formatDateByTimeFrame(dateStr: string, timeFrame: string): string {
     default:
       return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   }
+}
+
+/**
+ * Fetch analyst recommendations for a stock symbol
+ */
+export async function fetchAnalystRecommendations(symbol: string): Promise<AnalystRecommendation> {
+  try {
+    const response = await fetch(`/api/yahoo-finance/recommendations/${symbol}`);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || `Failed to fetch recommendations for ${symbol}`
+      );
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching recommendations for ${symbol}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Hook to query Yahoo Finance analyst recommendations
+ */
+export function useAnalystRecommendations(symbol: string) {
+  return useQuery<AnalystRecommendation>({
+    queryKey: ['/api/yahoo-finance/recommendations', symbol],
+    queryFn: async () => fetchAnalystRecommendations(symbol),
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours since analyst ratings don't change frequently
+    enabled: !!symbol,
+  });
 }

@@ -19,4 +19,12 @@ router.get('/news/:symbol', (req, res) => {
   yahooFinanceService.handleNewsRequest(req, res);
 });
 
+/**
+ * GET /api/yahoo-finance/recommendations/:symbol
+ * Get analyst recommendations for a stock symbol
+ */
+router.get('/recommendations/:symbol', (req, res) => {
+  yahooFinanceService.handleRecommendationsRequest(req, res);
+});
+
 export default router;
