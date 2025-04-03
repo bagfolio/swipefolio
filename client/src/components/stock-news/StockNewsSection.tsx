@@ -221,6 +221,8 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
     );
   }
 
+  // Component is ready for production
+  
   return (
     <div className={styles.container}>
       <h3 className={styles.title}>
