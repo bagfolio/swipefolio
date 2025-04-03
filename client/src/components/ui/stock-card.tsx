@@ -117,6 +117,17 @@ const getIndustryAverageData = (stock: StockData, metricType: string) => {
   return [];
 };
 
+// Add CSS to hide scrollbars while preserving scroll functionality
+const scrollbarHidingCSS = `
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+`;
+
 export default function StockCard({
   stock,
   onNext,
@@ -404,6 +415,7 @@ export default function StockCard({
   // Reference to track start time and position of drag
   const dragStartTimeRef = useRef<number>(0);
   const dragStartXRef = useRef<number>(0);
+  const dragStartYRef = useRef<number>(0);
   const dragDistanceThresholdRef = useRef<number>(0);
   const isDraggingIntentionallyRef = useRef<boolean>(false);
   
@@ -411,6 +423,7 @@ export default function StockCard({
   const handleDragStart = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     dragStartTimeRef.current = Date.now();
     dragStartXRef.current = info.point.x;
+    dragStartYRef.current = info.point.y;
     isDraggingIntentionallyRef.current = false;
     dragDistanceThresholdRef.current = 0;
   };
@@ -419,15 +432,21 @@ export default function StockCard({
   const handleDrag = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (!cardControls) return;
     
-    // Calculate absolute distance moved during this drag session
-    const distanceMoved = Math.abs(info.point.x - dragStartXRef.current);
-    dragDistanceThresholdRef.current = Math.max(dragDistanceThresholdRef.current, distanceMoved);
+    // Calculate absolute distances moved horizontally and vertically
+    const horizontalDistance = Math.abs(info.point.x - dragStartXRef.current);
+    const verticalDistance = Math.abs(info.point.y - dragStartYRef.current);
+    dragDistanceThresholdRef.current = Math.max(dragDistanceThresholdRef.current, horizontalDistance);
     
-    // Only consider it an intentional drag if they've moved a significant distance
-    // AND they've been dragging for at least 150ms (to prevent accidental swipes)
+    // Get drag duration
     const dragDuration = Date.now() - dragStartTimeRef.current;
     
-    if (distanceMoved > 20 && dragDuration > 50) {
+    // Only consider it an intentional horizontal drag if:
+    // 1. Horizontal movement is significantly greater than vertical (1.5x)
+    // 2. Horizontal distance exceeds minimum threshold (40px instead of 20px)
+    // 3. They've been dragging for enough time (150ms instead of 50ms)
+    if (horizontalDistance > verticalDistance * 1.5 && 
+        horizontalDistance > 40 && 
+        dragDuration > 150) {
       isDraggingIntentionallyRef.current = true;
     }
   };
@@ -436,25 +455,43 @@ export default function StockCard({
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (!cardControls) return; // Not interactive if no controls
 
-    // If the drag wasn't intentional, just snap back
+    // If the drag wasn't intentional, just snap back quickly
     if (!isDraggingIntentionallyRef.current) {
       cardControls.start({ 
         x: 0, 
         transition: { 
           type: "spring", 
-          stiffness: 180,  // Softer spring
-          damping: 15,     // Less damping for more natural feel
-          duration: 0.4    // Faster reset
+          stiffness: 250,  // Stiffer spring for faster snapback
+          damping: 20,     // Balanced damping
+          duration: 0.3    // Faster reset for unintentional movements
         }
       });
       return;
     }
 
-    // More natural swipe thresholds
-    const rightThreshold = 80; 
-    const leftThreshold = 60;
-    // Lower velocity threshold for more responsive swipes
-    const velocityThreshold = 150;
+    // Calculate vertical movement to ensure we're not interpreting vertical scrolls as swipes
+    const verticalDistance = Math.abs(info.point.y - dragStartYRef.current);
+    const horizontalDistance = Math.abs(info.offset.x);
+    
+    // If vertical movement is significant compared to horizontal, treat as vertical scroll not swipe
+    if (verticalDistance > horizontalDistance * 0.8) {
+      cardControls.start({ 
+        x: 0, 
+        transition: { 
+          type: "spring", 
+          stiffness: 250,
+          damping: 20,
+          duration: 0.3
+        }
+      });
+      return;
+    }
+
+    // More demanding swipe thresholds - require more deliberate movement
+    const rightThreshold = 100; // Increased from 80
+    const leftThreshold = 100;  // Increased from 60
+    // Higher velocity threshold - require faster swipes
+    const velocityThreshold = 200; // Increased from 150
     
     const dragVelocity = info.velocity.x;
     const dragOffset = info.offset.x;
@@ -464,15 +501,15 @@ export default function StockCard({
       // Swipe Right - needs very deliberate movement
       if (displayMode === 'realtime') {
         if (onInvest) onInvest();
-        // More dramatic and slower animation with rotation
+        // Animation with rotation
         cardControls.start({ 
           x: 0, 
           rotate: [3, 0],
           transition: { 
             type: "spring", 
-            stiffness: 150,  // Much softer spring
-            damping: 12,     // Lower damping for smooth motion
-            duration: 0.35,  // Faster animation
+            stiffness: 150,  
+            damping: 12,     
+            duration: 0.35,  
             ease: "easeOut"
           }
         });
@@ -482,14 +519,14 @@ export default function StockCard({
     } else if (dragOffset < -leftThreshold || (dragOffset < -80 && dragVelocity < -velocityThreshold)) { 
       // Swipe Left - requires deliberate movement
       if (onNext) onNext(); // Both modes: Left swipe = Next/Skip
-    } else { // Snap back with more dramatic animation
+    } else { // Snap back with smooth animation
       cardControls.start({ 
         x: 0, 
         transition: { 
           type: "spring", 
-          stiffness: 250,  // Reduced stiffness for slower movement
-          damping: 30,     // Increased damping for smoother animation
-          duration: 0.8,   // Extended duration
+          stiffness: 250,  
+          damping: 25,     // Slightly reduced damping for smoother return
+          duration: 0.5,   // Shorter duration than before
           ease: "easeOut"
         }
       });
@@ -531,10 +568,17 @@ export default function StockCard({
     }}
     whileTap={cardControls ? { cursor: 'grabbing' } : {}}
   >
+    {/* Add custom style to hide scrollbars */}
+    <style>{scrollbarHidingCSS}</style>
+    
     {/* Inner scroll container - Absolutely positioned */}
     <div
-        className={`absolute inset-0 overflow-y-auto overflow-x-hidden pb-16 stock-card-scroll-content rounded-2xl ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black text-white' : 'bg-white text-slate-900'}`}
-        style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }} 
+        className={`absolute inset-0 overflow-y-auto overflow-x-hidden pb-16 stock-card-scroll-content rounded-2xl hide-scrollbar ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black text-white' : 'bg-white text-slate-900'}`}
+        style={{ 
+          touchAction: 'pan-y', 
+          WebkitOverflowScrolling: 'touch',
+          scrollBehavior: 'smooth'
+        }} 
     >
 
       {/* --- Time frame selector (realtime mode only) --- */}
