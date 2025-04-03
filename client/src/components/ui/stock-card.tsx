@@ -573,10 +573,8 @@ export default function StockCard({
                  >
                      <div className="absolute -inset-1 bg-blue-500/5 blur-xl rounded-xl z-0"></div>
                      <div className="relative z-10 bg-gray-800/70 backdrop-blur-sm"> 
-                         {/* Integrating the StockNewsSection component with dark mode styling */}
-                         <div className="dark text-white">
-                             <StockNewsSection stock={stock} />
-                         </div>
+                         {/* Directly render StockNewsSection component */}
+                         <StockNewsSection stock={stock} />
                      </div>
                  </motion.div>
              </div>
@@ -604,6 +602,20 @@ export default function StockCard({
                  </motion.div>
              </div>
              {/* Analysis */}
+
+             {/* News */}
+             <div className="bg-white border-t border-slate-100 mb-4">
+                <div className="p-4">
+                    <h3 className="font-semibold text-slate-900 mb-3 flex items-center">
+                        <Calendar size={16} className="text-blue-500 mr-2" />
+                        Latest News
+                    </h3>
+                    <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                        <StockNewsSection stock={stock} />
+                    </div>
+                </div>
+             </div>
+
              <div className="p-5">
                  <h3 className="text-lg font-bold text-white mb-4 flex items-center"> <BarChart3 className="w-5 h-5 mr-2 text-blue-400" /> Stock Analysis </h3>
                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.4 }}>
