@@ -6,6 +6,7 @@ import axios from "axios";
 import { getAIResponse } from "./ai-service";
 
 import { jsonStockService } from "./services/json-stock-service";
+import yahooFinanceRoutes from "./api/yahoo-finance";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
@@ -818,6 +819,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // No longer generating mock history data - using real JSON data only
+
+  // Register Yahoo Finance API routes
+  app.use("/api/yahoo-finance", yahooFinanceRoutes);
 
   const httpServer = createServer(app);
   return httpServer;
