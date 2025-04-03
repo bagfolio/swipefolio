@@ -80,16 +80,20 @@ export default function StockChart({ symbol }: StockChartProps) {
   
   // Fetch price history data for the selected time frame
   const { data, isLoading, error, refetch } = useQuery<StockPriceHistoryResponse>({
-    queryKey: ['/api/stock/history', symbol, timeFrame],
+    queryKey: ['/api/historical', symbol, timeFrame],
     queryFn: async () => {
-      const response = await fetch(`/api/stock/${symbol}/history?period=${timeFrame}`);
+      console.log(`Fetching historical data for ${symbol} with period ${timeFrame}`);
+      const response = await fetch(`/api/historical/${symbol}?period=${timeFrame}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error(`Error fetching historical data: ${JSON.stringify(errorData)}`);
         throw new Error(
           errorData.message || `Failed to fetch price history for ${symbol}`
         );
       }
-      return response.json();
+      const data = await response.json();
+      console.log(`Got historical data: ${data.prices?.length} data points`);
+      return data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     enabled: Boolean(timeFrame), // Only run query when timeFrame is available

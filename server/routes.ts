@@ -1084,14 +1084,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (pgPriceHistory && pgPriceHistory.prices) {
             console.log(`[API] Retrieved price history for ${symbol} (${period}) from PostgreSQL`);
-            return res.json({
-              symbol,
-              period,
-              interval,
-              prices: pgPriceHistory.prices,
-              dates: pgPriceHistory.dates || generateDateLabels(period, pgPriceHistory.prices.length),
-              source: 'postgresql'
-            });
+            
+            // Check if prices is an array of objects with date and price
+            const areObjects = Array.isArray(pgPriceHistory.prices) && 
+                               pgPriceHistory.prices.length > 0 && 
+                               typeof pgPriceHistory.prices[0] === 'object' &&
+                               'date' in pgPriceHistory.prices[0] && 
+                               'price' in pgPriceHistory.prices[0];
+            
+            if (areObjects) {
+              // Already in the desired format
+              return res.json({
+                symbol,
+                period,
+                interval,
+                prices: pgPriceHistory.prices,  // Array of {date, price} objects
+                source: 'postgresql'
+              });
+            } else if (pgPriceHistory.dates && Array.isArray(pgPriceHistory.dates)) {
+              // Convert to array of objects
+              const dataPoints = pgPriceHistory.rawPrices.map((price: number, index: number) => ({
+                date: pgPriceHistory.dates[index],
+                price
+              }));
+              
+              return res.json({
+                symbol,
+                period,
+                interval,
+                prices: dataPoints, // Array of {date, price} objects
+                source: 'postgresql'
+              });
+            } else {
+              // Generate dates and convert to array of objects
+              const dates = generateDateLabels(period, pgPriceHistory.prices.length);
+              const dataPoints = pgPriceHistory.prices.map((price: number, index: number) => ({
+                date: dates[index],
+                price
+              }));
+              
+              return res.json({
+                symbol,
+                period,
+                interval,
+                prices: dataPoints, // Array of {date, price} objects
+                source: 'postgresql'
+              });
+            }
           }
         } catch (dbError) {
           console.error(`[API] Error getting PostgreSQL price history for ${symbol}:`, dbError);
