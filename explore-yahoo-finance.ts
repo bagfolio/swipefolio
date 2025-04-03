@@ -1,4 +1,5 @@
 import yahooFinance from 'yahoo-finance2';
+import fs from 'fs';
 
 /**
  * This file explores the functionality of yahoo-finance2 API
@@ -39,8 +40,53 @@ async function exploreYahooFinance() {
     console.log('\n6. GETTING TRENDING SYMBOLS...');
     const trending = await yahooFinance.trendingSymbols('US');
     console.log('Trending Symbols:', JSON.stringify(trending, null, 2));
+    
+    // 7. News Data from Search
+    console.log('\n7. GETTING NEWS DATA FROM SEARCH...');
+    await exploreNewsData('AAPL');
   } catch (error) {
     console.error('Error exploring Yahoo Finance API:', error);
+  }
+}
+
+/**
+ * Dedicated function to explore news data for a symbol
+ */
+async function exploreNewsData(symbol: string) {
+  try {
+    const searchResults = await yahooFinance.search(symbol);
+    
+    if (searchResults && searchResults.news && Array.isArray(searchResults.news)) {
+      console.log(`Found ${searchResults.news.length} news items for ${symbol}`);
+      
+      // Display news items
+      searchResults.news.forEach((item, index) => {
+        console.log(`\nNews Item #${index + 1}:`);
+        console.log(`- Title: ${item.title}`);
+        console.log(`- Publisher: ${item.publisher}`);
+        console.log(`- Date: ${new Date(item.providerPublishTime).toLocaleString()}`);
+        console.log(`- Link: ${item.link}`);
+        console.log(`- Related Tickers: ${item.relatedTickers ? item.relatedTickers.join(', ') : 'None'}`);
+        
+        if (item.thumbnail && item.thumbnail.resolutions) {
+          console.log(`- Has ${item.thumbnail.resolutions.length} thumbnail images`);
+        } else {
+          console.log(`- No thumbnail images`);
+        }
+      });
+      
+      // Save news data to a file for reference
+      fs.writeFileSync(
+        `yahoo-finance-news-${symbol}.json`, 
+        JSON.stringify(searchResults.news, null, 2)
+      );
+      console.log(`\nSaved news data to yahoo-finance-news-${symbol}.json`);
+    } else {
+      console.log(`No news found for ${symbol} in search results`);
+      console.log('Search result structure:', JSON.stringify(searchResults, null, 2));
+    }
+  } catch (error) {
+    console.error(`Error exploring news data for ${symbol}:`, error);
   }
 }
 

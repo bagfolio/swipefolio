@@ -1,487 +1,257 @@
 import yahooFinance from 'yahoo-finance2';
-import { log } from '../vite';
+import { Request, Response } from 'express';
 
-/**
- * Yahoo Finance Service
- * 
- * A service for fetching financial data from Yahoo Finance API
- */
-export class YahooFinanceService {
-  private static instance: YahooFinanceService;
-  private cache: Map<string, { data: any, timestamp: number }> = new Map();
-  private readonly CACHE_TTL = 15 * 60 * 1000; // 15 minutes cache
+// Define news item interface based on Yahoo Finance API
+interface YahooNewsItem {
+  title: string;
+  publisher: string;
+  link: string;
+  providerPublishTime: number;
+  thumbnail?: {
+    resolutions: Array<{
+      url: string;
+      width: number;
+      height: number;
+      tag: string;
+    }>;
+  };
+  type: string;
+  relatedTickers?: string[];
+}
 
+class YahooFinanceService {
   /**
-   * Get the singleton instance
+   * Initialize the Yahoo Finance service
    */
-  public static getInstance(): YahooFinanceService {
-    if (!YahooFinanceService.instance) {
-      YahooFinanceService.instance = new YahooFinanceService();
-    }
-    return YahooFinanceService.instance;
-  }
-
   constructor() {
-    log('Yahoo Finance Service initialized', 'yahoo-finance');
+    console.log('[yahoo-finance] Yahoo Finance Service initialized');
   }
 
   /**
-   * Search for stocks, ETFs, and other financial instruments
-   * @param query Search query
-   * @returns Search results
+   * Fetch chart data for a stock symbol
    */
-  async searchStocks(query: string): Promise<any> {
+  async getChartData(symbol: string, range: string = '1mo', interval: string = '1d') {
     try {
-      const cacheKey = `search:${query}`;
-      const cached = this.getFromCache(cacheKey);
-      if (cached) return cached;
-
-      const results = await yahooFinance.search(query);
+      console.log(`Fetching chart data for ${symbol} with range: ${range}, interval: ${interval}`);
       
-      this.saveToCache(cacheKey, results);
-      return results;
-    } catch (error) {
-      console.error('Error searching stocks:', error);
-      throw new Error(`Failed to search stocks: ${(error as Error).message}`);
-    }
-  }
-
-  /**
-   * Get current quote data for a symbol
-   * @param symbol Stock symbol (e.g., 'AAPL')
-   * @returns Quote data
-   */
-  async getQuote(symbol: string): Promise<any> {
-    try {
-      const cacheKey = `quote:${symbol}`;
-      const cached = this.getFromCache(cacheKey);
-      if (cached) return cached;
-
-      const quote = await yahooFinance.quote(symbol);
+      // Convert interval to supported type
+      const validInterval = this.getValidInterval(interval);
       
-      this.saveToCache(cacheKey, quote);
-      return quote;
-    } catch (error) {
-      console.error(`Error fetching quote for ${symbol}:`, error);
-      throw new Error(`Failed to fetch quote for ${symbol}: ${(error as Error).message}`);
-    }
-  }
-
-  /**
-   * Get historical price data for a symbol
-   * @param symbol Stock symbol (e.g., 'AAPL')
-   * @param period1 Start date (e.g., '2023-01-01')
-   * @param period2 End date (e.g., '2023-12-31')
-   * @param interval Data interval ('1d', '1wk', '1mo')
-   * @returns Historical price data
-   */
-  async getHistoricalData(
-    symbol: string, 
-    period1: string, 
-    period2: string, 
-    interval: '1d' | '1wk' | '1mo' = '1d'
-  ): Promise<any[]> {
-    try {
-      const cacheKey = `historical:${symbol}:${period1}:${period2}:${interval}`;
-      const cached = this.getFromCache(cacheKey);
-      if (cached) return cached;
-
-      const historical = await yahooFinance.historical(symbol, {
-        period1,
-        period2,
-        interval
+      const result = await yahooFinance.chart(symbol, {
+        period1: this.getDateFromRange(range),
+        interval: validInterval,
+        includePrePost: true,
       });
       
-      this.saveToCache(cacheKey, historical);
-      return historical;
-    } catch (error) {
-      console.error(`Error fetching historical data for ${symbol}:`, error);
-      throw new Error(`Failed to fetch historical data for ${symbol}: ${(error as Error).message}`);
-    }
-  }
-
-  /**
-   * Get detailed company data
-   * @param symbol Stock symbol (e.g., 'AAPL')
-   * @param modules Data modules to fetch
-   * @returns Company data
-   */
-  async getCompanyData(
-    symbol: string, 
-    modules: ("assetProfile" | "financialData" | "summaryDetail" | "quoteType" | 
-              "price" | "balanceSheetHistory" | "calendarEvents")[] = ['assetProfile', 'financialData', 'summaryDetail']
-  ): Promise<any> {
-    try {
-      const cacheKey = `company:${symbol}:${modules.join(',')}`;
-      const cached = this.getFromCache(cacheKey);
-      if (cached) return cached;
-
-      // Check for valid module names according to Yahoo Finance API
-      const validModules = modules.filter(m => [
-        'assetProfile', 'financialData', 'summaryDetail', 'quoteType', 'price',
-        'balanceSheetHistory', 'balanceSheetHistoryQuarterly', 'calendarEvents',
-        'cashflowStatementHistory', 'cashflowStatementHistoryQuarterly', 'defaultKeyStatistics',
-        'earnings', 'earningsHistory', 'earningsTrend', 'fundOwnership', 'fundPerformance',
-        'fundProfile', 'incomeStatementHistory', 'incomeStatementHistoryQuarterly', 'indexTrend',
-        'industryTrend', 'insiderHolders', 'insiderTransactions', 'institutionOwnership',
-        'majorDirectHolders', 'majorHoldersBreakdown', 'netSharePurchaseActivity',
-        'recommendationTrend', 'secFilings', 'sectorTrend', 'summaryProfile',
-        'topHoldings', 'upgradeDowngradeHistory'
-      ].includes(m));
-
-      // Default to basic modules if none are valid
-      if (!validModules.length) {
-        validModules.push('assetProfile', 'financialData', 'summaryDetail');
-      }
-
-      const data = await yahooFinance.quoteSummary(symbol, { modules: validModules });
-      
-      this.saveToCache(cacheKey, data);
-      return data;
-    } catch (error) {
-      console.error(`Error fetching company data for ${symbol}:`, error);
-      throw new Error(`Failed to fetch company data for ${symbol}: ${(error as Error).message}`);
-    }
-  }
-
-  /**
-   * Get recommended stocks similar to the provided symbol
-   * @param symbol Stock symbol (e.g., 'AAPL')
-   * @returns Recommended stocks
-   */
-  async getRecommendations(symbol: string): Promise<any> {
-    try {
-      const cacheKey = `recommendations:${symbol}`;
-      const cached = this.getFromCache(cacheKey);
-      if (cached) return cached;
-
-      const recommendations = await yahooFinance.recommendationsBySymbol(symbol);
-      
-      this.saveToCache(cacheKey, recommendations);
-      return recommendations;
-    } catch (error) {
-      console.error(`Error fetching recommendations for ${symbol}:`, error);
-      throw new Error(`Failed to fetch recommendations for ${symbol}: ${(error as Error).message}`);
-    }
-  }
-
-  /**
-   * Get trending symbols in a specific region
-   * @param region Region code (e.g., 'US')
-   * @returns Trending symbols
-   */
-  async getTrendingSymbols(region: string = 'US'): Promise<any> {
-    try {
-      const cacheKey = `trending:${region}`;
-      const cached = this.getFromCache(cacheKey);
-      if (cached) return cached;
-
-      const trending = await yahooFinance.trendingSymbols(region);
-      
-      this.saveToCache(cacheKey, trending);
-      return trending;
-    } catch (error) {
-      console.error(`Error fetching trending symbols for ${region}:`, error);
-      throw new Error(`Failed to fetch trending symbols for ${region}: ${(error as Error).message}`);
-    }
-  }
-
-  /**
-   * Get options chain data for a symbol
-   * @param symbol Stock symbol (e.g., 'AAPL')
-   * @returns Options data
-   */
-  async getOptions(symbol: string): Promise<any> {
-    try {
-      const cacheKey = `options:${symbol}`;
-      const cached = this.getFromCache(cacheKey);
-      if (cached) return cached;
-
-      const options = await yahooFinance.options(symbol, {});
-      
-      this.saveToCache(cacheKey, options);
-      return options;
-    } catch (error) {
-      console.error(`Error fetching options for ${symbol}:`, error);
-      throw new Error(`Failed to fetch options for ${symbol}: ${(error as Error).message}`);
-    }
-  }
-
-  /**
-   * Get market chart data
-   * @param symbol Stock symbol (e.g., 'AAPL')
-   * @param interval Time interval (e.g., '1d', '1wk', '1mo')
-   * @param range Time range (e.g., '1d', '5d', '1mo', '3mo', '6mo', '1y', '5y', 'max')
-   * @returns Chart data
-   */
-  async getChartData(
-    symbol: string, 
-    interval: "1d" | "1wk" | "1mo" = "1d", 
-    range: string = "1mo"
-  ): Promise<any> {
-    try {
-      const cacheKey = `chart:${symbol}:${interval}:${range}`;
-      const cached = this.getFromCache(cacheKey);
-      if (cached) return cached;
-
-      // Yahoo Finance chart API doesn't directly support range parameter in the way we're using it
-      // Instead, we need to use period1 (start date) and period2 (end date)
-      let period1 = new Date();
-      const period2 = new Date(); // end date is now
-      
-      // For intraday data, we need to use different interval formats
-      let queryInterval = interval;
-      
-      // Calculate start date based on range and adjust interval for intraday data
-      switch(range) {
-        case '1d':
-          period1 = new Date(period2.getTime() - 24 * 60 * 60 * 1000);
-          // For 1 day, use 5-minute intervals
-          queryInterval = '5m';
-          break;
-        case '5d':
-          period1 = new Date(period2.getTime() - 5 * 24 * 60 * 60 * 1000);
-          // For 5 days, use 15-minute or 30-minute intervals
-          queryInterval = '30m';
-          break;
-        case '1mo':
-          period1 = new Date(period2.getTime() - 30 * 24 * 60 * 60 * 1000);
-          break;
-        case '3mo':
-          period1 = new Date(period2.getTime() - 90 * 24 * 60 * 60 * 1000);
-          break;
-        case '6mo':
-          period1 = new Date(period2.getTime() - 180 * 24 * 60 * 60 * 1000);
-          break;
-        case '1y':
-          period1 = new Date(period2.getTime() - 365 * 24 * 60 * 60 * 1000);
-          break;
-        case '5y':
-          period1 = new Date(period2.getTime() - 5 * 365 * 24 * 60 * 60 * 1000);
-          break;
-        default:
-          period1 = new Date(period2.getTime() - 30 * 24 * 60 * 60 * 1000); // default to 1 month
-      }
-
-      // Query parameters for Yahoo Finance chart API
-      const queryOptions = {
-        period1,
-        period2,
-        interval: queryInterval as any // Use the appropriate interval based on timeframe
-      };
-
-      console.log(`Fetching chart data for ${symbol} with range: ${range}, interval: ${queryInterval}`);
-      const chart = await yahooFinance.chart(symbol, queryOptions);
-      
-      this.saveToCache(cacheKey, chart);
-      return chart;
+      return result;
     } catch (error) {
       console.error(`Error fetching chart data for ${symbol}:`, error);
-      throw new Error(`Failed to fetch chart data for ${symbol}: ${(error as Error).message}`);
+      throw error;
     }
   }
 
   /**
-   * Format stock data for frontend consumption
-   * @param symbol Stock symbol
-   * @returns Formatted stock data
+   * Convert user-provided interval to Yahoo Finance supported interval
    */
-  async getFormattedStockData(symbol: string): Promise<any> {
-    try {
-      // Fetch all relevant data in parallel
-      const [quote, companyData, historicalData] = await Promise.all([
-        this.getQuote(symbol),
-        this.getCompanyData(symbol),
-        this.getHistoricalData(
-          symbol, 
-          new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 1 year ago
-          new Date().toISOString().split('T')[0]
-        )
-      ]);
+  private getValidInterval(interval: string): '1d' | '1wk' | '1mo' | '1m' | '2m' | '5m' | '15m' | '30m' | '60m' | '90m' | '1h' | '5d' | '3mo' {
+    // Map of common intervals to supported Yahoo Finance intervals
+    const intervalMap: Record<string, '1d' | '1wk' | '1mo' | '1m' | '2m' | '5m' | '15m' | '30m' | '60m' | '90m' | '1h' | '5d' | '3mo'> = {
+      '1d': '1d',
+      '1wk': '1wk',
+      '1mo': '1mo',
+      '1m': '1m',
+      '2m': '2m',
+      '5m': '5m',
+      '15m': '15m',
+      '30m': '30m',
+      '60m': '60m',
+      '90m': '90m',
+      '1h': '1h',
+      '5d': '5d',
+      '3mo': '3mo'
+    };
+    
+    return intervalMap[interval] || '1d';
+  }
 
-      // Extract relevant financial metrics
-      const { assetProfile, financialData, summaryDetail } = companyData;
+  /**
+   * Fetch news data for a stock symbol
+   * Uses quoteSummary with 'assetProfile' module and additional search
+   */
+  async getNewsData(symbol: string, count: number = 5) {
+    try {
+      console.log(`Fetching news data for ${symbol}, count: ${count}`);
       
-      // Format the response
+      // First get the quote to confirm symbol
+      const quote = await yahooFinance.quote(symbol);
+      
+      if (!quote) {
+        throw new Error(`No quote data found for ${symbol}`);
+      }
+      
+      // Get news through a search for the symbol
+      // This gives us the most recent news articles related to the symbol
+      const searchResults = await yahooFinance.search(symbol);
+      
+      // Extract news items from the search results
+      let newsItems: YahooNewsItem[] = [];
+      
+      if (searchResults && searchResults.news && Array.isArray(searchResults.news)) {
+        // Convert the news items to our YahooNewsItem format
+        newsItems = searchResults.news.map(item => {
+          // Convert the providerPublishTime to a timestamp
+          let publishTime: number;
+          if (typeof item.providerPublishTime === 'number') {
+            publishTime = item.providerPublishTime;
+          } else if (typeof item.providerPublishTime === 'string') {
+            publishTime = new Date(item.providerPublishTime).getTime();
+          } else {
+            publishTime = Date.now();
+          }
+          
+          return {
+            title: item.title || `News about ${symbol}`,
+            publisher: item.publisher || 'Yahoo Finance',
+            link: item.link || `https://finance.yahoo.com/quote/${symbol}`,
+            providerPublishTime: publishTime,
+            thumbnail: item.thumbnail,
+            type: item.type || 'article',
+            relatedTickers: item.relatedTickers || [symbol]
+          };
+        });
+      }
+      
+      // Also try to get news from the quoteSummary with assetProfile if search didn't yield results
+      if (newsItems.length === 0) {
+        try {
+          const summary = await yahooFinance.quoteSummary(symbol, {
+            modules: ['assetProfile']
+          });
+          
+          if (summary.assetProfile && summary.assetProfile.companyOfficers) {
+            // Create a news item about company officers
+            newsItems.push({
+              title: `Leadership Team at ${quote.shortName || symbol}`,
+              publisher: "Yahoo Finance",
+              link: `https://finance.yahoo.com/quote/${symbol}/profile`,
+              providerPublishTime: Date.now(),
+              type: "article",
+              relatedTickers: [symbol]
+            });
+          }
+        } catch (summaryError) {
+          console.warn(`Could not fetch quoteSummary for ${symbol}:`, summaryError);
+          // Continue with whatever news we have
+        }
+      }
+      
+      // If we still don't have news, add at least one general item
+      if (newsItems.length === 0) {
+        newsItems.push({
+          title: `Market data for ${quote.shortName || symbol}`,
+          publisher: "Yahoo Finance",
+          link: `https://finance.yahoo.com/quote/${symbol}`,
+          providerPublishTime: Date.now(),
+          type: "article",
+          relatedTickers: [symbol]
+        });
+      }
+      
+      // Sort news by publish time (newest first) and limit to requested count
+      newsItems.sort((a, b) => b.providerPublishTime - a.providerPublishTime);
+      
       return {
-        symbol,
-        name: quote.longName || quote.shortName,
-        price: quote.regularMarketPrice,
-        change: quote.regularMarketChange,
-        changePercent: quote.regularMarketChangePercent,
-        currency: quote.currency,
-        marketCap: quote.marketCap,
-        volume: quote.regularMarketVolume,
-        avgVolume: quote.averageDailyVolume3Month,
-        high: quote.regularMarketDayHigh,
-        low: quote.regularMarketDayLow,
-        open: quote.regularMarketOpen,
-        previousClose: quote.regularMarketPreviousClose,
-        industry: assetProfile?.industry,
-        sector: assetProfile?.sector,
-        description: assetProfile?.longBusinessSummary,
-        website: assetProfile?.website,
-        metrics: {
-          performance: this.calculatePerformanceScore(quote, historicalData),
-          stability: this.calculateStabilityScore(quote, financialData, summaryDetail),
-          value: this.calculateValueScore(quote, financialData, summaryDetail),
-          momentum: this.calculateMomentumScore(quote, historicalData),
-          revenueGrowth: financialData?.revenueGrowth || 0,
-          profitMargin: financialData?.profitMargins || 0,
-          peRatio: quote.trailingPE || financialData?.trailingPE || 0,
-          pbRatio: quote.priceToBook || financialData?.priceToBook || 0,
-          dividendYield: quote.dividendYield || summaryDetail?.dividendYield || 0,
-          debtToEquity: financialData?.debtToEquity || 0,
-          returnOnEquity: financialData?.returnOnEquity || 0,
-          beta: summaryDetail?.beta || 0,
-          analystRating: financialData?.recommendationMean || 0,
-        },
-        historicalData: historicalData.map(item => ({
-          date: item.date,
-          open: item.open,
-          high: item.high,
-          low: item.low,
-          close: item.close,
-          volume: item.volume
-        }))
+        items: newsItems.slice(0, count),
+        symbol: symbol,
+        name: quote.shortName || quote.longName || symbol
       };
     } catch (error) {
-      console.error(`Error formatting stock data for ${symbol}:`, error);
-      throw new Error(`Failed to format stock data for ${symbol}: ${(error as Error).message}`);
+      console.error(`Error fetching news for ${symbol}:`, error);
+      throw error;
     }
   }
 
   /**
-   * Calculate performance score based on revenue growth, profit margin, and ROE
+   * Handle chart data request
    */
-  private calculatePerformanceScore(quote: any, historicalData: any[]): number {
+  async handleChartRequest(req: Request, res: Response) {
+    const { symbol } = req.params;
+    const { range = '1mo', interval = '1d' } = req.query;
+    
     try {
-      // Simple algorithm to calculate performance based on historical data
-      if (!historicalData.length) return 50;
+      const data = await this.getChartData(
+        symbol, 
+        range as string, 
+        interval as string
+      );
       
-      const oldestPrice = historicalData[0].close;
-      const newestPrice = historicalData[historicalData.length - 1].close;
-      const percentChange = ((newestPrice - oldestPrice) / oldestPrice) * 100;
-      
-      // Normalize to a 0-100 score
-      const score = Math.min(Math.max(50 + percentChange, 0), 100);
-      return Math.round(score);
+      res.json(data);
     } catch (error) {
-      console.error('Error calculating performance score:', error);
-      return 50; // Default score
+      console.error(`Failed to fetch chart data for ${symbol}:`, error);
+      res.status(500).json({
+        error: 'Failed to fetch chart data',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
   /**
-   * Calculate stability score based on beta, dividend yield, and debt-to-equity
+   * Handle news data request
    */
-  private calculateStabilityScore(quote: any, financialData: any, summaryDetail: any): number {
+  async handleNewsRequest(req: Request, res: Response) {
+    const { symbol } = req.params;
+    const { count = 5 } = req.query;
+    
     try {
-      const beta = summaryDetail?.beta || 1;
-      const dividendYield = (summaryDetail?.dividendYield || 0) * 100;
-      const debtToEquity = financialData?.debtToEquity || 0;
+      const data = await this.getNewsData(
+        symbol, 
+        parseInt(count as string, 10) || 5
+      );
       
-      // Beta closer to 1 is more stable (beta score: 0-40)
-      const betaScore = Math.max(40 - Math.abs(beta - 1) * 20, 0);
-      
-      // Higher dividend yield is good for stability (dividend score: 0-30)
-      const dividendScore = Math.min(dividendYield * 10, 30);
-      
-      // Lower debt-to-equity is more stable (debt score: 0-30)
-      const debtScore = Math.max(30 - (debtToEquity / 10), 0);
-      
-      // Combined score
-      const score = betaScore + dividendScore + debtScore;
-      return Math.round(score);
+      res.json(data);
     } catch (error) {
-      console.error('Error calculating stability score:', error);
-      return 50; // Default score
+      console.error(`Failed to fetch news data for ${symbol}:`, error);
+      res.status(500).json({
+        error: 'Failed to fetch news data',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
   /**
-   * Calculate value score based on P/E ratio, P/B ratio, and upside potential
+   * Helper to convert range string to Date object
    */
-  private calculateValueScore(quote: any, financialData: any, summaryDetail: any): number {
-    try {
-      const pe = quote.trailingPE || financialData?.trailingPE || 20;
-      const pb = quote.priceToBook || financialData?.priceToBook || 3;
-      const targetMedianPrice = financialData?.targetMedianPrice || quote.regularMarketPrice;
-      const currentPrice = quote.regularMarketPrice;
-      
-      // Lower P/E is better for value (P/E score: 0-40)
-      const peScore = Math.max(40 - (pe / 5), 0);
-      
-      // Lower P/B is better for value (P/B score: 0-30)
-      const pbScore = Math.max(30 - (pb * 5), 0);
-      
-      // Higher upside potential is better (upside score: 0-30)
-      const upsidePercent = ((targetMedianPrice - currentPrice) / currentPrice) * 100;
-      const upsideScore = Math.min(Math.max(upsidePercent, 0), 30);
-      
-      // Combined score
-      const score = peScore + pbScore + upsideScore;
-      return Math.round(score);
-    } catch (error) {
-      console.error('Error calculating value score:', error);
-      return 50; // Default score
+  private getDateFromRange(range: string): Date {
+    const now = new Date();
+    
+    switch (range) {
+      case '1d':
+        return new Date(now.setDate(now.getDate() - 1));
+      case '5d':
+        return new Date(now.setDate(now.getDate() - 5));
+      case '1mo':
+        return new Date(now.setMonth(now.getMonth() - 1));
+      case '3mo':
+        return new Date(now.setMonth(now.getMonth() - 3));
+      case '6mo':
+        return new Date(now.setMonth(now.getMonth() - 6));
+      case '1y':
+        return new Date(now.setFullYear(now.getFullYear() - 1));
+      case '2y':
+        return new Date(now.setFullYear(now.getFullYear() - 2));
+      case '5y':
+        return new Date(now.setFullYear(now.getFullYear() - 5));
+      case '10y':
+        return new Date(now.setFullYear(now.getFullYear() - 10));
+      case 'ytd':
+        return new Date(now.getFullYear(), 0, 1);
+      case 'max':
+        return new Date(1970, 0, 1);
+      default:
+        return new Date(now.setMonth(now.getMonth() - 1));
     }
-  }
-
-  /**
-   * Calculate momentum score based on relative performance
-   */
-  private calculateMomentumScore(quote: any, historicalData: any[]): number {
-    try {
-      if (historicalData.length < 20) return 50;
-      
-      // Calculate 1-week, 1-month, and 3-month momentum
-      const latestPrice = historicalData[historicalData.length - 1].close;
-      const oneWeekAgoIdx = Math.max(historicalData.length - 6, 0);
-      const oneMonthAgoIdx = Math.max(historicalData.length - 21, 0);
-      const threeMonthAgoIdx = Math.max(historicalData.length - 63, 0);
-      
-      const oneWeekAgoPrice = historicalData[oneWeekAgoIdx].close;
-      const oneMonthAgoPrice = historicalData[oneMonthAgoIdx].close;
-      const threeMonthAgoPrice = historicalData[threeMonthAgoIdx].close;
-      
-      const oneWeekChange = ((latestPrice - oneWeekAgoPrice) / oneWeekAgoPrice) * 100;
-      const oneMonthChange = ((latestPrice - oneMonthAgoPrice) / oneMonthAgoPrice) * 100;
-      const threeMonthChange = ((latestPrice - threeMonthAgoPrice) / threeMonthAgoPrice) * 100;
-      
-      // Weight recent momentum more heavily
-      const weightedScore = (oneWeekChange * 0.5) + (oneMonthChange * 0.3) + (threeMonthChange * 0.2);
-      
-      // Normalize to a 0-100 score
-      const score = Math.min(Math.max(50 + (weightedScore * 2), 0), 100);
-      return Math.round(score);
-    } catch (error) {
-      console.error('Error calculating momentum score:', error);
-      return 50; // Default score
-    }
-  }
-
-  /**
-   * Get from cache if not expired
-   */
-  private getFromCache(key: string): any {
-    const cached = this.cache.get(key);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-      return cached.data;
-    }
-    return null;
-  }
-
-  /**
-   * Save to cache with timestamp
-   */
-  private saveToCache(key: string, data: any): void {
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now()
-    });
   }
 }
 
-// Export a singleton instance
-export const yahooFinanceService = YahooFinanceService.getInstance();
+export const yahooFinanceService = new YahooFinanceService();
+export type { YahooNewsItem };

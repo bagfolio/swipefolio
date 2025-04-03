@@ -17,7 +17,9 @@ import {
   Layers,
   Check,
   X,
-  Building
+  Building,
+  Clock,
+  ExternalLink
 } from "lucide-react";
 import { motion, useAnimation, useMotionValue, useTransform, PanInfo, AnimationControls } from "framer-motion";
 import OverallAnalysisCard from "@/components/overall-analysis-card";
@@ -25,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import AskAI from "./ask-ai";
 import { getIndustryAverages } from "@/lib/industry-data";
+import StockNewsSection from "@/components/stock-news/StockNewsSection";
 import { 
   useYahooChartData, 
   extractChartPrices,
@@ -559,6 +562,25 @@ export default function StockCard({
                     );
                  })}
              </div>
+             {/* News Section */}
+             <div className="p-5 border-b border-gray-800">
+                 <h3 className="text-lg font-bold text-white mb-3 flex items-center">
+                     <Calendar className="w-5 h-5 mr-2 text-blue-400" /> Latest News
+                 </h3>
+                 <motion.div
+                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}
+                     className="rounded-xl border border-gray-700/50 overflow-hidden shadow-lg relative"
+                 >
+                     <div className="absolute -inset-1 bg-blue-500/5 blur-xl rounded-xl z-0"></div>
+                     <div className="relative z-10 bg-gray-800/70 backdrop-blur-sm"> 
+                         {/* Integrating the StockNewsSection component with dark mode styling */}
+                         <div className="dark text-white">
+                             <StockNewsSection stock={stock} />
+                         </div>
+                     </div>
+                 </motion.div>
+             </div>
+
              {/* Ask AI */}
              <div className="p-5 border-b border-gray-800">
                  <h3 className="text-lg font-bold text-white mb-3 flex items-center">
