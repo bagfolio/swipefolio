@@ -93,28 +93,43 @@ const getDisplayDates = (dates: string[], timeFrame: TimeFrame): string[] => {
   
   // Display different formats based on timeframe
   const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr);
+    // If dateStr is in MM/DD format, just return it directly
+    if (/^\d{2}\/\d{2}$/.test(dateStr)) {
+      return dateStr;
+    }
     
-    switch (timeFrame) {
-      case "5D":
-      case "1W":
-        // Show day of week for short periods
-        return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(date);
-      case "1M":
-        // Show day and month for a month
-        return new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(date);
-      case "3M":
-      case "6M":
-        // Show month for medium periods
-        return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
-      case "1Y":
-        // Show month for a year
-        return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
-      case "5Y":
-        // Show year for long periods
-        return new Intl.DateTimeFormat('en-US', { year: 'numeric' }).format(date);
-      default:
-        return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+    // Otherwise try to parse as a full date
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) {
+        // If date is invalid, return the original string
+        return dateStr;
+      }
+      
+      switch (timeFrame) {
+        case "5D":
+        case "1W":
+          // Show day of week for short periods
+          return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(date);
+        case "1M":
+          // Show day and month for a month
+          return new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(date);
+        case "3M":
+        case "6M":
+          // Show month for medium periods
+          return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
+        case "1Y":
+          // Show month for a year
+          return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
+        case "5Y":
+          // Show year for long periods
+          return new Intl.DateTimeFormat('en-US', { year: 'numeric' }).format(date);
+        default:
+          return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+      }
+    } catch (error) {
+      console.log(`[Chart] Error formatting date: ${dateStr}`, error);
+      return dateStr;
     }
   };
   
