@@ -1,16 +1,12 @@
 /**
  * pg-stock-service.ts
  *
- * This service handles loading stock data from our PostgreSQL database.
- * It includes fetching pre-processed time period data for charts.
+ * Service for accessing PostgreSQL stock data, including time period data.
  */
 
 import { pool } from '../db';
 import { log } from '../vite'; // Assuming log function is available
 
-/**
- * Service for accessing PostgreSQL stock data
- */
 export class PgStockService {
   private stockSymbols: string[] = [];
   private initialized: boolean = false;
@@ -20,10 +16,8 @@ export class PgStockService {
     this.loadStockData().catch(err => log(`Error initializing PgStockService: ${err}`, 'pg-stock-service'));
   }
 
-  /**
-   * Load stock data from the database and initialize cache
-   */
   async loadStockData(): Promise<boolean> {
+    // ... (keep your existing loadStockData implementation) ...
     try {
       log('Loading stock symbols from PostgreSQL...', 'pg-stock-service');
       const symbolsResult = await pool.query<{ ticker: string }>(`
@@ -41,35 +35,29 @@ export class PgStockService {
       }
     } catch (error) {
       log(`Error loading stock data from PostgreSQL: ${error}`, 'pg-stock-service');
-      this.initialized = false; // Ensure initialized is false on error
+      this.initialized = false;
       return false;
     }
   }
 
-  /**
-   * Get all available stock symbols
-   */
   public async getAvailableSymbols(): Promise<string[]> {
-    if (this.initialized && this.stockSymbols.length > 0) {
-      return this.stockSymbols;
-    }
-    // If not initialized, try loading again
-    await this.loadStockData();
-    return this.stockSymbols;
+     // ... (keep your existing getAvailableSymbols implementation) ...
+     if (this.initialized && this.stockSymbols.length > 0) {
+       return this.stockSymbols;
+     }
+     await this.loadStockData();
+     return this.stockSymbols;
   }
 
-  /**
-   * Get stock data from PostgreSQL (simplified, focus is on history)
-   * NOTE: This is a simplified version. The full getStockData from your original file
-   * should be used if you need all the other details (profile, financials etc.)
-   */
   public async getStockData(symbol: string): Promise<any> {
+     // ... (keep your existing getStockData implementation) ...
      try {
        const basicResult = await pool.query(`
          SELECT * FROM stocks WHERE ticker = $1
        `, [symbol]);
        if (basicResult.rows.length === 0) return null;
-       return basicResult.rows[0]; // Return basic info for now
+       // Add logic to fetch and merge detailed data if needed
+       return basicResult.rows[0];
      } catch (error) {
        log(`Error fetching basic data for ${symbol}: ${error}`, 'pg-stock-service');
        return null;
@@ -78,58 +66,88 @@ export class PgStockService {
 
 
   /**
-   * Get pre-processed price history data for a specific ticker and time period.
-   * Assumes a 'time_period_data' table exists with columns: ticker, period, dates (jsonb), prices (jsonb).
-   * @param ticker The stock ticker symbol
-   * @param period The time period (e.g., '1M', '1Y', 'MAX') - Case-insensitive matching
-   * @returns Object containing dates and prices arrays or null if not found.
+   * Get pre-processed price history data for a specific ticker and time period
+   * from the 'time_period_data' table.
+   * @param ticker The stock ticker symbol (uppercase)
+   * @param period The time period (e.g., '1M', '1Y') - Will be lowercased for query
+   * @returns Object containing dates and prices arrays or null if not found/invalid.
    */
   async getPriceHistoryForPeriod(ticker: string, period: string): Promise<{ dates: string[], prices: number[] } | null> {
+    const normalizedPeriod = period.toLowerCase(); // Use lowercase for querying
+    log(`[PG-STOCK] Service: Getting history for ${ticker} (${period} -> ${normalizedPeriod})`, 'pg-stock-service');
+
     try {
-      // Normalize period to lowercase for query, but keep original for logging
-      const normalizedPeriod = period.toLowerCase();
-      log(`[PG-STOCK] Getting pre-processed history for ${ticker} (${period})`, 'pg-stock-service');
+      // Explicitly check if the table exists (optional, but good for debugging)
+      // const tableExistsResult = await pool.query(`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'time_period_data');`);
+      // if (!tableExistsResult.rows[0].exists) {
+      //    log(`[PG-STOCK] Error: 'time_period_data' table does not exist.`, 'pg-stock-service');
+      //    return null;
+      // }
 
       // Query the dedicated time_period_data table
-      // Ensure table and column names match your actual schema
       const query = `
         SELECT dates, prices
         FROM time_period_data
         WHERE ticker = $1 AND LOWER(period) = $2
         LIMIT 1;
       `;
+      log(`[PG-STOCK] Executing query: ${query} with params: [${ticker}, ${normalizedPeriod}]`, 'pg-stock-service');
 
-      const result = await pool.query<{ dates: string[], prices: number[] }>(query, [ticker, normalizedPeriod]);
+      const result = await pool.query<{ dates: any, prices: any }>(query, [ticker, normalizedPeriod]);
+      log(`[PG-STOCK] Query result rows: ${result.rows.length}`, 'pg-stock-service');
 
-      if (result.rows.length > 0 && result.rows[0].dates && result.rows[0].prices) {
-        log(`[PG-STOCK] Found pre-processed data for ${ticker} (${period})`, 'pg-stock-service');
-        // Ensure data is in the correct array format
-        const dates = Array.isArray(result.rows[0].dates) ? result.rows[0].dates : [];
-        const prices = Array.isArray(result.rows[0].prices) ? result.rows[0].prices.map(p => Number(p)) : []; // Ensure prices are numbers
-
-        if (dates.length === prices.length && dates.length > 0) {
-          return {
-            dates: dates,
-            prices: prices
-          };
-        } else {
-           log(`[PG-STOCK] Data format mismatch or empty for ${ticker} (${period}). Dates: ${dates.length}, Prices: ${prices.length}`, 'pg-stock-service');
-           return null;
-        }
-      } else {
-        log(`[PG-STOCK] No pre-processed data found for ${ticker} (${period}) in time_period_data table`, 'pg-stock-service');
+      if (result.rows.length === 0) {
+        log(`[PG-STOCK] No data found for ${ticker} (${normalizedPeriod}) in time_period_data`, 'pg-stock-service');
         return null;
       }
-    } catch (error) {
-      log(`[PG-STOCK] Error fetching pre-processed history for '${ticker}' (${period}): ${error}`, 'pg-stock-service');
-      return null;
+
+      const rowData = result.rows[0];
+      log(`[PG-STOCK] Raw data from DB: dates type=${typeof rowData.dates}, prices type=${typeof rowData.prices}`, 'pg-stock-service');
+      // log(`[PG-STOCK] Raw dates: ${JSON.stringify(rowData.dates)}`, 'pg-stock-service'); // Be careful logging large data
+
+      // --- Data Validation ---
+      if (!rowData.dates || !rowData.prices) {
+        log(`[PG-STOCK] Missing dates or prices column data for ${ticker} (${normalizedPeriod})`, 'pg-stock-service');
+        return null;
+      }
+
+      // Ensure dates and prices are arrays (PostgreSQL returns JSONB as objects/arrays directly)
+      if (!Array.isArray(rowData.dates) || !Array.isArray(rowData.prices)) {
+        log(`[PG-STOCK] Invalid format: dates or prices are not arrays for ${ticker} (${normalizedPeriod})`, 'pg-stock-service');
+        return null;
+      }
+
+      const dates: string[] = rowData.dates;
+      const prices: number[] = rowData.prices.map(p => Number(p)).filter(p => !isNaN(p)); // Ensure prices are valid numbers
+
+      if (dates.length !== prices.length) {
+        log(`[PG-STOCK] Data length mismatch: ${dates.length} dates, ${prices.length} prices for ${ticker} (${normalizedPeriod})`, 'pg-stock-service');
+        // Attempt to truncate to the shorter length if one is slightly off? Or return null?
+        // Returning null is safer to avoid misaligned data.
+        return null;
+      }
+
+      if (dates.length === 0) {
+        log(`[PG-STOCK] Found empty arrays for ${ticker} (${normalizedPeriod})`, 'pg-stock-service');
+        return null; // Treat empty arrays as no data found
+      }
+
+      log(`[PG-STOCK] Successfully retrieved and validated ${dates.length} points for ${ticker} (${normalizedPeriod})`, 'pg-stock-service');
+      return {
+        dates: dates, // Return as retrieved (should be oldest to newest if stored correctly)
+        prices: prices
+      };
+
+    } catch (error: any) {
+      // Log specific SQL errors if possible
+      log(`[PG-STOCK] Database Error fetching history for '${ticker}' (${period}): ${error.message}`, 'pg-stock-service');
+      // console.error(error); // Log full error stack trace if needed
+      return null; // Return null on any database error
     }
   }
 
-  /**
-   * Placeholder for refreshing cache - adapt if needed
-   */
   async refreshCache(): Promise<{ success: string[], failures: string[] }> {
+     // ... (keep your existing refreshCache implementation) ...
      try {
        await this.loadStockData();
        return { success: this.stockSymbols, failures: [] };
@@ -138,21 +156,18 @@ export class PgStockService {
        return { success: [], failures: ['Database error'] };
      }
   }
-
-  // --- Other methods like getRecommendations, getStocksByIndustry etc. remain the same ---
-  // --- Add them back here from your original file if needed ---
-  async getRecommendations(ticker: string): Promise<any> { /* ... implementation ... */ return null; }
-  async getStocksByIndustry(industry: string): Promise<any[]> { /* ... implementation ... */ return []; }
-  async getStocksBySector(sector: string): Promise<any[]> { /* ... implementation ... */ return []; }
-  async getTopDividendStocks(limit: number = 10): Promise<any[]> { /* ... implementation ... */ return []; }
-  async getStocksWithUpgrades(): Promise<any[]> { /* ... implementation ... */ return []; }
-  private formatStockData(data: any): any { /* ... implementation ... */ return data; }
+  // --- Keep other methods like getRecommendations etc. ---
+  async getRecommendations(ticker: string): Promise<any> { /* ... */ return null; }
+  async getStocksByIndustry(industry: string): Promise<any[]> { /* ... */ return []; }
+  async getStocksBySector(sector: string): Promise<any[]> { /* ... */ return []; }
+  async getTopDividendStocks(limit: number = 10): Promise<any[]> { /* ... */ return []; }
+  async getStocksWithUpgrades(): Promise<any[]> { /* ... */ return []; }
+  private formatStockData(data: any): any { /* ... */ return data; }
   private calculatePerformanceScore(data: any): number { return 50; }
   private calculateStabilityScore(data: any): number { return 50; }
   private calculateValueScore(data: any): number { return 50; }
   private calculateMomentumScore(data: any): number { return 50; }
   private calculateQualityRating(data: any): string { return "Average"; }
-
 }
 
 export const pgStockService = new PgStockService();
