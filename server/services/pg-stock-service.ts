@@ -391,11 +391,18 @@ export class PgStockService {
         // Log what we're returning for debugging
         console.log(`[PG-STOCK] Returning ${formattedPrices.length} data points for ${ticker} (${normalizedPeriod})`);
         
+        // IMPROVEMENT: Return array of objects with date and price for better frontend compatibility
+        const dataPoints = formattedDates.map((date, index) => ({
+          date,
+          price: formattedPrices[index]
+        })).reverse(); // Reverse to get chronological order
+        
         return {
           ticker: ticker,
           period: normalizedPeriod,
-          prices: formattedPrices.reverse(), // Reverse to get chronological order
-          dates: formattedDates.reverse(),   // Reverse to get chronological order
+          prices: dataPoints, // Return formatted data points
+          rawPrices: formattedPrices.reverse(), // Also include raw arrays for backward compatibility
+          dates: formattedDates.reverse(),
           source: 'postgresql',
           lastUpdated: new Date().toISOString()
         };

@@ -1236,14 +1236,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           if (pgPriceHistory && pgPriceHistory.prices) {
             console.log(`[API] Retrieved historical data for ${ticker} (${period}) from PostgreSQL`);
-            return res.json({
-              symbol: ticker,
-              period: period,
-              interval: interval,
-              prices: pgPriceHistory.prices,
-              dates: pgPriceHistory.dates || generateDateLabels(period, pgPriceHistory.prices.length),
-              source: 'postgresql'
-            });
+            
+            // Determine if the prices are already in the desired format
+            const areObjectsWithDateAndPrice = 
+              Array.isArray(pgPriceHistory.prices) && 
+              pgPriceHistory.prices.length > 0 && 
+              typeof pgPriceHistory.prices[0] === 'object' &&
+              'date' in pgPriceHistory.prices[0] && 
+              'price' in pgPriceHistory.prices[0];
+            
+            if (areObjectsWithDateAndPrice) {
+              // Already in the desired format, just return as is
+              return res.json({
+                symbol: ticker,
+                period: period,
+                interval: interval,
+                prices: pgPriceHistory.prices,
+                source: 'postgresql'
+              });
+            } else if (pgPriceHistory.rawPrices && pgPriceHistory.dates) {
+              // We have separate arrays for prices and dates, so use our dataPoints
+              return res.json({
+                symbol: ticker,
+                period: period,
+                interval: interval,
+                prices: pgPriceHistory.prices, // This should now be array of {date, price} objects
+                source: 'postgresql'
+              });
+            } else {
+              // We only have an array of prices, so generate dates
+              const generatedDates = generateDateLabels(period, pgPriceHistory.prices.length);
+              
+              // Convert to array of objects with date and price
+              const priceObjects = pgPriceHistory.prices.map((price: number, index: number) => ({
+                date: generatedDates[index],
+                price: price
+              }));
+              
+              return res.json({
+                symbol: ticker,
+                period: period,
+                interval: interval,
+                prices: priceObjects,
+                source: 'postgresql'
+              });
+            }
           }
         } catch (dbError) {
           console.error(`[API] Error getting PostgreSQL historical data for ${ticker}:`, dbError);
@@ -1275,7 +1312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const symbol = req.params.symbol.toUpperCase();
       console.log(`[API] Getting available periods for: ${symbol}`);
       
-      // If using PostgreSQL, get the closing_history data to check what periods are available
+      // If using PostgreSQL, check if we have data for this stock
       if (stockService.isUsingPostgres()) {
         try {
           const result = await pool.query(`
@@ -1295,14 +1332,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
             }
             
-            // Get the keys from the history object (these are the available periods)
-            const availablePeriods = Object.keys(history || {});
-            
-            return res.json({
-              symbol,
-              availablePeriods,
-              source: 'postgresql'
-            });
+            // Check if this is a columnar format (with Date and Close arrays)
+            if (history && history.Date && Array.isArray(history.Date) && history.Close && Array.isArray(history.Close)) {
+              // We have date and price data, so we can support standard periods
+              const standardPeriods = ['1D', '5D', '1W', '1M', '3M', '6M', '1Y', '5Y'];
+              
+              // Only include periods that we have enough data for
+              const dataPoints = history.Date.length;
+              const availablePeriods = standardPeriods.filter(period => {
+                let requiredPoints = 0;
+                switch(period) {
+                  case '1D': requiredPoints = 1; break;
+                  case '5D': requiredPoints = 5; break;
+                  case '1W': requiredPoints = 7; break;
+                  case '1M': requiredPoints = 20; break;
+                  case '3M': requiredPoints = 60; break;
+                  case '6M': requiredPoints = 120; break;
+                  case '1Y': requiredPoints = 250; break;
+                  case '5Y': requiredPoints = 1250; break;
+                  default: requiredPoints = 0;
+                }
+                return dataPoints >= requiredPoints;
+              });
+              
+              return res.json({
+                symbol,
+                availablePeriods,
+                source: 'postgresql',
+                dataPoints
+              });
+            } else {
+              // Old format with period-specific data
+              const availablePeriods = Object.keys(history || {});
+              
+              return res.json({
+                symbol,
+                availablePeriods,
+                source: 'postgresql'
+              });
+            }
           }
         } catch (dbError) {
           console.error(`[API] Error getting available periods for ${symbol}:`, dbError);
