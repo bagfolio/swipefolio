@@ -52,20 +52,31 @@ interface StockChartProps {
 export default function StockChart({ symbol }: StockChartProps) {
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('1M');
   
-  // First, fetch available periods for this stock
+  // First, fetch available periods for this stock - but only if we have a valid symbol
   const periodsQuery = useQuery<AvailablePeriodsResponse>({
     queryKey: ['/api/stock/available-periods', symbol],
     queryFn: async () => {
+      // Guard against undefined or empty symbol
+      if (!symbol) {
+        console.warn('Cannot fetch available periods: No symbol provided');
+        return { symbol: '', availablePeriods: ['1M'], source: 'default' };
+      }
+      
+      console.log(`Fetching available periods for: ${symbol}`);
       const response = await fetch(`/api/stock/${symbol}/available-periods`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error(`Error fetching available periods: ${JSON.stringify(errorData)}`);
         throw new Error(
           errorData.message || `Failed to fetch available periods for ${symbol}`
         );
       }
-      return response.json();
+      const data = await response.json();
+      console.log(`Got available periods for ${symbol}:`, data.availablePeriods);
+      return data;
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: !!symbol, // Only run when we have a symbol
   });
   
   // Make sure we're using a time frame that's available
@@ -82,8 +93,14 @@ export default function StockChart({ symbol }: StockChartProps) {
   const { data, isLoading, error, refetch } = useQuery<StockPriceHistoryResponse>({
     queryKey: ['/api/historical', symbol, timeFrame],
     queryFn: async () => {
+      // Guard against undefined or empty symbol
+      if (!symbol) {
+        console.warn('Cannot fetch historical data: No symbol provided');
+        throw new Error('Stock symbol is required to fetch price history');
+      }
+      
       console.log(`Fetching historical data for ${symbol} with period ${timeFrame}`);
-      const response = await fetch(`/api/historical/${symbol}?period=${timeFrame}`);
+      const response = await fetch(`/api/historical/${symbol}?period=${timeFrame.toLowerCase()}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error(`Error fetching historical data: ${JSON.stringify(errorData)}`);
@@ -92,63 +109,83 @@ export default function StockChart({ symbol }: StockChartProps) {
         );
       }
       const data = await response.json();
-      console.log(`Got historical data: ${data.prices?.length} data points`);
+      console.log(`Got historical data: ${data.prices?.length} data points for ${symbol}`);
       return data;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
-    enabled: Boolean(timeFrame), // Only run query when timeFrame is available
+    enabled: Boolean(symbol) && Boolean(timeFrame), // Only run query when we have both symbol and timeFrame
   });
   
   // Format the data for the chart
   const formatChartData = (): ChartDataPoint[] => {
     if (!data || !data.prices || data.prices.length === 0) {
+      console.log(`No chart data available for ${symbol}`);
       return [];
     }
     
-    // Handle array of numbers (simple price array)
-    if (typeof data.prices[0] === 'number') {
-      // Create dates based on the number of price points - going backward from today
-      const prices = data.prices as number[];
-      const result: ChartDataPoint[] = [];
-      
-      // Create a date range based on the selected time frame
-      let days = 30; // Default for 1M
-      switch (timeFrame) {
-        case '5D': days = 5; break;
-        case '1W': days = 7; break;
-        case '3M': days = 90; break;
-        case '6M': days = 180; break;
-        case '1Y': days = 365; break;
-        case '5Y': days = 1825; break;
-      }
-      
-      // Only use as many days as we have prices
-      const pointsToUse = Math.min(prices.length, days);
-      
-      // Create dates going backward from today
-      const today = new Date();
-      
-      for (let i = 0; i < pointsToUse; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - (pointsToUse - i - 1));
-        
-        result.push({
-          date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          price: prices[i]
-        });
-      }
-      
-      return result;
-    }
+    console.log(`Formatting chart data for ${symbol}: `, data.prices);
     
-    // Handle array of objects with date and price properties
-    return (data.prices as PriceDataPoint[]).map(point => ({
-      date: new Date(point.date).toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric' 
-      }),
-      price: point.price
-    }));
+    try {
+      // Handle array of numbers (simple price array)
+      if (typeof data.prices[0] === 'number') {
+        console.log(`Handling number array format for ${symbol}`);
+        // Create dates based on the number of price points - going backward from today
+        const prices = data.prices as number[];
+        const result: ChartDataPoint[] = [];
+        
+        // Create a date range based on the selected time frame
+        let days = 30; // Default for 1M
+        switch (timeFrame) {
+          case '5D': days = 5; break;
+          case '1W': days = 7; break;
+          case '3M': days = 90; break;
+          case '6M': days = 180; break;
+          case '1Y': days = 365; break;
+          case '5Y': days = 1825; break;
+        }
+        
+        // Only use as many days as we have prices
+        const pointsToUse = Math.min(prices.length, days);
+        
+        // Create dates going backward from today
+        const today = new Date();
+        
+        for (let i = 0; i < pointsToUse; i++) {
+          const date = new Date(today);
+          date.setDate(today.getDate() - (pointsToUse - i - 1));
+          
+          result.push({
+            date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            price: prices[i]
+          });
+        }
+        
+        console.log(`Generated ${result.length} chart data points`);
+        return result;
+      }
+      
+      // Handle array of objects with date and price properties
+      if (typeof data.prices[0] === 'object' && 'date' in data.prices[0] && 'price' in data.prices[0]) {
+        console.log(`Handling object array format for ${symbol}`);
+        const result = (data.prices as PriceDataPoint[]).map(point => ({
+          date: new Date(point.date).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric' 
+          }),
+          price: typeof point.price === 'string' ? parseFloat(point.price) : point.price
+        }));
+        
+        console.log(`Processed ${result.length} chart data points`);
+        return result;
+      }
+      
+      // If we got here, the data format is unexpected
+      console.error(`Unexpected data format for ${symbol} chart data:`, data.prices[0]);
+      return [];
+    } catch (err) {
+      console.error(`Error formatting chart data for ${symbol}:`, err);
+      return [];
+    }
   };
   
   const chartData = formatChartData();
