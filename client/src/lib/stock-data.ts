@@ -54,278 +54,13 @@ export interface PotentialDetails {
   relativePerformanceExplanation?: string;
 }
 
-export interface AnalystRecommendation {
-  period: string;
-  strongBuy: number;
-  buy: number;
-  hold: number;
-  sell: number;
-  strongSell: number;
-  symbol: string;
-}
-
-export interface PriceTarget {
-  targetHigh: number;
-  targetLow: number;
-  targetMean: number;
-  targetMedian: number;
-  lastUpdated: string;
-}
-
-/**
- * Fetch analyst recommendations from the PostgreSQL database
- * @param ticker The stock ticker symbol
- * @returns Promise with recommendations data or null
- */
-export async function fetchAnalystRecommendations(ticker: string): Promise<AnalystRecommendation[] | null> {
-  try {
-    const response = await fetch(`/api/pg/stock/${ticker}/recommendations`);
-    if (!response.ok) {
-      console.warn(`Error fetching recommendations for ${ticker}: ${response.statusText}`);
-      return null;
-    }
-    
-    const result = await response.json();
-    if (!result.success || !result.data) {
-      console.warn(`No recommendations data found for ${ticker}`);
-      return null;
-    }
-    
-    // Check if the data is in columnar format and convert it to our AnalystRecommendation format
-    const columnarData = result.data;
-    const recommendations: AnalystRecommendation[] = [];
-    
-    // We need at least these fields to create a valid recommendation
-    if (columnarData.period && 
-        columnarData.strongBuy !== undefined && 
-        columnarData.buy !== undefined && 
-        columnarData.hold !== undefined && 
-        columnarData.sell !== undefined && 
-        columnarData.strongSell !== undefined) {
-      
-      // If we have valid columnar data, create recommendation objects
-      const length = columnarData.period.length;
-      for (let i = 0; i < length; i++) {
-        recommendations.push({
-          period: columnarData.period[i] || '',
-          strongBuy: Number(columnarData.strongBuy[i] || 0),
-          buy: Number(columnarData.buy[i] || 0),
-          hold: Number(columnarData.hold[i] || 0),
-          sell: Number(columnarData.sell[i] || 0),
-          strongSell: Number(columnarData.strongSell[i] || 0),
-          symbol: ticker
-        });
-      }
-      
-      return recommendations;
-    }
-    
-    // Handle legacy or non-columnar format (expect array of recommendation objects)
-    if (Array.isArray(result.data)) {
-      return result.data.map((rec: any) => ({
-        period: rec.period || '',
-        strongBuy: Number(rec.strongBuy || 0),
-        buy: Number(rec.buy || 0),
-        hold: Number(rec.hold || 0),
-        sell: Number(rec.sell || 0),
-        strongSell: Number(rec.strongSell || 0),
-        symbol: ticker
-      }));
-    }
-    
-    console.warn(`Unexpected recommendations data format for ${ticker}`);
-    return null;
-  } catch (error) {
-    console.error(`Failed to fetch recommendations for ${ticker}:`, error);
-    return null;
-  }
-}
-
-/**
- * Fetch raw metrics data from PostgreSQL
- * @param ticker The stock ticker symbol
- * @returns Promise with metrics data or null
- */
-export async function fetchStockMetrics(ticker: string): Promise<any> {
-  try {
-    console.log(`Fetching metrics for ${ticker} from PostgreSQL`);
-    const response = await fetch(`/api/pg/stock/${ticker}/metrics`);
-    
-    if (!response.ok) {
-      console.warn(`Error fetching metrics for ${ticker}: ${response.statusText}`);
-      return null;
-    }
-    
-    const result = await response.json();
-    if (!result.success || !result.data) {
-      console.warn(`No metrics data found for ${ticker}`);
-      return null;
-    }
-    
-    console.log(`Successfully retrieved metrics for ${ticker}:`, result.data);
-    return result.data.metrics;
-  } catch (error) {
-    console.error(`Failed to fetch metrics for ${ticker}:`, error);
-    return null;
-  }
-}
-
-/**
- * Helper function to map raw metrics to StockData metrics format with intelligent field mapping
- * @param rawMetrics Raw metrics from PostgreSQL 
- * @returns Formatted metrics in the StockData format
- */
-export function formatMetricsFromDatabase(rawMetrics: any): any {
-  if (!rawMetrics) return null;
-  
-  // Centralized field mapping to handle diverse field names
-  // Map PostgreSQL database field names to UI field names
-  const fieldMap: Record<string, string[]> = {
-    // Field in UI format: [Possible database field names]
-    'peRatio': ['peRatio', 'pe_ratio', 'price_to_earnings', 'priceToEarnings'],
-    'pbRatio': ['pbRatio', 'pb_ratio', 'price_to_book', 'priceToBook'],
-    'dividendYield': ['dividendYield', 'dividend_yield'],
-    'beta': ['beta'],
-    'volatility': ['volatility'],
-    'revenueGrowth': ['revenueGrowth', 'revenue_growth'],
-    'profitMargin': ['profitMargin', 'profit_margin'],
-    'returnOnEquity': ['returnOnEquity', 'return_on_equity', 'roe'],
-    'returnOnCapital': ['returnOnCapital', 'return_on_capital', 'roc'],
-    'debtToEquity': ['debtToEquity', 'debt_to_equity'],
-    'threeMonthReturn': ['threeMonthReturn', 'three_month_return'],
-    'relativePerformance': ['relativePerformance', 'relative_performance'],
-    'rsi': ['rsi', 'relativeStrengthIndex'],
-    'oneYearReturn': ['oneYearReturn', 'one_year_return']
-  };
-  
-  // Function to look up value using the field map
-  const getValueByMapping = (key: string, defaultValue: any = 0): any => {
-    if (!fieldMap[key]) {
-      return rawMetrics[key] !== null && rawMetrics[key] !== undefined 
-        ? rawMetrics[key] 
-        : defaultValue;
-    }
-    
-    // Try all possible field names until we find one that exists
-    for (const field of fieldMap[key]) {
-      if (rawMetrics[field] !== null && rawMetrics[field] !== undefined) {
-        console.log(`Found value for ${key} using db field ${field}: ${rawMetrics[field]}`);
-        return rawMetrics[field];
-      }
-    }
-    
-    // If no field found, return default
-    return defaultValue;
-  };
-  
-  // Map performance metrics
-  const performance = {
-    value: getMetricScore(rawMetrics.performance || 0),
-    color: getMetricColor(rawMetrics.performance || 0),
-    details: {
-      revenueGrowth: getValueByMapping('revenueGrowth'),
-      profitMargin: getValueByMapping('profitMargin'),
-      returnOnCapital: getValueByMapping('returnOnCapital')
-    },
-    explanation: `Based on revenue growth (${formatNumber(getValueByMapping('revenueGrowth'))}%), 
-                  profit margin (${formatNumber(getValueByMapping('profitMargin'))}%), 
-                  and return on capital (${formatNumber(getValueByMapping('returnOnCapital'))}%).`
-  };
-  
-  // Map stability metrics
-  const stability = {
-    value: getMetricScore(rawMetrics.stability || 0),
-    color: getMetricColor(rawMetrics.stability || 0),
-    details: {
-      volatility: getValueByMapping('volatility'),
-      beta: getValueByMapping('beta'),
-      dividendConsistency: getValueByMapping('dividendYield') > 0 ? "Good" : "N/A",
-    },
-    explanation: `Based on volatility metrics, beta of ${formatNumber(getValueByMapping('beta'))}, 
-                  and dividend consistency.`
-  };
-  
-  // Map value metrics
-  const value = {
-    value: getMetricScore(rawMetrics.value || 0),
-    color: getMetricColor(rawMetrics.value || 0),
-    details: {
-      peRatio: getValueByMapping('peRatio'),
-      pbRatio: getValueByMapping('pbRatio'),
-      dividendYield: getValueByMapping('dividendYield'),
-    },
-    explanation: `Based on P/E ratio (${formatNumber(getValueByMapping('peRatio'))}), 
-                  P/B ratio (${formatNumber(getValueByMapping('pbRatio'))}), 
-                  and dividend yield (${formatNumber(getValueByMapping('dividendYield'))}%).`
-  };
-  
-  // Map momentum metrics
-  const momentum = {
-    value: getMetricScore(rawMetrics.momentum || 0),
-    color: getMetricColor(rawMetrics.momentum || 0),
-    details: {
-      threeMonthReturn: getValueByMapping('threeMonthReturn'),
-      relativePerformance: getValueByMapping('relativePerformance'),
-      rsi: getValueByMapping('rsi', 50), // Default to neutral RSI
-      oneYearReturn: getValueByMapping('oneYearReturn')
-    },
-    explanation: `Based on recent price momentum, relative performance versus the market, 
-                  and technical indicators.`
-  };
-  
-  // Debug logging for transparency
-  console.log('Formatted metrics from database:', {
-    performance: JSON.stringify(performance.details),
-    stability: JSON.stringify(stability.details),
-    value: JSON.stringify(value.details),
-    momentum: JSON.stringify(momentum.details)
-  });
-  
-  return { performance, stability, value, momentum };
-}
-
-/**
- * Helper function to convert a numeric score (0-100) to a textual rating
- */
-function getMetricScore(score: number): string {
-  if (score >= 80) return "Excellent";
-  if (score >= 60) return "Good";
-  if (score >= 40) return "Average";
-  if (score >= 20) return "Below Average";
-  return "Poor";
-}
-
-/**
- * Helper function to convert a numeric score (0-100) to a color
- */
-function getMetricColor(score: number): string {
-  if (score >= 60) return "green";
-  if (score >= 40) return "yellow";
-  return "red";
-}
-
-/**
- * Helper function to format numbers consistently
- */
-function formatNumber(value: number): string {
-  if (Math.abs(value) < 10) {
-    return value.toFixed(2);
-  } else {
-    return value.toFixed(1);
-  }
-}
-
 export interface StockData {
   name: string;
   ticker: string;
   price: number;
   change: number;
-  changePercent?: number;
   rating: number;
   smartScore?: string;
-  dayHigh?: number;
-  dayLow?: number;
-  previousClose?: number;
   description: string;
   oneYearReturn?: string; // 1-year return percentage (e.g., "13.27%")
   predictedPrice?: string; // Predicted future price (e.g., "$128.79")
@@ -369,8 +104,6 @@ export interface StockData {
   overallAnalysis: string;
   chartData: number[];
   industry: string;
-  recommendations?: AnalystRecommendation[];
-  priceTarget?: PriceTarget;
 }
 
 const hardcodedStocks: Record<string, StockData[]> = {
@@ -3970,43 +3703,13 @@ Object.keys(hardcodedStocks).forEach(industry => {
   });
 });
 
-// Helper function to validate and patch any potentially missing required properties 
-// This ensures backward compatibility with older data formats
-function ensureRequiredProperties(stock: any): StockData {
-  // Create a copy to avoid modifying original
-  const updatedStock = {...stock};
-  
-  // Add changePercent if missing (using change and price)
-  if (updatedStock.changePercent === undefined && updatedStock.change !== undefined) {
-    updatedStock.changePercent = updatedStock.price ? (updatedStock.change / updatedStock.price) * 100 : 0;
-  }
-  
-  // Handle day range values if missing
-  if (updatedStock.dayHigh === undefined) {
-    updatedStock.dayHigh = updatedStock.price ? updatedStock.price * 1.02 : 0;
-  }
-  
-  if (updatedStock.dayLow === undefined) {
-    updatedStock.dayLow = updatedStock.price ? updatedStock.price * 0.98 : 0;
-  }
-  
-  // Handle previousClose if missing
-  if (updatedStock.previousClose === undefined) {
-    updatedStock.previousClose = updatedStock.price && updatedStock.change ? 
-      (updatedStock.price - updatedStock.change) : 0;
-  }
-  
-  return updatedStock as StockData;
-}
-
 // Get all available stocks from all industries
 export const getAllStocks = (): StockData[] => {
   const allStocks: StockData[] = [];
   
-  // Combine stocks from all available industries and ensure required properties
+  // Combine stocks from all available industries
   Object.keys(hardcodedStocks).forEach(industry => {
-    const patchedStocks = hardcodedStocks[industry].map(ensureRequiredProperties);
-    allStocks.push(...patchedStocks);
+    allStocks.push(...hardcodedStocks[industry]);
   });
   
   console.log(`Found ${allStocks.length} total stocks across all industries`);
@@ -4040,11 +3743,7 @@ export const getIndustryStocks = (industry: string): StockData[] => {
   
   // Return hardcoded stocks if available for the industry
   const stocks = hardcodedStocks[mappedIndustry] || [];
+  console.log(`Found ${stocks.length} stocks for mapped industry "${mappedIndustry}"`);
   
-  // Apply our property validation helper to ensure all properties exist
-  const patchedStocks = stocks.map(ensureRequiredProperties);
-  
-  console.log(`Found ${patchedStocks.length} stocks for mapped industry "${mappedIndustry}"`);
-  
-  return patchedStocks;
+  return stocks;
 };

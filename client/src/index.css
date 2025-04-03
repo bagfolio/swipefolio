@@ -146,9 +146,6 @@
 
 .main-content {
   @apply pb-24 pt-20 px-4 bg-slate-50;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
-  touch-action: pan-y pinch-zoom;
 }
 
 .badge {

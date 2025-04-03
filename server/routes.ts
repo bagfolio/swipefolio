@@ -4,274 +4,10 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import axios from "axios";
 import { getAIResponse } from "./ai-service";
-import { pool } from "./db";
 
-// Import both stock services - we'll use PostgreSQL first, then fallback to JSON if needed
 import { jsonStockService } from "./services/json-stock-service";
-import { postgresStockService } from "./services/postgres-stock-service";
-import { stockService } from "./services/stock-service";
-import { pgStockService } from "./services/pg-stock-service";
-import { stockNewsService } from "./services/stock-news-service";
-import { ownershipService } from "./services/ownership-service";
-
-// Utility functions for historical price data
-
-/**
- * Gets the current price for a ticker
- */
-async function getCurrentPrice(ticker: string): Promise<number> {
-  try {
-    // Try to get from PostgreSQL first
-    if (stockService.isUsingPostgres()) {
-      const stockData = await postgresStockService.getStockData(ticker);
-      if (stockData && stockData.price) {
-        return stockData.price;
-      }
-    }
-    
-    // Fall back to JSON service
-    if (jsonStockService.fileExists(ticker)) {
-      const stockData = jsonStockService.getStockData(ticker);
-      if (stockData && stockData.price) {
-        return stockData.price;
-      }
-    }
-    
-    // If all else fails, use a default price
-    return 100.0;
-  } catch (error) {
-    console.error(`Error getting current price for ${ticker}:`, error);
-    return 100.0;
-  }
-}
-
-/**
- * Determines how many data points to generate for a given period
- */
-function getPeriodDataPoints(period: string): number {
-  // Normalize period format
-  const normalizedPeriod = period.toLowerCase();
-  
-  // Map periods to number of data points
-  if (normalizedPeriod.includes('d') || normalizedPeriod.includes('day')) {
-    const days = parseInt(normalizedPeriod) || 1;
-    // For intraday, use minutes
-    return Math.min(days * 390, 390); // ~6.5 hours of trading in minutes
-  } else if (normalizedPeriod.includes('w') || normalizedPeriod.includes('week')) {
-    const weeks = parseInt(normalizedPeriod) || 1;
-    return weeks * 5; // 5 trading days per week
-  } else if (normalizedPeriod.includes('m') || normalizedPeriod.includes('month')) {
-    const months = parseInt(normalizedPeriod) || 1;
-    return months * 22; // ~22 trading days per month
-  } else if (normalizedPeriod.includes('y') || normalizedPeriod.includes('year')) {
-    const years = parseInt(normalizedPeriod) || 1;
-    return years * 252; // ~252 trading days per year
-  } else if (normalizedPeriod === 'ytd') {
-    // Year to date - calculate days from start of year to now
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const daysPassed = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
-    return Math.min(daysPassed, 180); // Cap at 180 data points
-  } else if (normalizedPeriod === 'max') {
-    return 500; // Cap at 500 data points for "max" timeframe
-  }
-  
-  // Default to a month of trading days
-  return 22;
-}
-
-/**
- * Generate date labels for historical price data
- */
-function generateDateLabels(period: string, count: number): string[] {
-  // Create array of dates working backwards from today
-  const dates: string[] = [];
-  const today = new Date();
-  const normalizedPeriod = period.toLowerCase();
-  
-  // Determine the time increment based on period
-  let increment: 'day' | 'week' | 'month' | 'year' = 'day';
-  
-  if (normalizedPeriod.includes('d') || normalizedPeriod.includes('day')) {
-    // For a day period, use hours
-    increment = 'day';
-  } else if (normalizedPeriod.includes('w') || normalizedPeriod.includes('week')) {
-    // For weeks, use days
-    increment = 'day';
-  } else if (normalizedPeriod.includes('m') || normalizedPeriod.includes('month')) {
-    // For months, use days
-    increment = 'day';
-  } else if (normalizedPeriod.includes('y') || normalizedPeriod.includes('year')) {
-    // For years, use weeks or months
-    increment = normalizedPeriod.includes('1y') ? 'week' : 'month';
-  } else if (normalizedPeriod === 'ytd' || normalizedPeriod === 'max') {
-    // For year-to-date or max, use months
-    increment = 'month';
-  }
-  
-  // Generate dates based on the increment
-  for (let i = 0; i < count; i++) {
-    const date = new Date(today);
-    
-    if (increment === 'day') {
-      // For intraday periods, add times throughout the day
-      if (normalizedPeriod.includes('1d') || normalizedPeriod.includes('day')) {
-        date.setHours(9 + Math.floor(i / 60));
-        date.setMinutes((i % 60) * 5);
-        dates.push(date.toISOString());
-        continue;
-      }
-      
-      // For multi-day periods, step back by days
-      date.setDate(date.getDate() - i);
-    } else if (increment === 'week') {
-      date.setDate(date.getDate() - (i * 7));
-    } else if (increment === 'month') {
-      date.setMonth(date.getMonth() - i);
-    } else if (increment === 'year') {
-      date.setFullYear(date.getFullYear() - i);
-    }
-    
-    // Skip weekends for stock data
-    const dayOfWeek = date.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      // Adjust the date to the previous Friday
-      date.setDate(date.getDate() - (dayOfWeek === 0 ? 2 : 1));
-    }
-    
-    dates.push(date.toISOString().split('T')[0]);
-  }
-  
-  // Reverse so dates go from oldest to newest
-  return dates.reverse();
-}
-
-/**
- * Generate realistic price history based on current price and volatility
- */
-function generateRealisticPriceHistory(currentPrice: number, period: string, dataPoints: number): number[] {
-  // Create array to hold price history
-  const prices: number[] = [];
-  
-  // Determine volatility based on period
-  let dailyVolatility = 0.01; // Default 1% daily change
-  const normalizedPeriod = period.toLowerCase();
-  
-  if (normalizedPeriod.includes('d') || normalizedPeriod.includes('day')) {
-    dailyVolatility = 0.005; // Lower volatility for intraday
-  } else if (normalizedPeriod.includes('w') || normalizedPeriod.includes('week')) {
-    dailyVolatility = 0.01;
-  } else if (normalizedPeriod.includes('m') || normalizedPeriod.includes('month')) {
-    dailyVolatility = 0.015;
-  } else if (normalizedPeriod.includes('y') || normalizedPeriod.includes('year')) {
-    dailyVolatility = 0.02;
-  } else if (normalizedPeriod === 'ytd' || normalizedPeriod === 'max') {
-    dailyVolatility = 0.025;
-  }
-  
-  // Generate a slight trend bias (up or down)
-  // Use a simple hash-based algorithm to derive a consistent trend for a given ticker and period
-  const trendBias = Math.cos(currentPrice) * 0.001; // Tiny drift based on price
-  
-  // Start with the current price and work backwards
-  let lastPrice = currentPrice;
-  prices.push(lastPrice);
-  
-  for (let i = 1; i < dataPoints; i++) {
-    // Generate a random price change with slight trend bias
-    const changePercent = ((Math.random() * 2 - 1) * dailyVolatility) + trendBias;
-    lastPrice = lastPrice / (1 + changePercent);
-    
-    // Ensure price doesn't go negative or too small
-    lastPrice = Math.max(lastPrice, currentPrice * 0.1);
-    
-    // Add some noise to make it more realistic
-    const noise = Math.random() * 0.002 * lastPrice;
-    lastPrice = lastPrice + (Math.random() > 0.5 ? noise : -noise);
-    
-    // Round to 2 decimal places
-    lastPrice = Math.round(lastPrice * 100) / 100;
-    
-    prices.push(lastPrice);
-  }
-  
-  // Reverse the array so it goes from oldest to newest
-  return prices.reverse();
-}
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Add an endpoint to check and toggle the data source
-  app.get("/api/system/data-source", (req, res) => {
-    const currentSource = stockService.isUsingPostgres() ? "postgresql" : "json";
-    res.json({ 
-      dataSource: currentSource,
-      postgresAvailable: true
-    });
-  });
-
-  app.post("/api/system/data-source", (req, res) => {
-    const { source } = req.body;
-    if (source !== "postgresql" && source !== "json") {
-      return res.status(400).json({ error: "Invalid data source. Must be 'postgresql' or 'json'" });
-    }
-    
-    stockService.setUsePostgres(source === "postgresql");
-    res.json({ 
-      success: true, 
-      dataSource: source
-    });
-  });
-  
-  // API for checking database status and configuration
-  app.get("/api/system/database-status", async (req, res) => {
-    try {
-      const connResult = await pool.query("SELECT 1 as connected");
-      
-      // Get database name and host without exposing full credentials
-      const dbHost = process.env.PGHOST || '(not set)';
-      const dbName = process.env.PGDATABASE || '(not set)';
-      const dbUser = process.env.PGUSER || '(not set)';
-      
-      // Check for stock data table
-      const stockDataResult = await pool.query(`
-        SELECT COUNT(*) as count FROM stock_data
-      `);
-      
-      // Check for news data specifically
-      const stockNewsQuery = `
-        SELECT COUNT(*) as count 
-        FROM stock_data 
-        WHERE news IS NOT NULL AND news::text <> '[]'::text
-      `;
-      
-      const newsResult = await pool.query(stockNewsQuery);
-      
-      res.json({ 
-        connected: connResult.rows[0].connected === 1,
-        database: {
-          host: dbHost.slice(0, 20) + '...', // Only show beginning of host for privacy
-          name: dbName,
-          user: dbUser.length > 10 ? dbUser.slice(0, 5) + '...' : dbUser,
-          stockRecords: parseInt(stockDataResult.rows[0].count),
-          stockRecordsWithNews: parseInt(newsResult.rows[0].count),
-          time: new Date().toISOString()
-        }
-      });
-    } catch (error) {
-      res.status(500).json({ 
-        connected: false, 
-        error: (error as Error).message,
-        database: {
-          host: process.env.PGHOST ? (process.env.PGHOST.slice(0, 20) + '...') : '(not set)',
-          name: process.env.PGDATABASE || '(not set)',
-          user: process.env.PGUSER ? 
-            (process.env.PGUSER.length > 10 ? process.env.PGUSER.slice(0, 5) + '...' : process.env.PGUSER) : 
-            '(not set)',
-          time: new Date().toISOString()
-        }
-      });
-    }
-  });
   // Set up authentication routes
   setupAuth(app);
 
@@ -957,37 +693,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[API] Getting stock data for ${normalizedSymbol}`);
       
-      // Try PostgreSQL database first
-      try {
-        const pgStockData = await postgresStockService.getStockData(normalizedSymbol);
-        if (pgStockData) {
-          console.log(`[API] Retrieved stock data for ${normalizedSymbol} from PostgreSQL`);
-          return res.json({
-            ...pgStockData,
-            dataSource: 'postgresql'
-          });
-        }
-      } catch (dbError) {
-        console.error(`[API] Error getting PostgreSQL data for ${normalizedSymbol}:`, dbError);
-      }
-      
-      // Fall back to JSON files if PostgreSQL fails or returns no data
-      console.log(`[API] PostgreSQL data not found for ${normalizedSymbol}, trying JSON files`);
+
+      // Get stock data directly from JSON files
       if (jsonStockService.fileExists(normalizedSymbol)) {
         const stockData = jsonStockService.getStockData(normalizedSymbol);
         if (stockData) {
-          console.log(`[API] Retrieved stock data for ${normalizedSymbol} from JSON`);
-          return res.json({
-            ...stockData,
-            dataSource: 'json'
-          });
+          return res.json(stockData);
         }
       }
       
-      // Return error if no data found in either source
+      // Return error if no data found
       return res.status(404).json({ 
         error: "Stock data not found", 
-        message: `No data found for symbol: ${normalizedSymbol} in PostgreSQL or JSON files` 
+        message: `No JSON file found for symbol: ${normalizedSymbol}` 
       });
     } catch (error: any) {
       console.error(`[API] Error getting stock data:`, error);
@@ -998,7 +716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Refresh cache for stock symbols
+  // Refresh cache for a specific stock symbol - Not needed for JSON files
   app.post("/api/stock/refresh-cache", async (req, res) => {
     try {
       const { symbols } = req.body;
@@ -1012,213 +730,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[API] Request to refresh cache for ${symbolsToRefresh.length} symbols: ${symbolsToRefresh.join(', ')}`);
       
-      // First try PostgreSQL refresh
-      let pgSuccess: string[] = [];
-      let pgFailures: string[] = [];
-      
-      try {
-        // For PostgreSQL we'd actually refresh the data, but for now we just query for existence
-        const result = await postgresStockService.loadStockData();
-        
-        if (result) {
-          const availableSymbols = await postgresStockService.getAvailableSymbols();
-          
-          // Check which symbols exist in the database
-          for (const symbol of symbolsToRefresh) {
-            if (availableSymbols.includes(symbol)) {
-              pgSuccess.push(symbol);
-            } else {
-              pgFailures.push(symbol);
-            }
-          }
-          
-          console.log(`[API] PostgreSQL cache check: ${pgSuccess.length} available, ${pgFailures.length} not available`);
-        }
-      } catch (dbError) {
-        console.error(`[API] Error refreshing PostgreSQL cache:`, dbError);
-        pgFailures = symbolsToRefresh; // All failed if there was a database error
-      }
-      
-      // Also check JSON files as a fallback
-      const jsonSuccess: string[] = [];
-      const jsonFailures: string[] = [];
+      // For JSON files, we just check if they exist
+
+      const success = [];
+      const failures = [];
       
       // Check each symbol to see if its JSON file exists
       for (const symbol of symbolsToRefresh) {
         if (jsonStockService.fileExists(symbol)) {
-          jsonSuccess.push(symbol);
+          success.push(symbol);
         } else {
-          jsonFailures.push(symbol);
-        }
-      }
-      
-      // Combine the results - Get unique symbols using array spread instead of Set
-      const combinedSuccess = [...pgSuccess];
-      for (const symbol of jsonSuccess) {
-        if (!combinedSuccess.includes(symbol)) {
-          combinedSuccess.push(symbol);
+          failures.push(symbol);
         }
       }
       
       res.json({
-        message: `Stock data availability check complete`,
-        postgresql: {
-          available: pgSuccess,
-          unavailable: pgFailures
-        },
-        json: {
-          available: jsonSuccess,
-          unavailable: jsonFailures
-        },
-        // For backwards compatibility
-        success: combinedSuccess,
-        failures: symbolsToRefresh.filter(s => !pgSuccess.includes(s) && !jsonSuccess.includes(s))
+        message: `JSON files found for ${success.length} symbols. Missing: ${failures.length}`,
+        success,
+        failures
       });
     } catch (error: any) {
-      console.error(`[API] Error checking stock data availability:`, error);
+      console.error(`[API] Error checking JSON files:`, error);
       res.status(500).json({ 
-        error: "Failed to check stock data", 
+        error: "Failed to check JSON files", 
         message: error.message 
       });
     }
   });
   
-  // Clear cache endpoint - Clear PostgreSQL schema cache
+  // Clear cache endpoint - Not needed for JSON files since they're read-only
   app.post("/api/stock/clear-cache", async (req, res) => {
     try {
-      console.log(`[API] Clearing stock cache requested`);
+      console.log(`[API] Clearing stock cache requested - Not implemented for JSON files`);
       
-      // For PostgreSQL we could refresh some internal cache if needed
-      let pgMessage = "PostgreSQL cache checked";
-      try {
-        await postgresStockService.loadStockData();
-        pgMessage = "PostgreSQL data cache refreshed";
-      } catch (dbError) {
-        console.error(`[API] Error clearing PostgreSQL cache:`, dbError);
-        pgMessage = "PostgreSQL cache refresh failed";
-      }
-      
+
       // For JSON files, we don't need to clear anything since they're read directly from disk
-      const jsonMessage = "JSON files are read directly from disk, no cache to clear";
-      
       res.json({
-        message: "Stock cache checked",
-        postgresql: pgMessage,
-        json: jsonMessage,
-        jsonFilesAvailable: jsonStockService.getAvailableSymbols().length
+        message: "No cache to clear with JSON files. They are read directly from disk.",
+        availableFiles: jsonStockService.getAvailableSymbols().length
+
       });
     } catch (error: any) {
       console.error(`[API] Error in clear cache endpoint:`, error);
       res.status(500).json({ 
         error: "Error processing clear cache request", 
+
         message: error.message 
       });
     }
   });
 
-  // Historical price data endpoints
+  // We are now using only JSON data files, YFinance endpoints removed
   
-  // Get stock price history for charts with customizable periods and intervals
+  // Get stock price history for charts
   app.get("/api/stock/:symbol/history", async (req, res) => {
     try {
       const symbol = req.params.symbol.toUpperCase();
-      // Get the time period from the query parameter, default to '1M'
-      const period = (req.query.period as string) || '1M';
-      const interval = (req.query.interval as string) || 'daily';
-      console.log(`[API] Getting price history for: ${symbol}, period: ${period}, interval: ${interval}`);
+      console.log(`[API] Getting price history for: ${symbol}`);
       
-      // Check if we're using PostgreSQL
-      if (stockService.isUsingPostgres()) {
-        try {
-          // Try to get price history from PostgreSQL
-          const pgPriceHistory = await pgStockService.getPriceHistory(symbol, period);
-          
-          if (pgPriceHistory && pgPriceHistory.prices) {
-            console.log(`[API] Retrieved price history for ${symbol} (${period}) from PostgreSQL`);
-            
-            // Check if prices is an array of objects with date and price
-            const areObjects = Array.isArray(pgPriceHistory.prices) && 
-                               pgPriceHistory.prices.length > 0 && 
-                               typeof pgPriceHistory.prices[0] === 'object' &&
-                               'date' in pgPriceHistory.prices[0] && 
-                               'price' in pgPriceHistory.prices[0];
-            
-            if (areObjects) {
-              // Already in the desired format
-              return res.json({
-                symbol,
-                period,
-                interval,
-                prices: pgPriceHistory.prices,  // Array of {date, price} objects
-                source: 'postgresql'
-              });
-            } else if (pgPriceHistory.dates && Array.isArray(pgPriceHistory.dates)) {
-              // Convert to array of objects
-              const dataPoints = pgPriceHistory.rawPrices.map((price: number, index: number) => ({
-                date: pgPriceHistory.dates[index],
-                price
-              }));
-              
-              return res.json({
-                symbol,
-                period,
-                interval,
-                prices: dataPoints, // Array of {date, price} objects
-                source: 'postgresql'
-              });
-            } else {
-              // Generate dates and convert to array of objects
-              const dates = generateDateLabels(period, pgPriceHistory.prices.length);
-              const dataPoints = pgPriceHistory.prices.map((price: number, index: number) => ({
-                date: dates[index],
-                price
-              }));
-              
-              return res.json({
-                symbol,
-                period,
-                interval,
-                prices: dataPoints, // Array of {date, price} objects
-                source: 'postgresql'
-              });
-            }
-          }
-        } catch (dbError) {
-          console.error(`[API] Error getting PostgreSQL price history for ${symbol}:`, dbError);
-        }
-      }
-      
-      // Fall back to JSON files if PostgreSQL fails or returns no data
-      console.log(`[API] PostgreSQL price history not found for ${symbol}, trying JSON files`);
+      // Get data from JSON files
+      const { jsonStockService } = await import('./services/json-stock-service');
       
       if (jsonStockService.fileExists(symbol)) {
         const stockData = jsonStockService.getStockData(symbol);
         
-        if (stockData) {
-          console.log(`[API] Retrieved stock data for ${symbol} from JSON`);
-          
-          // Generate realistic price history data instead of random points
-          const prices = generateRealisticPriceHistory(stockData.price, period, 50);
-          const dates = generateDateLabels(period, prices.length);
-          
+        if (stockData && stockData.history && stockData.history.length > 0) {
           return res.json({
             symbol,
-            period,
-            interval,
-            prices: prices,
-            dates: dates,
-            source: 'generated'
+            history: stockData.history,
+            source: 'json'
           });
         }
       }
       
-      // If neither database nor JSON file has history data, return an error
+      // If JSON file doesn't exist or no history data, return an error
       return res.status(404).json({ 
-        error: "No price history available", 
-        message: `No price history found for symbol: ${symbol} (${period}) in PostgreSQL or JSON files` 
+        error: "No history data available", 
+        message: `No JSON file found for symbol: ${symbol}` 
       });
     } catch (error: any) {
-      console.error(`[API] Error in price history endpoint:`, error);
+      console.error(`[API] Error getting price history:`, error);
       res.status(500).json({ 
         error: "Failed to fetch price history", 
         message: error.message 
@@ -1226,681 +817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get historical data for multiple time periods in a single request
-  app.get("/api/historical/:ticker/periods", async (req, res) => {
-    try {
-      const ticker = req.params.ticker.toUpperCase();
-      console.log(`[API] Getting sectioned historical data for: ${ticker}`);
-      
-      // Define the periods we want to get
-      const periods = ['1d', '1w', '1m', '6m', '1y', '5y'];
-      const result: Record<string, any> = {};
-      
-      // Check if we're using PostgreSQL
-      if (stockService.isUsingPostgres()) {
-        for (const period of periods) {
-          try {
-            // Try to get price history from PostgreSQL for each period
-            const pgPriceHistory = await pgStockService.getPriceHistory(ticker, period);
-            
-            if (pgPriceHistory && pgPriceHistory.prices) {
-              result[period] = {
-                prices: pgPriceHistory.prices,
-                dates: pgPriceHistory.dates || generateDateLabels(period, pgPriceHistory.prices.length),
-                source: 'postgresql'
-              };
-            } else {
-              // If not found in PostgreSQL, generate realistic data
-              const prices = generateRealisticPriceHistory(
-                await getCurrentPrice(ticker), 
-                period, 
-                getPeriodDataPoints(period)
-              );
-              
-              result[period] = {
-                prices: prices,
-                dates: generateDateLabels(period, prices.length),
-                source: 'generated'
-              };
-            }
-          } catch (dbError) {
-            console.error(`[API] Error getting PostgreSQL price history for ${ticker} (${period}):`, dbError);
-            // Generate fallback data on error
-            const prices = generateRealisticPriceHistory(
-              await getCurrentPrice(ticker), 
-              period, 
-              getPeriodDataPoints(period)
-            );
-            
-            result[period] = {
-              prices: prices,
-              dates: generateDateLabels(period, prices.length),
-              source: 'generated'
-            };
-          }
-        }
-      } else {
-        // If we're not using PostgreSQL, generate realistic data for all periods
-        for (const period of periods) {
-          const prices = generateRealisticPriceHistory(
-            await getCurrentPrice(ticker), 
-            period, 
-            getPeriodDataPoints(period)
-          );
-          
-          result[period] = {
-            prices: prices,
-            dates: generateDateLabels(period, prices.length),
-            source: 'generated'
-          };
-        }
-      }
-      
-      return res.json({
-        symbol: ticker,
-        periods: result
-      });
-    } catch (error: any) {
-      console.error(`[API] Error in historical periods endpoint:`, error);
-      res.status(500).json({
-        error: "Failed to fetch historical periods data",
-        message: error.message
-      });
-    }
-  });
-  
-  // Get historical data with customizable time periods and intervals
-  app.get("/api/historical/:ticker", async (req, res) => {
-    try {
-      const ticker = req.params.ticker.toUpperCase();
-      const period = (req.query.period as string) || '1m';
-      const interval = (req.query.interval as string) || 'daily';
-      
-      console.log(`[API] Getting historical data for: ${ticker}, period: ${period}, interval: ${interval}`);
-      
-      // Check if we're using PostgreSQL
-      if (stockService.isUsingPostgres()) {
-        try {
-          // Try to get price history from PostgreSQL
-          const pgPriceHistory = await pgStockService.getPriceHistory(ticker, period);
-          
-          if (pgPriceHistory && pgPriceHistory.prices) {
-            console.log(`[API] Retrieved historical data for ${ticker} (${period}) from PostgreSQL`);
-            
-            // Determine if the prices are already in the desired format
-            const areObjectsWithDateAndPrice = 
-              Array.isArray(pgPriceHistory.prices) && 
-              pgPriceHistory.prices.length > 0 && 
-              typeof pgPriceHistory.prices[0] === 'object' &&
-              'date' in pgPriceHistory.prices[0] && 
-              'price' in pgPriceHistory.prices[0];
-            
-            if (areObjectsWithDateAndPrice) {
-              // Already in the desired format, just return as is
-              return res.json({
-                symbol: ticker,
-                period: period,
-                interval: interval,
-                prices: pgPriceHistory.prices,
-                source: 'postgresql'
-              });
-            } else if (pgPriceHistory.rawPrices && pgPriceHistory.dates) {
-              // We have separate arrays for prices and dates, so use our dataPoints
-              return res.json({
-                symbol: ticker,
-                period: period,
-                interval: interval,
-                prices: pgPriceHistory.prices, // This should now be array of {date, price} objects
-                source: 'postgresql'
-              });
-            } else {
-              // We only have an array of prices, so generate dates
-              const generatedDates = generateDateLabels(period, pgPriceHistory.prices.length);
-              
-              // Convert to array of objects with date and price
-              const priceObjects = pgPriceHistory.prices.map((price: number, index: number) => ({
-                date: generatedDates[index],
-                price: price
-              }));
-              
-              return res.json({
-                symbol: ticker,
-                period: period,
-                interval: interval,
-                prices: priceObjects,
-                source: 'postgresql'
-              });
-            }
-          }
-        } catch (dbError) {
-          console.error(`[API] Error getting PostgreSQL historical data for ${ticker}:`, dbError);
-        }
-      }
-      
-      // Return error if data not found in PostgreSQL - no more generated data
-      console.error(`[API] No historical price data available for ${ticker} (${period})`);
-      return res.status(404).json({
-        error: "Historical data not found",
-        message: `No historical price data available for ${ticker} with period ${period}`,
-        symbol: ticker,
-        period: period
-      });
-    } catch (error: any) {
-      console.error(`[API] Error in historical data endpoint:`, error);
-      res.status(500).json({
-        error: "Failed to fetch historical data",
-        message: error.message
-      });
-    }
-  });
-  
-  // New API endpoint for simplified historical data fetch
-  app.get("/api/historical/:symbol", async (req, res) => {
-    try {
-      const symbol = req.params.symbol.toUpperCase();
-      // Get the time period from the query parameter, default to '1M'
-      // Normalize period to uppercase for consistency
-      const period = ((req.query.period as string) || '1M').toUpperCase();
-      const interval = (req.query.interval as string) || 'daily';
-      console.log(`[API] Getting historical data for: ${symbol}, period: ${period}, interval: ${interval}`);
-      
-      // If using PostgreSQL, get the data from there
-      if (stockService.isUsingPostgres()) {
-        try {
-          // Try to get price history from PostgreSQL
-          const pgPriceHistory = await pgStockService.getPriceHistory(symbol, period);
-          
-          if (pgPriceHistory && pgPriceHistory.prices) {
-            console.log(`[API] Retrieved historical data for ${symbol} (${period}) from PostgreSQL`);
-            
-            // Log data structure for debugging
-            if (pgPriceHistory.prices.length > 0) {
-              console.log(`[API] Data structure sample: `, 
-                typeof pgPriceHistory.prices[0], 
-                pgPriceHistory.prices.slice(0, 2)
-              );
-            }
-            
-            // Format the response consistently
-            return res.json({
-              symbol,
-              period,
-              interval,
-              source: "PostgreSQL Database",
-              prices: pgPriceHistory.prices // This should already be an array of {date, price} objects
-            });
-          }
-        } catch (pgError) {
-          console.error(`[API] PostgreSQL error for ${symbol}:`, pgError);
-        }
-      }
-      
-      // If we couldn't get data from PostgreSQL or it's not enabled, use JSON fallback
-      try {
-        const stockData = jsonStockService.getStockData(symbol);
-        if (stockData && stockData.price) {
-          // Generate some price points if we got the stock data
-          const currentPrice = stockData.price;
-          const dataPoints = getPeriodDataPoints(period);
-          const prices = generateRealisticPriceHistory(currentPrice, period, dataPoints);
-          
-          // Generate formatted date labels
-          const dates = generateDateLabels(period, dataPoints);
-          
-          // Format into a simple array of objects with date and price
-          const formattedPrices = dates.map((date, i) => ({
-            // Format date to MM/DD format for better chart display
-            date: date.split('-').slice(1).join('/'),
-            price: parseFloat(prices[i].toFixed(2)) // Ensure price is a number with 2 decimal places
-          }));
-          
-          console.log(`[API] Using JSON fallback data for ${symbol} (${period}), sample:`, formattedPrices.slice(0, 2));
-          
-          return res.json({
-            symbol,
-            period,
-            interval,
-            source: "JSON files (generated data)",
-            prices: formattedPrices
-          });
-        }
-      } catch (jsonError) {
-        console.error(`[API] JSON fallback error for ${symbol}:`, jsonError);
-      }
-      
-      // If we still don't have data, return an error
-      return res.status(404).json({
-        error: "Historical data not found",
-        message: `No historical data available for ${symbol} with period ${period}`,
-        symbol,
-        period
-      });
-    } catch (error: any) {
-      console.error(`[API] Error in historical data endpoint:`, error);
-      res.status(500).json({
-        error: "Failed to fetch historical data",
-        message: error.message
-      });
-    }
-  });
-  
   // No longer generating mock history data - using real JSON data only
-  
-  // New endpoint to get all available periods for a stock
-  app.get("/api/stock/:symbol/available-periods", async (req, res) => {
-    try {
-      const symbol = req.params.symbol.toUpperCase();
-      console.log(`[API] Getting available periods for: ${symbol}`);
-      
-      // If using PostgreSQL, check if we have data for this stock
-      if (stockService.isUsingPostgres()) {
-        try {
-          const result = await pool.query(`
-            SELECT closing_history 
-            FROM stock_data 
-            WHERE ticker = $1
-          `, [symbol]);
-          
-          if (result.rows.length > 0 && result.rows[0].closing_history) {
-            // Parse the closing_history JSON
-            let history = result.rows[0].closing_history;
-            if (typeof history === 'string') {
-              try {
-                history = JSON.parse(history);
-              } catch (e) {
-                console.warn(`Error parsing closing_history JSON for ${symbol}:`, e);
-              }
-            }
-            
-            // Check if this is a columnar format (with Date and Close arrays)
-            if (history && history.Date && Array.isArray(history.Date) && history.Close && Array.isArray(history.Close)) {
-              // We have date and price data, so we can support standard periods
-              const standardPeriods = ['1D', '5D', '1W', '1M', '3M', '6M', '1Y', '5Y'];
-              
-              // Only include periods that we have enough data for
-              const dataPoints = history.Date.length;
-              const availablePeriods = standardPeriods.filter(period => {
-                let requiredPoints = 0;
-                switch(period) {
-                  case '1D': requiredPoints = 1; break;
-                  case '5D': requiredPoints = 5; break;
-                  case '1W': requiredPoints = 7; break;
-                  case '1M': requiredPoints = 20; break;
-                  case '3M': requiredPoints = 60; break;
-                  case '6M': requiredPoints = 120; break;
-                  case '1Y': requiredPoints = 250; break;
-                  case '5Y': requiredPoints = 1250; break;
-                  default: requiredPoints = 0;
-                }
-                return dataPoints >= requiredPoints;
-              });
-              
-              return res.json({
-                symbol,
-                availablePeriods,
-                source: 'postgresql',
-                dataPoints
-              });
-            } else {
-              // Old format with period-specific data
-              const availablePeriods = Object.keys(history || {});
-              
-              return res.json({
-                symbol,
-                availablePeriods,
-                source: 'postgresql'
-              });
-            }
-          }
-        } catch (dbError) {
-          console.error(`[API] Error getting available periods for ${symbol}:`, dbError);
-        }
-      }
-      
-      // Fall back to a standard set of periods for JSON data
-      return res.json({
-        symbol,
-        availablePeriods: ['5D', '1W', '1M', '3M', '6M', '1Y', '5Y'],
-        source: 'default'
-      });
-    } catch (error: any) {
-      console.error(`[API] Error in available periods endpoint:`, error);
-      return res.status(500).json({
-        error: "Failed to fetch available periods", 
-        message: error.message,
-        symbol: req.params.symbol
-      });
-    }
-  });
-
-  // Stock News API Endpoints
-  app.get("/api/stocks/:symbol/news", async (req, res) => {
-    try {
-      const symbol = req.params.symbol.toUpperCase();
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
-      
-      const newsItems = await stockNewsService.getNewsForStock(symbol, limit);
-      res.json(newsItems);
-    } catch (error: any) {
-      console.error(`Error fetching news for ${req.params.symbol}:`, error);
-      res.status(500).json({
-        error: "Failed to fetch news data",
-        message: error.message
-      });
-    }
-  });
-  
-  // Stock News API Endpoint with columnar format
-  app.get("/api/pg/stock/:ticker/news", async (req, res) => {
-    try {
-      const ticker = req.params.ticker.toUpperCase();
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      
-      const result = await stockNewsService.getNewsForStockColumnar(ticker, limit);
-      res.json(result);
-    } catch (error: any) {
-      console.error(`Error fetching columnar news for ${req.params.ticker}:`, error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to fetch news data",
-        message: error.message
-      });
-    }
-  });
-  
-  // Get analyst recommendations for a stock
-  app.get("/api/pg/stock/:ticker/recommendations", async (req, res) => {
-    try {
-      const ticker = req.params.ticker.toUpperCase();
-      
-      const result = await pgStockService.getRecommendations(ticker);
-      if (result) {
-        res.json(result);
-      } else {
-        res.status(404).json({
-          success: false,
-          error: "No recommendations found for this stock",
-          message: `No recommendations data available for ${ticker}`
-        });
-      }
-    } catch (error: any) {
-      console.error(`Error fetching recommendations for ${req.params.ticker}:`, error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to fetch recommendations data",
-        message: error.message
-      });
-    }
-  });
-  
-  // Get raw stock metrics from PostgreSQL
-  app.get("/api/pg/stock/:ticker/metrics", async (req, res) => {
-    try {
-      const ticker = req.params.ticker.toUpperCase();
-      console.log(`[API] Getting raw metrics for ${ticker} from PostgreSQL`);
-      
-      // Get the stock data using our service
-      const stockResult = await postgresStockService.getStockData(ticker);
-      
-      if (!stockResult) {
-        return res.status(404).json({ 
-          success: false,
-          error: "Stock not found", 
-          message: `No stock found with symbol ${ticker} in PostgreSQL database`
-        });
-      }
-      
-      // Extract metrics from the stock data
-      const metrics = stockResult.metrics || {};
-      
-      // Format metrics response
-      const response = {
-        success: true,
-        data: {
-          ticker: ticker,
-          metrics: metrics
-        }
-      };
-      
-      res.json(response);
-    } catch (error: any) {
-      console.error(`[API] Error fetching metrics for ${req.params.ticker}:`, error);
-      res.status(500).json({ 
-        success: false,
-        error: "Failed to fetch stock metrics", 
-        message: error.message 
-      });
-    }
-  });
-  
-  // Get ESG data from PostgreSQL
-  app.get("/api/pg/stock/:symbol/esg-data", async (req, res) => {
-    try {
-      const symbol = req.params.symbol.toUpperCase();
-      console.log(`[API] Getting ESG data for ${symbol} from PostgreSQL`);
-      
-      // Get the stock data using our service
-      const stockResult = await postgresStockService.getStockData(symbol);
-      
-      if (!stockResult) {
-        return res.status(404).json({ 
-          success: false,
-          error: "Stock not found", 
-          message: `No stock found with symbol ${symbol} in PostgreSQL database`
-        });
-      }
-      
-      // Generate ESG data based on stock metrics and other factors
-      // In a real implementation, this would come from the database
-      const metrics = stockResult.metrics || {};
-      
-      // Use metrics to calculate ESG scores
-      const calculateEnvironmentalScore = (metrics: any) => {
-        // Base calculation on emissions, renewable energy usage, waste management
-        const base = 55; // Base score
-        let score = base;
-        
-        // Add points for low carbon footprint (using beta as proxy)
-        if (metrics.beta && metrics.beta < 1.0) score += 10;
-        
-        // Add points for industry (tech tends to have better environmental scores than oil/gas)
-        if (stockResult.industry?.toLowerCase().includes('tech')) score += 10;
-        if (stockResult.industry?.toLowerCase().includes('clean') || 
-            stockResult.industry?.toLowerCase().includes('green')) score += 15;
-        if (stockResult.industry?.toLowerCase().includes('renewable')) score += 15;
-            
-        // Subtract points for certain industries
-        if (stockResult.industry?.toLowerCase().includes('oil') || 
-            stockResult.industry?.toLowerCase().includes('gas') ||
-            stockResult.industry?.toLowerCase().includes('coal')) score -= 25;
-        
-        // Use the tick and hash of the symbol to add some variability
-        const hash = symbol.charCodeAt(0) + (symbol.length > 1 ? symbol.charCodeAt(1) : 0);
-        const variance = (hash % 20) - 10; // -10 to +10 variance
-        
-        score += variance;
-        
-        // Ensure within bounds
-        return Math.min(Math.max(Math.round(score), 20), 95);
-      };
-      
-      const calculateSocialScore = (metrics: any) => {
-        // Base calculation on labor practices, community relations, diversity
-        const base = 60; // Base score
-        let score = base;
-        
-        // Add points for social factors based on industry
-        if (stockResult.industry?.toLowerCase().includes('health') || 
-            stockResult.industry?.toLowerCase().includes('education')) score += 15;
-            
-        // Use ROE and profit margins as proxy for how well company treats employees
-        if (metrics.returnOnEquity > 20) score += 8;
-        if (metrics.profitMargin > 15) score += 7;
-        
-        // Use the tick and hash of the symbol to add some variability
-        const hash = symbol.charCodeAt(0) + (symbol.length > 1 ? symbol.charCodeAt(1) * 2 : 0);
-        const variance = (hash % 24) - 12; // -12 to +12 variance
-        
-        score += variance;
-        
-        // Ensure within bounds
-        return Math.min(Math.max(Math.round(score), 20), 95);
-      };
-      
-      const calculateGovernanceScore = (metrics: any) => {
-        // Base calculation on board independence, executive compensation, audit practices
-        const base = 65; // Base score
-        let score = base;
-        
-        // Companies with higher profit margins tend to have better governance
-        if (metrics.profitMargin > 20) score += 10;
-        
-        // Companies with lower debt likely have better governance
-        if (metrics.debtToEquity && metrics.debtToEquity < 0.5) score += 8;
-        
-        // Use the tick and hash of the symbol to add some variability
-        const hash = symbol.charCodeAt(0) * 3 + (symbol.length > 1 ? symbol.charCodeAt(symbol.length-1) : 0);
-        const variance = (hash % 18) - 9; // -9 to +9 variance
-        
-        score += variance;
-        
-        // Ensure within bounds
-        return Math.min(Math.max(Math.round(score), 20), 95);
-      };
-      
-      const environmentalScore = calculateEnvironmentalScore(metrics);
-      const socialScore = calculateSocialScore(metrics);
-      const governanceScore = calculateGovernanceScore(metrics);
-      
-      // Calculate overall ESG score (weighted average)
-      const esgScore = Math.round(
-        (environmentalScore * 0.4) + (socialScore * 0.3) + (governanceScore * 0.3)
-      );
-      
-      // Determine risk levels based on scores
-      const determineRiskLevel = (score: number) => {
-        if (score >= 70) return 'Low';
-        if (score >= 50) return 'Medium';
-        return 'High';
-      };
-      
-      const controversyLevel = Math.min(
-        Math.max(Math.round(5 - (esgScore / 20)), 1), 5
-      );
-      
-      // Format ESG response
-      const response = {
-        success: true,
-        data: {
-          esgScore,
-          environmentalScore,
-          socialScore,
-          governanceScore,
-          controversyLevel,
-          managementRisk: determineRiskLevel(governanceScore),
-          boardRisk: determineRiskLevel(governanceScore - 5 + (symbol.length % 10)),
-          auditRisk: determineRiskLevel(governanceScore + 5 - (symbol.charCodeAt(0) % 15)),
-          compensationRisk: determineRiskLevel(socialScore)
-        }
-      };
-      
-      res.json(response);
-    } catch (error: any) {
-      console.error(`[API] Error generating ESG data for ${req.params.symbol}:`, error);
-      res.status(500).json({ 
-        success: false,
-        error: "Failed to generate ESG data", 
-        message: error.message 
-      });
-    }
-  });
-  
-  // Get major holders data from PostgreSQL
-  app.get("/api/pg/stock/:symbol/major-holders", async (req, res) => {
-    try {
-      const symbol = req.params.symbol.toUpperCase();
-      console.log(`[API] Getting major holders for ${symbol} from PostgreSQL`);
-      
-      // Get the major holders data using our ownership service
-      const majorHolders = await ownershipService.getMajorHolders(symbol);
-      
-      if (!majorHolders) {
-        return res.status(404).json({ 
-          success: false,
-          error: "Major holders data not found", 
-          message: `No major holders data found for symbol ${symbol} in PostgreSQL database`
-        });
-      }
-      
-      // Return the data
-      res.json({
-        success: true,
-        data: majorHolders
-      });
-    } catch (error: any) {
-      console.error(`[API] Error fetching major holders for ${req.params.symbol}:`, error);
-      res.status(500).json({ 
-        success: false,
-        error: "Failed to fetch major holders data", 
-        message: error.message 
-      });
-    }
-  });
-  
-  // Get institutional holders data from PostgreSQL
-  app.get("/api/pg/stock/:symbol/institutional-holders", async (req, res) => {
-    try {
-      const symbol = req.params.symbol.toUpperCase();
-      console.log(`[API] Getting institutional holders for ${symbol} from PostgreSQL`);
-      
-      // Get the institutional holders data using our ownership service
-      const institutionalHolders = await ownershipService.getInstitutionalHolders(symbol);
-      
-      if (!institutionalHolders) {
-        return res.status(404).json({ 
-          success: false,
-          error: "Institutional holders data not found", 
-          message: `No institutional holders data found for symbol ${symbol} in PostgreSQL database`
-        });
-      }
-      
-      // Return the data
-      res.json({
-        success: true,
-        data: institutionalHolders
-      });
-    } catch (error: any) {
-      console.error(`[API] Error fetching institutional holders for ${req.params.symbol}:`, error);
-      res.status(500).json({ 
-        success: false,
-        error: "Failed to fetch institutional holders data", 
-        message: error.message 
-      });
-    }
-  });
-  
-  // Stock News Analysis API Endpoint
-  app.post("/api/stocks/news/analyze", async (req, res) => {
-    try {
-      const { ticker, title, summary } = req.body;
-      
-      if (!ticker || !title || !summary) {
-        return res.status(400).json({
-          error: "Missing required fields",
-          message: "ticker, title, and summary are required"
-        });
-      }
-      
-      const analysis = await stockNewsService.analyzeNewsImpact(ticker, title, summary);
-      res.json({ analysis });
-    } catch (error: any) {
-      console.error("Error analyzing news impact:", error);
-      res.status(500).json({
-        error: "Failed to analyze news impact",
-        message: error.message
-      });
-    }
-  });
 
   const httpServer = createServer(app);
   return httpServer;

@@ -4,8 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { StockData, getIndustryStocks } from "@/lib/stock-data";
 import StockChart from "@/components/stock-detail/stock-chart";
-import { StockNews } from "@/components/stock-detail/stock-news";
-import { AnalystRecommendations } from "@/components/stock-detail/analyst-recommendations";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import OverallAnalysisCard from "@/components/overall-analysis-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -135,7 +133,7 @@ export default function StockDetailView() {
               <h2 className="text-lg font-semibold">Company Overview</h2>
             </div>
             <div className="p-4">
-              <p className="text-gray-700">{stock.synopsis?.company || 'No company description available.'}</p>
+              <p className="text-gray-700">{stock.synopsis.company}</p>
               {stock.overallAnalysis && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-md">
                   <h3 className="font-medium text-gray-900 mb-2">Analysis</h3>
@@ -144,9 +142,6 @@ export default function StockDetailView() {
               )}
             </div>
           </div>
-          
-          {/* News section */}
-          <StockNews symbol={stock.ticker} />
         </div>
         
         {/* Right column with metrics and related info */}
@@ -157,72 +152,54 @@ export default function StockDetailView() {
               <h2 className="text-lg font-semibold">Key Metrics</h2>
             </div>
             <div className="p-4 grid grid-cols-2 gap-4">
-              {stock.metrics?.performance && (
-                <div>
-                  <p className="text-sm text-gray-500">Performance</p>
-                  <p className={`text-lg font-medium ${
-                    stock.metrics.performance.color === 'green' ? 'text-green-600' : 
-                    stock.metrics.performance.color === 'yellow' ? 'text-amber-600' : 'text-red-600'
-                  }`}>
-                    {stock.metrics.performance.value}
-                  </p>
-                </div>
-              )}
-              {stock.metrics?.stability && (
-                <div>
-                  <p className="text-sm text-gray-500">Stability</p>
-                  <p className={`text-lg font-medium ${
-                    stock.metrics.stability.color === 'green' ? 'text-green-600' : 
-                    stock.metrics.stability.color === 'yellow' ? 'text-amber-600' : 'text-red-600'
-                  }`}>
-                    {stock.metrics.stability.value}
-                  </p>
-                </div>
-              )}
-              {stock.metrics?.value && (
-                <div>
-                  <p className="text-sm text-gray-500">Value</p>
-                  <p className={`text-lg font-medium ${
-                    stock.metrics.value.color === 'green' ? 'text-green-600' : 
-                    stock.metrics.value.color === 'yellow' ? 'text-amber-600' : 'text-red-600'
-                  }`}>
-                    {stock.metrics.value.value}
-                  </p>
-                </div>
-              )}
-              {stock.metrics?.momentum && (
-                <div>
-                  <p className="text-sm text-gray-500">Momentum</p>
-                  <p className={`text-lg font-medium ${
-                    stock.metrics.momentum.color === 'green' ? 'text-green-600' : 
-                    stock.metrics.momentum.color === 'yellow' ? 'text-amber-600' : 'text-red-600'
-                  }`}>
-                    {stock.metrics.momentum.value}
-                  </p>
-                </div>
-              )}
+              <div>
+                <p className="text-sm text-gray-500">Performance</p>
+                <p className={`text-lg font-medium ${
+                  stock.metrics.performance.color === 'green' ? 'text-green-600' : 
+                  stock.metrics.performance.color === 'yellow' ? 'text-amber-600' : 'text-red-600'
+                }`}>
+                  {stock.metrics.performance.value}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Stability</p>
+                <p className={`text-lg font-medium ${
+                  stock.metrics.stability.color === 'green' ? 'text-green-600' : 
+                  stock.metrics.stability.color === 'yellow' ? 'text-amber-600' : 'text-red-600'
+                }`}>
+                  {stock.metrics.stability.value}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Value</p>
+                <p className={`text-lg font-medium ${
+                  stock.metrics.value.color === 'green' ? 'text-green-600' : 
+                  stock.metrics.value.color === 'yellow' ? 'text-amber-600' : 'text-red-600'
+                }`}>
+                  {stock.metrics.value.value}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Momentum</p>
+                <p className={`text-lg font-medium ${
+                  stock.metrics.momentum.color === 'green' ? 'text-green-600' : 
+                  stock.metrics.momentum.color === 'yellow' ? 'text-amber-600' : 'text-red-600'
+                }`}>
+                  {stock.metrics.momentum.value}
+                </p>
+              </div>
             </div>
           </div>
           
-          {/* Analyst recommendations */}
-          <AnalystRecommendations 
-            symbol={stock.ticker} 
-            recommendations={stock.recommendations} 
-            priceTarget={stock.priceTarget}
-            currentPrice={stock.price}
-          />
-
           {/* Comparative analysis card */}
-          {stock.industry && (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="p-4 border-b">
-                <h2 className="text-lg font-semibold">Industry Comparison</h2>
-              </div>
-              <div className="p-4">
-                <ComparativeAnalysis currentStock={stock} />
-              </div>
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="p-4 border-b">
+              <h2 className="text-lg font-semibold">Industry Comparison</h2>
             </div>
-          )}
+            <div className="p-4">
+              <ComparativeAnalysis currentStock={stock} />
+            </div>
+          </div>
           
           {/* Add to portfolio button */}
           <button 

@@ -1,20 +1,6 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Link } from "wouter";
-import { StockData, fetchStockMetrics, formatMetricsFromDatabase } from "@/lib/stock-data";
-
-// Define metric type to satisfy TypeScript
-interface MetricObject {
-  value: string | number;
-  color: "green" | "yellow" | "red";
-  details: any;
-  explanation: string;
-}
-
-// Define metrics structure in StockData
-interface Metrics {
-  [key: string]: MetricObject;
-}
-import { useQuery } from "@tanstack/react-query";
+import { StockData } from "@/lib/stock-data";
 import {
   Info,
   ChevronLeft,
@@ -22,7 +8,6 @@ import {
   RefreshCw,
   DollarSign,
   TrendingUp,
-  TrendingDown,
   Shield,
   Zap,
   MessageCircle,
@@ -36,16 +21,10 @@ import {
 } from "lucide-react";
 import { motion, useAnimation, useMotionValue, useTransform, PanInfo, AnimationControls } from "framer-motion";
 import OverallAnalysisCard from "@/components/overall-analysis-card";
-
-import { AnalystRecommendations } from "@/components/stock-detail/analyst-recommendations";
-import { ModernAnalystRating } from "@/components/stock-detail/modern-analyst-rating";
-import { SwipeableNews } from "@/components/stock-detail/swipeable-news";
-import { ManagementSection } from "@/components/stock-detail/management-section";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/components/ui/skeleton"; // Keep if used, else remove
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import AskAI from "./ask-ai";
-import { StockCardNews } from "./stock-card-news";
-import { getIndustryAverages } from "@/lib/industry-data";
+import { getIndustryAverages } from "@/lib/industry-data"; // Keep if needed for metric data preparation
 
 
 // Define Metric structure used in handleMetricClick callback
@@ -69,10 +48,21 @@ interface StockCardProps {
   x?: ReturnType<typeof useMotionValue<number>>; // Optional motion value from parent
 }
 
-type TimeFrame = "1D" | "5D" | "1M" | "3M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX" | "1W";
+type TimeFrame = "1D" | "5D" | "1M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX";
 
-// Helper functions (getTimeScaleLabels, getIndustryAverageData)
-// Note: generateTimeBasedData removed - we now only use real data from PostgreSQL
+// Helper functions (generateTimeBasedData, getTimeScaleLabels, getIndustryAverageData)
+const generateTimeBasedData = (data: number[], timeFrame: TimeFrame) => {
+  switch(timeFrame) {
+    case "1D": return data.map((point, i) => point * (1 + Math.sin(i * 0.5) * 0.03));
+    case "5D": return data.map((point, i) => point * (1 + Math.sin(i * 0.3) * 0.05));
+    case "1M": return data;
+    case "6M": return data.map((point, i) => point * (1 + (i/data.length) * 0.1));
+    case "1Y": return data.map((point, i) => point * (1 + Math.sin(i * 0.2) * 0.08 + (i/data.length) * 0.15));
+    case "5Y": return data.map((point, i) => point * (1 + Math.sin(i * 0.1) * 0.12 + (i/data.length) * 0.3));
+    case "MAX": return data.map((point, i) => point * (1 + Math.sin(i * 0.05) * 0.15 + (i/data.length) * 0.5));
+    default: return data;
+  }
+};
 const getTimeScaleLabels = (timeFrame: TimeFrame): string[] => {
   switch(timeFrame) {
     case "1D": return ["9:30", "11:00", "12:30", "14:00", "15:30", "16:00"];
@@ -85,76 +75,6 @@ const getTimeScaleLabels = (timeFrame: TimeFrame): string[] => {
     case "MAX": return ["2015", "2017", "2019", "2021", "2023"];
     default: return ["9:30", "11:00", "12:30", "14:00", "15:30", "16:00"];
   }
-};
-
-// Function to format date labels based on the timeframe
-const getDisplayDates = (dates: string[], timeFrame: TimeFrame): string[] => {
-  if (!dates.length) return [];
-  
-  // Display different formats based on timeframe
-  const formatDate = (dateStr: string): string => {
-    // If dateStr is in MM/DD format, just return it directly
-    if (/^\d{2}\/\d{2}$/.test(dateStr)) {
-      return dateStr;
-    }
-    
-    // Otherwise try to parse as a full date
-    try {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) {
-        // If date is invalid, return the original string
-        return dateStr;
-      }
-      
-      switch (timeFrame) {
-        case "5D":
-        case "1W":
-          // Show day of week for short periods
-          return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(date);
-        case "1M":
-          // Show day and month for a month
-          return new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(date);
-        case "3M":
-        case "6M":
-          // Show month for medium periods
-          return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
-        case "1Y":
-          // Show month for a year
-          return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
-        case "5Y":
-          // Show year for long periods
-          return new Intl.DateTimeFormat('en-US', { year: 'numeric' }).format(date);
-        default:
-          return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
-      }
-    } catch (error) {
-      console.log(`[Chart] Error formatting date: ${dateStr}`, error);
-      return dateStr;
-    }
-  };
-  
-  // Select evenly spaced dates to display (max 6 labels)
-  const displayCount = Math.min(6, dates.length);
-  const step = Math.max(1, Math.floor(dates.length / displayCount));
-  
-  const result: string[] = [];
-  
-  // Always include first date
-  if (dates.length > 0) {
-    result.push(formatDate(dates[0]));
-  }
-  
-  // Add middle dates at even intervals
-  for (let i = step; i < dates.length - step; i += step) {
-    result.push(formatDate(dates[i]));
-  }
-  
-  // Always include last date
-  if (dates.length > 1) {
-    result.push(formatDate(dates[dates.length - 1]));
-  }
-  
-  return result;
 };
 const getIndustryAverageData = (stock: StockData, metricType: string) => {
   const industryAvgs = getIndustryAverages(stock.industry);
@@ -188,17 +108,6 @@ const getIndustryAverageData = (stock: StockData, metricType: string) => {
   return [];
 };
 
-// Add CSS to hide scrollbars while preserving scroll functionality
-const scrollbarHidingCSS = `
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-`;
-
 export default function StockCard({
   stock,
   onNext,
@@ -225,285 +134,25 @@ export default function StockCard({
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Internal state for UI ONLY within the card
-  const [timeFrame, setTimeFrame] = useState<TimeFrame>("1M");
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>("1D");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [availablePeriods, setAvailablePeriods] = useState<string[]>([]);
-  
-  // Fetch available periods for the stock
-  const periodsQuery = useQuery({
-    queryKey: ['/api/stock/available-periods', stock.ticker],
-    queryFn: async () => {
-      try {
-        const response = await fetch(`/api/stock/${stock.ticker}/available-periods`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch available periods for ${stock.ticker}`);
-        }
-        return response.json();
-      } catch (error) {
-        console.error('Error fetching available periods:', error);
-        return { availablePeriods: ['5D', '1W', '1M', '3M', '6M', '1Y', '5Y'] };
-      }
-    },
-    staleTime: 60 * 1000, // 1 minute
-  });
-  
-  // Set available periods when data is received
-  useEffect(() => {
-    if (periodsQuery.data?.availablePeriods) {
-      setAvailablePeriods(periodsQuery.data.availablePeriods);
-      
-      // If the current timeFrame isn't available, set it to the first available one
-      if (periodsQuery.data.availablePeriods.includes('1M')) {
-        setTimeFrame('1M');
-      } else if (periodsQuery.data.availablePeriods.length > 0) {
-        // Filter out non-timeframe keys like "last_update"
-        const validPeriods = periodsQuery.data.availablePeriods.filter((p: string) => 
-          ['1D', '5D', '1W', '1M', '3M', '6M', '1Y', '5Y'].includes(p)
-        );
-        if (validPeriods.length > 0) {
-          setTimeFrame(validPeriods[0] as TimeFrame);
-        }
-      }
-    }
-  }, [periodsQuery.data]);
-  
-  // Fetch price history data using the new historical endpoint
-  const historyQuery = useQuery({
-    queryKey: ['/api/historical', stock.ticker, timeFrame],
-    queryFn: async () => {
-      try {
-        // Try the new historical endpoint first - normalize period to uppercase for consistency
-        const normalizedTimeFrame = timeFrame.toUpperCase();
-        const response = await fetch(`/api/historical/${stock.ticker}?period=${normalizedTimeFrame}&interval=daily`);
-        
-        if (!response.ok) {
-          // If that fails, try the old endpoint as fallback
-          console.warn(`New historical endpoint failed for ${stock.ticker}, trying fallback`);
-          const fallbackResponse = await fetch(`/api/stock/${stock.ticker}/history?period=${normalizedTimeFrame}`);
-          if (!fallbackResponse.ok) {
-            throw new Error(`Failed to fetch price history for ${stock.ticker}`);
-          }
-          return fallbackResponse.json();
-        }
-        
-        const result = await response.json();
-        console.log(`[StockCard] Retrieved historical data for ${stock.ticker} (${normalizedTimeFrame}) from ${result.source || 'unknown source'}`);
-        
-        // Log the structure of what we got from the server
-        if (result.prices && result.prices.length > 0) {
-          console.log(`[StockCard] Data structure: ${typeof result.prices[0]}`);
-          console.log(`[StockCard] First 2 data points:`, result.prices.slice(0, 2));
-        }
-        
-        return result;
-      } catch (error) {
-        console.error('Error fetching price history:', error);
-        return null;
-      }
-    },
-    staleTime: 60 * 1000, // 1 minute
-    enabled: Boolean(timeFrame), // Only run query when timeFrame is available
-  });
-  
-  // Fetch metrics data from PostgreSQL
-  const metricsQuery = useQuery({
-    queryKey: ['/api/pg/stock/metrics', stock.ticker],
-    queryFn: async () => {
-      try {
-        return await fetchStockMetrics(stock.ticker);
-      } catch (error) {
-        console.error('Error fetching metrics:', error);
-        return null;
-      }
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-  
-  // Merge PostgreSQL metrics with stock data if available
-  const stockWithMetrics = useMemo(() => {
-    if (metricsQuery.data && !metricsQuery.isError) {
-      try {
-        // Format metrics from PostgreSQL into the expected format
-        const formattedMetrics = formatMetricsFromDatabase(metricsQuery.data);
-        
-        console.log(`Got metrics for ${stock.ticker}:`, metricsQuery.data);
-        console.log(`Formatted metrics:`, formattedMetrics);
-        
-        // The proper way to merge metrics is to keep the structure intact
-        // but merge at the detailed level to preserve existing values
-        return {
-          ...stock,
-          metrics: {
-            performance: {
-              ...stock.metrics.performance,
-              details: {
-                ...stock.metrics.performance.details,
-                // Override with PostgreSQL values where available
-                ...(formattedMetrics.performance.details || {})
-              },
-              value: formattedMetrics.performance.value || stock.metrics.performance.value,
-              color: formattedMetrics.performance.color || stock.metrics.performance.color,
-            },
-            stability: {
-              ...stock.metrics.stability,
-              details: {
-                ...stock.metrics.stability.details,
-                // Override with PostgreSQL values where available
-                ...(formattedMetrics.stability.details || {})
-              },
-              value: formattedMetrics.stability.value || stock.metrics.stability.value,
-              color: formattedMetrics.stability.color || stock.metrics.stability.color,
-            },
-            value: {
-              ...stock.metrics.value,
-              details: {
-                ...stock.metrics.value.details,
-                // Override with PostgreSQL values where available
-                ...(formattedMetrics.value.details || {})
-              },
-              value: formattedMetrics.value.value || stock.metrics.value.value,
-              color: formattedMetrics.value.color || stock.metrics.value.color,
-            },
-            momentum: {
-              ...stock.metrics.momentum,
-              details: {
-                ...stock.metrics.momentum.details,
-                // Override with PostgreSQL values where available
-                ...(formattedMetrics.momentum.details || {})
-              },
-              value: formattedMetrics.momentum.value || stock.metrics.momentum.value,
-              color: formattedMetrics.momentum.color || stock.metrics.momentum.color,
-            },
-            // Keep potential if it exists
-            ...(stock.metrics.potential ? { potential: stock.metrics.potential } : {})
-          },
-          // Keep any existing fields
-          rating: stock.rating,
-          smartScore: stock.smartScore,
-          oneYearReturn: stock.oneYearReturn,
-          predictedPrice: stock.predictedPrice,
-        };
-      } catch (error) {
-        console.error('Error formatting metrics:', error);
-      }
-    }
-    // If no metrics data or error, return original stock
-    return stock;
-  }, [stock, metricsQuery.data, metricsQuery.isError]);
-  
-  // Define a custom type for chart data that can include an error flag
-  type ChartDataWithError = number[] & { hasError?: boolean };
-  
-  // Use historical data API for the chart - only use real data from PostgreSQL
-  const chartData = useMemo<ChartDataWithError>(() => {
-    // If we have real data from the API, use it
-    if (historyQuery.data?.prices && Array.isArray(historyQuery.data.prices) && historyQuery.data.prices.length > 0) {
-      // Log the actual data to verify what we're getting
-      console.log(`[Chart] Got ${historyQuery.data.prices.length} price points for ${stock.ticker} (${timeFrame})`);
-      
-      // Check if prices are objects with date and price properties
-      if (typeof historyQuery.data.prices[0] === 'object' && 'price' in historyQuery.data.prices[0]) {
-        console.log(`[Chart] Using object format with date/price properties`);
-        // Extract just the price values from the array of objects
-        const priceValues = historyQuery.data.prices.map((item: any) => {
-          // Ensure price is a number
-          return typeof item.price === 'string' ? parseFloat(item.price) : item.price;
-        });
-        console.log(`[Chart] First price: ${priceValues[0]}, Last price: ${priceValues[priceValues.length - 1]}`);
-        console.log(`[Chart] Data source: ${historyQuery.data.source || 'database'}`);
-        return priceValues as ChartDataWithError;
-      } else {
-        // Direct array of price values
-        console.log(`[Chart] Using direct array of price values`);
-        console.log(`[Chart] First price: ${historyQuery.data.prices[0]}, Last price: ${historyQuery.data.prices[historyQuery.data.prices.length - 1]}`);
-        console.log(`[Chart] Data source: ${historyQuery.data.source || 'database'}`);
-        
-        // Ensure all values are numbers
-        const priceValues = historyQuery.data.prices.map((price: any) => 
-          typeof price === 'string' ? parseFloat(price) : price
-        );
-        
-        return priceValues as ChartDataWithError;
-      }
-    }
-    
-    // Show warning if no real data available
-    console.warn(`No historical price data available for ${stock.ticker} (${timeFrame})`);
-    
-    // Show a message in the UI to indicate no data
-    const errorData = [stock.price, stock.price, stock.price] as ChartDataWithError;
-    errorData.hasError = true; // Flag to show error state in UI
-    return errorData;
-  }, [historyQuery.data, stock.ticker, timeFrame, stock.price]);
-  
-  // Get dates for the X-axis labels if available
-  const chartDates = useMemo(() => {
-    // First check if we have an array of price objects with date properties
-    if (historyQuery.data?.prices && Array.isArray(historyQuery.data.prices) && historyQuery.data.prices.length > 0) {
-      // Check if prices array contains objects with date properties
-      if (typeof historyQuery.data.prices[0] === 'object' && 'date' in historyQuery.data.prices[0]) {
-        const dates = historyQuery.data.prices.map((item: any) => item.date);
-        console.log(`[Chart] Extracted ${dates.length} dates from price objects for ${stock.ticker} (${timeFrame})`);
-        console.log(`[Chart] Date range: ${dates[0]} to ${dates[dates.length - 1]}`);
-        return dates;
-      }
-    }
-    
-    // Fall back to dates array if available
-    if (historyQuery.data?.dates && Array.isArray(historyQuery.data.dates) && historyQuery.data.dates.length > 0) {
-      // Log the dates to verify what we're getting
-      console.log(`[Chart] Got ${historyQuery.data.dates.length} date points from dates array for ${stock.ticker} (${timeFrame})`);
-      console.log(`[Chart] Date range: ${historyQuery.data.dates[0]} to ${historyQuery.data.dates[historyQuery.data.dates.length - 1]}`);
-      return historyQuery.data.dates;
-    }
-    
-    // If no dates found, return empty array
-    return [];
-  }, [historyQuery.data, stock.ticker, timeFrame]);
-  
-  // Format numbers based on the requirements:
-  // - 2 decimal places max for numbers less than 10
-  // - 1 decimal place for numbers 10 or greater
-  const formatNumber = (value: number): string => {
-    if (Math.abs(value) < 10) {
-      return value.toFixed(2);
-    } else {
-      return value.toFixed(1);
-    }
-  };
-  
-  const displayPrice = formatNumber(stock.price);
-  
-  // Use changePercent if available (from PostgreSQL), otherwise calculate it from change if needed
-  let realTimeChange: number;
-  if (stock.changePercent !== undefined) {
-    realTimeChange = parseFloat(formatNumber(stock.changePercent));
-  } else if (stock.change !== undefined && stock.price !== undefined) {
-    // If we have change but no changePercent, estimate it based on price (% of current price)
-    realTimeChange = parseFloat(formatNumber((stock.change / stock.price) * 100));
-  } else {
-    realTimeChange = 0;
-  }
-  const minValue = Math.min(...(chartData || [1])) - 5;
-  const maxValue = Math.max(...(chartData || [1])) + 5;
+  // Modal states are removed
+
+  // Chart data logic
+  const chartData = useMemo(() => generateTimeBasedData(stock.chartData, timeFrame), [stock.chartData, timeFrame]);
+  const displayPrice = stock.price.toFixed(2);
+  const realTimeChange = stock.change;
+  const minValue = Math.min(...chartData) - 5;
+  const maxValue = Math.max(...chartData) + 5;
   const timeScaleLabels = useMemo(() => getTimeScaleLabels(timeFrame), [timeFrame]);
   const priceRangeMin = Math.floor(minValue);
   const priceRangeMax = Math.ceil(maxValue);
   const latestTradingDay = new Date().toISOString().split('T')[0];
 
-  // Refresh handler to refetch data from API
+  // Refresh handler
   const refreshData = async () => {
     setIsRefreshing(true);
-    try {
-      // Refetch all API calls
-      await periodsQuery.refetch();
-      await historyQuery.refetch();
-      await metricsQuery.refetch();
-    } catch (error) {
-      console.error('Error refreshing data:', error);
-    } finally {
-      setTimeout(() => setIsRefreshing(false), 1000);
-    }
+    setTimeout(() => setIsRefreshing(false), 1000);
   };
 
   // Handler to prepare data and call parent's onMetricClick
@@ -515,12 +164,11 @@ export default function StockCard({
      let metricObj;
      let metricDetails;
 
-     // Use stockWithMetrics instead of stock to get real PostgreSQL data
      switch(metricName) {
-       case "Performance": metricObj = stockWithMetrics.metrics.performance; metricDetails = stockWithMetrics.metrics.performance.details; break;
-       case "Stability": metricObj = stockWithMetrics.metrics.stability; metricDetails = stockWithMetrics.metrics.stability.details; break;
-       case "Value": metricObj = stockWithMetrics.metrics.value; metricDetails = stockWithMetrics.metrics.value.details; break;
-       case "Momentum": metricObj = stockWithMetrics.metrics.momentum; metricDetails = stockWithMetrics.metrics.momentum.details; break;
+       case "Performance": metricObj = stock.metrics.performance; metricDetails = stock.metrics.performance.details; break;
+       case "Stability": metricObj = stock.metrics.stability; metricDetails = stock.metrics.stability.details; break;
+       case "Value": metricObj = stock.metrics.value; metricDetails = stock.metrics.value.details; break;
+       case "Momentum": metricObj = stock.metrics.momentum; metricDetails = stock.metrics.momentum.details; break;
        default: return;
      }
      if (!metricObj || !metricDetails) return; // Guard if metrics are somehow missing
@@ -532,24 +180,24 @@ export default function StockCard({
      const metricValues = [];
      if (metricName === "Performance") {
         const perfDetails = metricDetails as { revenueGrowth: number; profitMargin: number; returnOnCapital: number; revenueGrowthExplanation?: string; profitMarginExplanation?: string; returnOnCapitalExplanation?: string; };
-        metricValues.push( { label: "Revenue Growth", value: typeof perfDetails.revenueGrowth === 'number' ? formatNumber(perfDetails.revenueGrowth) : perfDetails.revenueGrowth, suffix: "%", explanation: perfDetails.revenueGrowthExplanation || "..." } );
-        metricValues.push( { label: "Profit Margin", value: typeof perfDetails.profitMargin === 'number' ? formatNumber(perfDetails.profitMargin) : perfDetails.profitMargin, suffix: "%", explanation: perfDetails.profitMarginExplanation || "..." } );
-        metricValues.push( { label: "Return on Capital", value: typeof perfDetails.returnOnCapital === 'number' ? formatNumber(perfDetails.returnOnCapital) : perfDetails.returnOnCapital, suffix: "%", explanation: perfDetails.returnOnCapitalExplanation || "..." } );
+        metricValues.push( { label: "Revenue Growth", value: perfDetails.revenueGrowth, suffix: "%", explanation: perfDetails.revenueGrowthExplanation || "..." } );
+        metricValues.push( { label: "Profit Margin", value: perfDetails.profitMargin, suffix: "%", explanation: perfDetails.profitMarginExplanation || "..." } );
+        metricValues.push( { label: "Return on Capital", value: perfDetails.returnOnCapital, suffix: "%", explanation: perfDetails.returnOnCapitalExplanation || "..." } );
      } else if (metricName === "Stability") {
          const stabDetails = metricDetails as { volatility: number; beta: number; dividendConsistency: string; volatilityExplanation?: string; betaExplanation?: string; dividendConsistencyExplanation?: string; };
-         metricValues.push( { label: "Volatility", value: typeof stabDetails.volatility === 'number' ? formatNumber(stabDetails.volatility) : stabDetails.volatility, suffix: "", explanation: stabDetails.volatilityExplanation || "..." } );
-         metricValues.push( { label: "Beta", value: typeof stabDetails.beta === 'number' ? formatNumber(stabDetails.beta) : stabDetails.beta, suffix: "", explanation: stabDetails.betaExplanation || "..." } );
+         metricValues.push( { label: "Volatility", value: stabDetails.volatility, suffix: "", explanation: stabDetails.volatilityExplanation || "..." } );
+         metricValues.push( { label: "Beta", value: stabDetails.beta, suffix: "", explanation: stabDetails.betaExplanation || "..." } );
          metricValues.push( { label: "Dividend Consistency", value: stabDetails.dividendConsistency, suffix: "", explanation: stabDetails.dividendConsistencyExplanation || "..." } );
      } else if (metricName === "Value") {
          const valDetails = metricDetails as { peRatio: number; pbRatio: number; dividendYield: number | "N/A"; peRatioExplanation?: string; pbRatioExplanation?: string; dividendYieldExplanation?: string; };
-         metricValues.push( { label: "P/E Ratio", value: typeof valDetails.peRatio === 'number' ? formatNumber(valDetails.peRatio) : valDetails.peRatio, suffix: "", explanation: valDetails.peRatioExplanation || "..." } );
-         metricValues.push( { label: "P/B Ratio", value: typeof valDetails.pbRatio === 'number' ? formatNumber(valDetails.pbRatio) : valDetails.pbRatio, suffix: "", explanation: valDetails.pbRatioExplanation || "..." } );
-         metricValues.push( { label: "Dividend Yield", value: valDetails.dividendYield === "N/A" ? "N/A" : typeof valDetails.dividendYield === 'number' ? formatNumber(valDetails.dividendYield) : valDetails.dividendYield, suffix: valDetails.dividendYield === "N/A" ? "" : "%", explanation: valDetails.dividendYieldExplanation || "..." } );
+         metricValues.push( { label: "P/E Ratio", value: valDetails.peRatio, suffix: "", explanation: valDetails.peRatioExplanation || "..." } );
+         metricValues.push( { label: "P/B Ratio", value: valDetails.pbRatio, suffix: "", explanation: valDetails.pbRatioExplanation || "..." } );
+         metricValues.push( { label: "Dividend Yield", value: valDetails.dividendYield === "N/A" ? "N/A" : valDetails.dividendYield, suffix: valDetails.dividendYield === "N/A" ? "" : "%", explanation: valDetails.dividendYieldExplanation || "..." } );
      } else if (metricName === "Momentum") {
          const momDetails = metricDetails as { threeMonthReturn: number; relativePerformance: number; rsi: number; threeMonthReturnExplanation?: string; relativePerformanceExplanation?: string; rsiExplanation?: string; };
-         metricValues.push( { label: "3-Month Return", value: typeof momDetails.threeMonthReturn === 'number' ? formatNumber(momDetails.threeMonthReturn) : momDetails.threeMonthReturn, suffix: "%", explanation: momDetails.threeMonthReturnExplanation || "..." } );
-         metricValues.push( { label: "Relative Performance", value: typeof momDetails.relativePerformance === 'number' ? formatNumber(momDetails.relativePerformance) : momDetails.relativePerformance, suffix: "%", explanation: momDetails.relativePerformanceExplanation || "..." } );
-         metricValues.push( { label: "RSI", value: typeof momDetails.rsi === 'number' ? formatNumber(momDetails.rsi) : momDetails.rsi, suffix: "", explanation: momDetails.rsiExplanation || "..." } );
+         metricValues.push( { label: "3-Month Return", value: momDetails.threeMonthReturn, suffix: "%", explanation: momDetails.threeMonthReturnExplanation || "..." } );
+         metricValues.push( { label: "Relative Performance", value: momDetails.relativePerformance, suffix: "%", explanation: momDetails.relativePerformanceExplanation || "..." } );
+         metricValues.push( { label: "RSI", value: momDetails.rsi, suffix: "", explanation: momDetails.rsiExplanation || "..." } );
      }
 
      const industryAverage = displayMode === 'realtime'
@@ -574,127 +222,95 @@ export default function StockCard({
   // Reference to track start time and position of drag
   const dragStartTimeRef = useRef<number>(0);
   const dragStartXRef = useRef<number>(0);
-  const dragStartYRef = useRef<number>(0);
   const dragDistanceThresholdRef = useRef<number>(0);
   const isDraggingIntentionallyRef = useRef<boolean>(false);
-  const screenWidthRef = useRef<number>(0);
   
   // Track when drag starts with initial position
   const handleDragStart = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     dragStartTimeRef.current = Date.now();
     dragStartXRef.current = info.point.x;
-    dragStartYRef.current = info.point.y;
     isDraggingIntentionallyRef.current = false;
     dragDistanceThresholdRef.current = 0;
-    
-    // Get screen width to use as a percentage reference
-    screenWidthRef.current = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
   };
   
   // Handle drag during movement to determine intentional vs accidental
   const handleDrag = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (!cardControls) return;
     
-    // Calculate absolute distances moved horizontally and vertically
-    const horizontalDistance = Math.abs(info.point.x - dragStartXRef.current);
-    const verticalDistance = Math.abs(info.point.y - dragStartYRef.current);
-    dragDistanceThresholdRef.current = Math.max(dragDistanceThresholdRef.current, horizontalDistance);
+    // Calculate absolute distance moved during this drag session
+    const distanceMoved = Math.abs(info.point.x - dragStartXRef.current);
+    dragDistanceThresholdRef.current = Math.max(dragDistanceThresholdRef.current, distanceMoved);
     
-    // Get drag duration and screen width percentage (how far they've swiped)
+    // Only consider it an intentional drag if they've moved a significant distance
+    // AND they've been dragging for at least 150ms (to prevent accidental swipes)
     const dragDuration = Date.now() - dragStartTimeRef.current;
-    const screenWidthPercentage = (horizontalDistance / screenWidthRef.current) * 100;
     
-    // Much more restrictive conditions:
-    // 1. Horizontal movement must be at least 3x greater than vertical
-    // 2. Horizontal distance must exceed minimum 25% of screen width
-    // 3. Longer drag duration required (250ms)
-    // 4. Must be a deliberate swipe with some velocity
-    if (horizontalDistance > verticalDistance * 3 && 
-        screenWidthPercentage > 25 &&  // Require at least 25% of screen width
-        dragDuration > 250 && 
-        horizontalDistance > 80) {   // Minimum pixel threshold regardless of screen size
+    if (distanceMoved > 50 && dragDuration > 150) {
       isDraggingIntentionallyRef.current = true;
     }
   };
   
-  // Drag handler with improved responsiveness - much more restrictive
+  // Drag handler with significantly reduced sensitivity and higher thresholds
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (!cardControls) return; // Not interactive if no controls
 
-    // ALWAYS snap back to center position first - this ensures consistent behavior
-    const snapBack = (stiffness = 250, damping = 20, duration = 0.3) => {
+    // If the drag wasn't intentional, just snap back
+    if (!isDraggingIntentionallyRef.current) {
       cardControls.start({ 
         x: 0, 
         transition: { 
           type: "spring", 
-          stiffness,
-          damping,
-          duration,
-          ease: "easeOut"
+          stiffness: 250,  // Reduced stiffness for slower animation
+          damping: 35,     // Increased damping for smoother return
+          duration: 0.8    // Extended duration
         }
       });
-    };
-
-    // If the drag wasn't explicitly intentional, just snap back and return immediately
-    if (!isDraggingIntentionallyRef.current) {
-      snapBack(300, 25, 0.25); // Very quick snapback for unintentional movements
       return;
     }
 
-    // Even after passing intentionality check, verify we didn't have significant vertical movement
-    const verticalDistance = Math.abs(info.point.y - dragStartYRef.current);
-    const horizontalDistance = Math.abs(info.offset.x);
-    
-    // If vertical movement is at all significant, treat as vertical scroll not swipe
-    if (verticalDistance > horizontalDistance * 0.5) {
-      snapBack(300, 25, 0.25);
-      return;
-    }
-
-    // Get screen width to calculate percentage
-    const screenWidth = screenWidthRef.current;
-    const dragOffsetPercentage = (Math.abs(info.offset.x) / screenWidth) * 100;
-    
-    // Much more demanding swipe thresholds - require very deliberate movement
-    // Require 1/3 of screen width OR high velocity
-    const offsetThreshold = screenWidth / 3; // 33% of screen width
-    const velocityThreshold = 500; // Much higher velocity threshold (was 200)
+    // Much higher thresholds to require more deliberate movement
+    const rightThreshold = 150; 
+    const leftThreshold = 120;
+    // Higher velocity threshold to require more deliberate swipes
+    const velocityThreshold = 250;
     
     const dragVelocity = info.velocity.x;
     const dragOffset = info.offset.x;
-    
-    // Only trigger swipe action if user has dragged at least 33% of screen width 
-    // OR has a very high velocity + 20% of screen width
-    if ((Math.abs(dragOffset) > offsetThreshold) || 
-        (Math.abs(dragVelocity) > velocityThreshold && dragOffsetPercentage > 20)) {
-      
-      // Right swipe (positive offset)
-      if (dragOffset > 0) {
-        if (displayMode === 'realtime') {
-          if (onInvest) onInvest();
-          // Animation with rotation
-          cardControls.start({ 
-            x: 0, 
-            rotate: [3, 0],
-            transition: { 
-              type: "spring", 
-              stiffness: 150,  
-              damping: 12,     
-              duration: 0.35,  
-              ease: "easeOut"
-            }
-          });
-        } else { // Simple mode: Right swipe = Previous
-          if (onPrevious) onPrevious();
-        }
-      } 
-      // Left swipe (negative offset)
-      else if (dragOffset < 0) {
-        if (onNext) onNext(); // Both modes: Left swipe = Next/Skip
+
+    // Determine swipe direction based on stricter combination of offset and velocity
+    if (dragOffset > rightThreshold || (dragOffset > 80 && dragVelocity > velocityThreshold)) { 
+      // Swipe Right - needs very deliberate movement
+      if (displayMode === 'realtime') {
+        if (onInvest) onInvest();
+        // More dramatic and slower animation with rotation
+        cardControls.start({ 
+          x: 0, 
+          rotate: [5, 0],
+          transition: { 
+            type: "spring", 
+            stiffness: 280,  // Slightly reduced stiffness for smoother animation
+            damping: 22,     // Slightly adjusted damping for better bounce
+            duration: 0.85,  // Even longer duration for very satisfying animation
+            ease: "easeInOut"
+          }
+        });
+      } else { // Simple mode: Right swipe = Previous
+        if (onPrevious) onPrevious();
       }
-    } else {
-      // Not enough movement - snap back with smooth animation
-      snapBack(250, 25, 0.4);
+    } else if (dragOffset < -leftThreshold || (dragOffset < -80 && dragVelocity < -velocityThreshold)) { 
+      // Swipe Left - requires deliberate movement
+      if (onNext) onNext(); // Both modes: Left swipe = Next/Skip
+    } else { // Snap back with more dramatic animation
+      cardControls.start({ 
+        x: 0, 
+        transition: { 
+          type: "spring", 
+          stiffness: 250,  // Reduced stiffness for slower movement
+          damping: 30,     // Increased damping for smoother animation
+          duration: 0.8,   // Extended duration
+          ease: "easeOut"
+        }
+      });
     }
   };
 
@@ -716,13 +332,8 @@ export default function StockCard({
     className="h-full w-full rounded-2xl shadow-xl" // Added larger rounded corners for better appearance
     drag={cardControls ? "x" : false} // Only draggable if interactive
     dragConstraints={{ left: 0, right: 0 }}
-    dragElastic={0.3} // Reduced elastic factor to make drag more controlled and predictable
-    dragTransition={{ 
-      power: 0.15, // Lower power for easier initiation
-      timeConstant: 350, // Higher time constant for smoother motion
-      modifyTarget: (target) => Math.round(target / 50) * 50 // Snap to grid for consistent behavior
-    }}
-    dragPropagation={false} // Don't propagate drag events to improve reliability
+    dragElastic={0.5}
+    dragPropagation // Allow scroll events to propagate
     onDragStart={handleDragStart}
     onDrag={handleDrag}
     onDragEnd={handleDragEnd}
@@ -734,62 +345,35 @@ export default function StockCard({
       scale: cardScale,
       backgroundColor: displayMode === 'simple' ? '#111827' : '#FFFFFF',
       color: displayMode === 'simple' ? 'white' : '#1F2937',
-      cursor: cardControls ? 'grab' : 'default',
-      willChange: 'transform' // Hint to the browser to optimize transform animations
+      cursor: cardControls ? 'grab' : 'default'
     }}
     whileTap={cardControls ? { cursor: 'grabbing' } : {}}
   >
-    {/* Add custom style to hide scrollbars */}
-    <style>{scrollbarHidingCSS}</style>
-    
     {/* Inner scroll container - Absolutely positioned */}
     <div
-        className={`absolute inset-0 overflow-y-auto overflow-x-hidden pb-16 stock-card-scroll-content rounded-2xl hide-scrollbar ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black text-white' : 'bg-white text-slate-900'}`}
-        style={{ 
-          // Allow only vertical panning and make sure it's prioritized
-          touchAction: 'pan-y', 
-          WebkitOverflowScrolling: 'touch',
-          scrollBehavior: 'smooth',
-          // Improve scrolling momentum
-          overscrollBehavior: 'contain'
-        }} 
+        className={`absolute inset-0 overflow-y-auto overflow-x-hidden pb-16 stock-card-scroll-content rounded-2xl ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black text-white' : 'bg-white text-slate-900'}`}
+        style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }} 
     >
 
-      {/* --- Time frame selector - ENHANCED AND MORE VISIBLE --- */}
-      {/* Always show time period buttons in all modes with a bold header and larger buttons */}
-          <div className="sticky top-0 z-20 flex flex-col px-4 py-3 border-b border-slate-200 bg-white shadow-lg">
-               <h3 className="text-base font-bold text-gray-700 mb-2 uppercase tracking-wider flex items-center">
-                 <Calendar size={16} className="mr-2" />
-                 TIME FRAME
-               </h3>
-               <div className="flex flex-wrap justify-center gap-2 py-2">
-                 {periodsQuery.isLoading ? (
-                   // Show loading state for time periods
-                   <div className="flex justify-center gap-2">
-                     {["5D", "1M", "3M", "6M", "1Y"].map((period) => (
-                       <Skeleton key={period} className="w-20 h-12 rounded-md" />
-                     ))}
-                   </div>
-                 ) : (
-                   // Show consistent time frame options with standardized periods
-                   ["5D", "1M", "3M", "6M", "1Y"].map((period) => (
-                     <button
+      {/* --- Time frame selector (realtime mode only) --- */}
+      {displayMode === 'realtime' && (
+          <div className="sticky top-0 z-20 flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">
+               {["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"].map((period) => (
+                   <button
                        key={period}
-                       className={`px-4 py-3 text-base font-bold rounded-lg transition-all duration-200 min-w-[4.5rem] ${
-                         timeFrame === period
-                           ? `${realTimeChange >= 0 
-                               ? 'text-green-800 bg-green-100 border-2 border-green-400 shadow-md scale-105' 
-                               : 'text-red-800 bg-red-100 border-2 border-red-400 shadow-md scale-105'}`
-                           : 'text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 hover:scale-105'
+                       className={`px-3 py-1 text-xs rounded-full transition-all duration-200 ${
+                           timeFrame === period
+                               ? `${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm' : 'text-red-600 bg-red-50 border border-red-200 shadow-sm'} font-medium`
+                               : 'text-slate-600 hover:bg-slate-50 border border-transparent'
                        }`}
                        onClick={() => setTimeFrame(period as TimeFrame)}
-                     >
+                   >
                        {period}
-                     </button>
-                   ))
-                 )}
-               </div>
+                   </button>
+               ))}
            </div>
+      )}
+      {displayMode === 'simple' && <div className="pt-4"></div>}
 
       {/* --- Content Specific to Mode --- */}
       {displayMode === 'simple' ? (
@@ -810,13 +394,13 @@ export default function StockCard({
                       </a>
                       <div className="flex items-center text-xs text-gray-400 mt-1 mb-2">
                         <span className="mr-2">Day's Range:</span>
-                        <span className="font-medium">${formatNumber(stock.price * 0.98)} - ${formatNumber(stock.price * 1.02)}</span>
+                        <span className="font-medium">${(parseFloat(stock.price.toFixed(2)) * 0.98).toFixed(2)} - ${(parseFloat(stock.price.toFixed(2)) * 1.02).toFixed(2)}</span>
                       </div>
                     </div>
                     <div className="flex flex-col items-end">
                       <div className={`flex items-center py-1.5 px-4 rounded-full ${stock.change >= 0 ? 'bg-green-900/30 text-green-300 border border-green-700/30' : 'bg-red-900/30 text-red-300 border border-red-700/30'} shadow-lg`}>
-                        <span className="font-bold text-2xl">${formatNumber(stock.price)}</span>
-                        <span className="ml-2 text-sm font-medium">{stock.change >= 0 ? '+' : ''}{formatNumber(stock.change)}%</span>
+                        <span className="font-bold text-2xl">${stock.price.toFixed(2)}</span>
+                        <span className="ml-2 text-sm font-medium">{stock.change >= 0 ? '+' : ''}{stock.change}%</span>
                       </div>
                       <span className="text-xs text-gray-500 mt-2">Updated: {new Date().toLocaleDateString()}</span>
                     </div>
@@ -830,7 +414,7 @@ export default function StockCard({
                  <h3 className="text-white text-lg font-bold col-span-2 mb-1 flex items-center">
                      <TrendingUp className="w-5 h-5 mr-2 text-blue-400" /> Stock Metrics
                  </h3>
-                 {Object.entries(stockWithMetrics.metrics as Metrics).map(([key, metricObj]) => {
+                 {Object.entries(stock.metrics).map(([key, metricObj]) => {
                     const metricName = key.charAt(0).toUpperCase() + key.slice(1);
                     return (
                         <motion.div
@@ -851,7 +435,7 @@ export default function StockCard({
                               <Info size={16} className={`${ metricObj.color === 'green' ? 'text-green-400' : metricObj.color === 'yellow' ? 'text-yellow-400' : 'text-red-400' }`} />
                            </div>
                            <div className={`text-2xl font-bold ${ metricObj.color === 'green' ? 'text-green-300' : metricObj.color === 'yellow' ? 'text-yellow-300' : 'text-red-300' }`}>
-                               {typeof metricObj.value === 'number' ? formatNumber(metricObj.value) : metricObj.value}
+                               {metricObj.value}
                            </div>
                            <div className="text-white text-sm font-medium capitalize mt-1 mb-3">
                                {metricName}
@@ -861,7 +445,6 @@ export default function StockCard({
                     );
                  })}
              </div>
-
              {/* Ask AI */}
              <div className="p-5 border-b border-gray-800">
                  <h3 className="text-lg font-bold text-white mb-3 flex items-center">
@@ -872,7 +455,7 @@ export default function StockCard({
                      className="rounded-xl border border-gray-700/50 overflow-hidden shadow-lg relative"
                  >
                      <div className="absolute -inset-1 bg-purple-500/5 blur-xl rounded-xl z-0"></div>
-                     <div className="relative z-10"> <AskAI stock={stockWithMetrics} /> </div>
+                     <div className="relative z-10"> <AskAI stock={stock} /> </div>
                  </motion.div>
              </div>
              {/* Forecast */}
@@ -889,11 +472,11 @@ export default function StockCard({
              <div className="p-5">
                  <h3 className="text-lg font-bold text-white mb-4 flex items-center"> <BarChart3 className="w-5 h-5 mr-2 text-blue-400" /> Stock Analysis </h3>
                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.4 }}>
-                     <OverallAnalysisCard stock={stockWithMetrics} />
+                     <OverallAnalysisCard stock={stock} />
                  </motion.div>
                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.5 }} className="mt-4">
                      <h3 className="text-lg font-bold text-white mb-4 flex items-center"> <Layers className="w-5 h-5 mr-2 text-indigo-400" /> Industry Comparison </h3>
-                     <ComparativeAnalysis currentStock={stockWithMetrics} />
+                     <ComparativeAnalysis currentStock={stock} />
                  </motion.div>
                  <div className="mt-8 mb-2 flex justify-center">
                      <div className="text-gray-500 text-sm flex items-center"> <ChevronLeft className="w-4 h-4 mr-1" /> <span>Swipe to navigate</span> <ChevronRight className="w-4 h-4 ml-1" /> </div>
@@ -924,147 +507,33 @@ export default function StockCard({
                       </button>
                     </div>
                   </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="flex flex-col">
-                      <span className="text-3xl font-bold text-slate-900 drop-shadow-sm">${displayPrice}</span>
-                      <div className="mt-1 flex items-center text-xs text-slate-500">
-                        <span className="mr-2">Day's Range:</span>
-                        <span className="font-medium">${formatNumber((stock.dayLow !== undefined) ? stock.dayLow : parseFloat(displayPrice) * 0.98)} - ${formatNumber((stock.dayHigh !== undefined) ? stock.dayHigh : parseFloat(displayPrice) * 1.02)}</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <div className={`flex items-center font-semibold px-3 py-1.5 rounded-lg ${realTimeChange >= 0 ? 'text-green-700 bg-green-100 border border-green-200' : 'text-red-700 bg-red-100 border border-red-200'}`}>
-                        {realTimeChange >= 0 ? <TrendingUp size={16} className="mr-1.5" /> : <TrendingDown size={16} className="mr-1.5" />}
-                        {realTimeChange >= 0 ? '+' : ''}{formatNumber(realTimeChange)}%
-                      </div>
-                      <span className="text-xs text-slate-500 mt-1 italic">Last price: ${formatNumber(stock.previousClose !== undefined ? stock.previousClose : (stock.price - stock.change))}</span>
+                  <div className="mt-2 flex items-center">
+                    <span className="text-3xl font-bold text-slate-900 drop-shadow-sm">${displayPrice}</span>
+                    <div className="ml-2 flex items-center">
+                      <span className={`flex items-center text-sm font-semibold px-2 py-0.5 rounded-full ${realTimeChange >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                        {realTimeChange >= 0 ? <TrendingUp size={14} className="mr-1" /> : <ChevronLeft size={14} className="mr-1 rotate-90" />}
+                        {realTimeChange >= 0 ? '+' : ''}{realTimeChange}%
+                      </span>
                     </div>
                   </div>
-                  
-                  <div className="relative mt-4 h-96 py-2 bg-slate-50/50 rounded-lg"> {/* Chart Area with background and rounded corners */}
-                    {/* Chart Title and Last Updated */}
-                    <div className="absolute top-0 left-0 right-0 px-4 py-1 flex justify-between items-center">
-                      <span className="text-xs font-medium text-slate-500">
-                        {stock.ticker} Price Chart ({timeFrame})
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        Last updated: {latestTradingDay}
-                      </span>
+                  <div className="mt-1 flex items-center text-xs text-slate-500">
+                    <span className="mr-2">Day's Range:</span>
+                    <span className="font-medium">${(parseFloat(displayPrice) * 0.98).toFixed(2)} - ${(parseFloat(displayPrice) * 1.02).toFixed(2)}</span>
+                  </div>
+                  <div className="relative mt-3 h-44 py-2"> {/* Chart Area */}
+                    <div className="absolute inset-0 px-4"> {/* Chart Visual */}
+                        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-slate-900 font-medium pointer-events-none py-3 z-10 w-12"> {/* Y Axis */}
+                            <span>${Math.round(priceRangeMax)}</span> <span>${Math.round((priceRangeMax + priceRangeMin) / 2)}</span> <span>${Math.round(priceRangeMin)}</span>
+                        </div>
+                        <div className="absolute inset-0 pl-12 pr-4"> {/* Chart Path */}
+                           <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
+                             <path d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} ${chartData.map((point, i) => `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`).join(' ')} L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100}`} className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                           </svg>
+                        </div>
                     </div>
-                    
-                    {historyQuery.isLoading || isRefreshing ? (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="bg-white/90 px-6 py-3 rounded-xl shadow-md">
-                          <div className="flex items-center">
-                            <RefreshCw size={20} className="text-blue-500 animate-spin mr-2" />
-                            <span className="text-blue-600 font-semibold">
-                              {isRefreshing ? 'Updating chart...' : 'Loading chart data...'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Y Axis */}
-                        <div className="absolute left-0 top-6 bottom-0 flex flex-col justify-between text-[10px] text-slate-900 font-medium pointer-events-none py-3 z-10 w-12">
-                            <span>${Math.round(priceRangeMax)}</span> 
-                            <span>${Math.round((priceRangeMax + priceRangeMin) / 2)}</span> 
-                            <span>${Math.round(priceRangeMin)}</span>
-                        </div>
-                        
-                        {/* Chart Path */}
-                        <div className="absolute inset-0 pl-12 pr-4 pt-6"> 
-                           {chartData && chartData.length > 0 ? (
-                             <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
-                               {/* Fill area under the curve */}
-                               <defs>
-                                 <linearGradient id={`${stock.ticker}-gradient`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                   <stop offset="0%" stopColor={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} stopOpacity="0.2" />
-                                   <stop offset="100%" stopColor={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} stopOpacity="0.05" />
-                                 </linearGradient>
-                               </defs>
-                               
-                               {/* Fill path */}
-                               <path 
-                                 d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} 
-                                    ${chartData.map((point: number, i: number) => 
-                                      `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
-                                    ).join(' ')} 
-                                    L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100} 
-                                    L105,100 L-5,100 Z`} 
-                                 fill={`url(#${stock.ticker}-gradient)`}
-                               />
-                               
-                               {/* Line path */}
-                               <path 
-                                 d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} 
-                                    ${chartData.map((point: number, i: number) => 
-                                      `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
-                                    ).join(' ')} 
-                                    L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100}`} 
-                                 className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} 
-                                 strokeWidth="2.5" 
-                                 strokeLinecap="round" 
-                                 strokeLinejoin="round" 
-                               />
-                               
-                               {/* Add small data points at intervals */}
-                               {chartData.length > 5 && chartData.filter((_: any, i: number) => 
-                                 i % Math.ceil(chartData.length / 5) === 0 || i === chartData.length - 1
-                               ).map((point: number, i: number) => {
-                                 const index = i * Math.ceil(chartData.length / 5);
-                                 const actualIndex = Math.min(index, chartData.length - 1);
-                                 const x = (actualIndex / (chartData.length - 1)) * 110 - 5;
-                                 const y = 100 - ((chartData[actualIndex] - minValue) / (maxValue - minValue)) * 100;
-                                 return (
-                                   <circle 
-                                     key={i} 
-                                     cx={x} 
-                                     cy={y} 
-                                     r="1.5" 
-                                     className={`${realTimeChange >= 0 ? 'fill-green-600 stroke-white' : 'fill-red-600 stroke-white'}`}
-                                     strokeWidth="1"
-                                   />
-                                 );
-                               })}
-                             </svg>
-                           ) : (
-                             <div className="h-full w-full flex items-center justify-center">
-                               <div className="text-center">
-                                 <p className="text-slate-500">No data available</p>
-                               </div>
-                             </div>
-                           )}
-                        </div>
-                        
-                        {/* X Axis */}
-                        <div className="absolute left-0 right-0 bottom-1 pl-12 pr-4 flex justify-between text-[10px] text-slate-900 font-medium pointer-events-none">
-                          {chartDates.length > 0 ? (
-                            // If we have real dates from the API, use them intelligently
-                            getDisplayDates(chartDates, timeFrame).map((label, index) => (
-                              <span key={index}>{label}</span>
-                            ))
-                          ) : (
-                            // Fall back to generic labels if no dates
-                            timeScaleLabels.map((label, index) => (
-                              <span key={index}>{label}</span>
-                            ))
-                          )}
-                        </div>
-                      </>
-                    )}
-                    
-                    {/* Show error state if the data has an error flag */}
-                    {chartData && 'hasError' in chartData && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="bg-white/90 px-6 py-3 rounded-xl shadow-md border border-amber-200">
-                          <div className="flex items-center">
-                            <Info size={20} className="text-amber-500 mr-2" />
-                            <span className="text-amber-700 font-semibold">No data available for {timeFrame} period</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    <div className="absolute left-0 right-0 bottom-1 pl-12 pr-4 flex justify-between text-[10px] text-slate-900 font-medium pointer-events-none"> {/* X Axis */}
+                        {timeScaleLabels.map((label, index) => (<span key={index}>{label}</span>))}
+                    </div>
                   </div>
                   <div className="mt-4 flex items-center justify-between text-xs h-6">
                     <span className="text-slate-900 font-medium">Last updated: {latestTradingDay}</span>
@@ -1073,7 +542,7 @@ export default function StockCard({
              </div>
              {/* Metrics */}
              <div className="grid grid-cols-2 gap-4 p-4 bg-white border-b border-slate-100">
-                 {Object.entries(stockWithMetrics.metrics as Metrics).map(([key, metricObj]) => {
+                 {Object.entries(stock.metrics).map(([key, metricObj]) => {
                     const metricName = key.charAt(0).toUpperCase() + key.slice(1);
                      return (
                         <div key={key} className="group relative" onClick={() => handleMetricClickInternal(metricName)} >
@@ -1086,34 +555,13 @@ export default function StockCard({
                                  </div>
                                  <Info size={15} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
                                </div>
-                               <div className={`text-lg font-semibold text-slate-900`}>{typeof metricObj.value === 'number' ? formatNumber(metricObj.value) : metricObj.value}</div>
+                               <div className={`text-lg font-semibold text-slate-900`}>{metricObj.value}</div>
                                <div className="text-slate-500 text-sm font-medium mt-0.5 capitalize">{metricName}</div>
                             </div>
                         </div>
                      );
                  })}
              </div>
-             {/* Modern Swipeable News */}
-             <div className="p-4 bg-gradient-to-br from-blue-50 to-white border-b border-slate-100">
-               <SwipeableNews symbol={stock.ticker} />
-             </div>
-
-             {/* Modern Analyst Ratings */}
-             <div className="mb-4">
-               <ModernAnalystRating 
-                 symbol={stock.ticker}
-                 recommendations={stockWithMetrics.recommendations}
-                 priceTarget={stockWithMetrics.priceTarget}
-                 currentPrice={stock.price}
-                 metrics={metricsQuery.data} // Pass the raw metrics data from PostgreSQL
-               />
-             </div>
-             
-             {/* Management Section */}
-             <div className="mb-4">
-               <ManagementSection symbol={stock.ticker} />
-             </div>
-
              {/* Synopsis */}
              <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden mb-4">
                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30 rounded-xl opacity-30"></div>
@@ -1126,10 +574,10 @@ export default function StockCard({
                      </h3>
                      <p className="text-sm text-slate-600 leading-relaxed">
                          {stock.change >= 0 
-                            ? `${stock.name} has shown positive momentum, rising ${formatNumber(stock.change)}% recently.` 
-                            : `${stock.name} has been under pressure, falling ${formatNumber(Math.abs(stock.change))}% recently.`} 
-                         The current price of ${formatNumber(stock.price)} places it 
-                         {stockWithMetrics.metrics.value.color === "green" 
+                            ? `${stock.name} has shown positive momentum, rising ${stock.change}% recently.` 
+                            : `${stock.name} has been under pressure, falling ${Math.abs(stock.change)}% recently.`} 
+                         The current price of ${stock.price.toFixed(2)} places it 
+                         {stock.metrics.value.color === "green" 
                             ? " at an attractive valuation compared to peers."
                             : " above average valuation metrics for its sector."}
                      </p>
@@ -1156,14 +604,14 @@ export default function StockCard({
                      </h3>
                      <p className="text-sm text-slate-600 leading-relaxed">
                          This {stock.industry} stock 
-                         {stockWithMetrics.metrics.stability.color === "green" 
+                         {stock.metrics.stability.color === "green" 
                             ? " offers strong stability and could serve as a defensive holding."
-                            : stockWithMetrics.metrics.performance.color === "green"
+                            : stock.metrics.performance.color === "green"
                                 ? " provides growth potential and could boost portfolio returns."
                                 : " has balanced metrics and fits well in a diversified portfolio."}
-                         {stockWithMetrics.metrics.stability.value === "Excellent" || stockWithMetrics.metrics.performance.value === "Excellent" 
+                         {stock.metrics.stability.value === "Excellent" || stock.metrics.performance.value === "Excellent" 
                             ? " Rated high quality by our analysis."
-                            : stockWithMetrics.metrics.stability.value === "Good" || stockWithMetrics.metrics.performance.value === "Good"
+                            : stock.metrics.stability.value === "Good" || stock.metrics.performance.value === "Good"
                                 ? " Considered medium quality in our assessment."
                                 : " Currently rated lower in our quality metrics."}
                      </p>
@@ -1171,7 +619,7 @@ export default function StockCard({
              </div>
              {/* Comparison */}
              <div className="bg-white border-t border-b border-slate-100 comparative-analysis-container" onClick={(e) => { /* Stop propagation for inner clicks */ }}>
-               <ComparativeAnalysis currentStock={stockWithMetrics} />
+               <ComparativeAnalysis currentStock={stock} />
              </div>
              {/* Bottom Buttons */}
              <div className="p-4 bg-white border-t border-b border-slate-100 mb-4">
@@ -1179,7 +627,7 @@ export default function StockCard({
                  <div className="text-center text-sm font-medium text-slate-600 my-2"> Swipe <span className="text-red-600 font-medium">left to skip</span> • Swipe <span className="text-green-600 font-medium">right to invest</span> </div>
              </div>
              {/* Analysis */}
-             {stockWithMetrics.overallAnalysis && ( <div className="p-5 bg-gradient-to-b from-white to-slate-50"> <div className="mb-1"> <OverallAnalysisCard stock={stockWithMetrics} /> </div> </div> )}
+             {stock.overallAnalysis && ( <div className="p-5 bg-gradient-to-b from-white to-slate-50"> <div className="mb-1"> <OverallAnalysisCard stock={stock} /> </div> </div> )}
           </>
       )}
 

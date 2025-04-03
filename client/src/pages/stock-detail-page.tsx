@@ -33,11 +33,11 @@ const cardVariants = {
     rotate: 0,
     y: 0,
     transition: { 
-      duration: 0.65, // Increased duration for smoother motion
+      duration: 0.5, // Slower duration 
       ease: [0.16, 1, 0.3, 1], // Custom ease curve for more satisfying motion
       type: "spring",
-      stiffness: 300, // Reduced stiffness for less resistance
-      damping: 35  // Increased damping for more stability
+      stiffness: 350,
+      damping: 30
     }
   },
   exit: (direction: number) => ({
@@ -47,20 +47,20 @@ const cardVariants = {
     scale: 0.85,
     rotate: direction < 0 ? 3 : -3, // Slight rotation for more natural feel
     transition: { 
-      duration: 0.6, // Slower duration for smoother exit
+      duration: 0.5, // Slower duration
       ease: [0.7, 0, 0.84, 0], // Custom ease curve for more satisfying motion
       type: "spring",
-      stiffness: 350, // Reduced stiffness
-      damping: 45  // Increased damping
+      stiffness: 400,
+      damping: 40
     }
   }),
   background: {
     zIndex: 0,
-    opacity: 0.5, // Reduced opacity for less visual noise
-    scale: 0.93, // Less dramatic scaling for the background card
-    y: 20, // Reduced offset for the background card
+    opacity: 0.7,
+    scale: 0.90,
+    y: 25,
     transition: { 
-      duration: 0.7, // Slower for smoother background transition
+      duration: 0.5,
       ease: "easeOut"
     }
   }
@@ -239,21 +239,15 @@ const handlePreviousStock = useCallback(() => {
          <div className="relative w-full h-full pt-16 px-3">
            <AnimatePresence initial={false} custom={swipeDirection}>
 
-             {/* Background Card with improved positioning */}
+             {/* Background Card */}
              {nextStockData && (
                 <motion.div
                     key={currentStockIndex + 1} // Unique key
-                    className="absolute inset-0 origin-top"
+                    className="absolute inset-0"
                     variants={cardVariants}
                     initial="background"
                     animate="background"
-                    style={{ 
-                      pointerEvents: 'none',  // Disable interaction
-                      touchAction: 'none',    // Prevent touch events
-                      userSelect: 'none',     // Prevent text selection
-                      // Add distance to reduce conflict with foreground card
-                      zIndex: -1  // Ensure it stays below the foreground card
-                    }} 
+                    style={{ pointerEvents: 'none' }} // Disable interaction
                 >
                   <StockCard
                     stock={nextStockData}

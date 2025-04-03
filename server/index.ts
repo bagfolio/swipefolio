@@ -4,7 +4,6 @@ import { setupVite, serveStatic, log } from "./vite";
 import { postgresStockService } from "./services/postgres-stock-service";
 import { jsonStockService } from "./services/json-stock-service";
 import cron from 'node-cron';
-import { checkDatabaseConnection } from './check-db-connection';
 
 // Common stock symbols to preload
 const COMMON_SYMBOLS = [
@@ -19,9 +18,6 @@ const COMMON_SYMBOLS = [
 // Initialize stock data
 async function initializeStockCache() {
   try {
-    // Check database connection details first
-    await checkDatabaseConnection();
-    
     // Try to initialize PostgreSQL stock service
     log('Initializing PostgreSQL stock service...');
     const pgInitResult = await postgresStockService.loadStockData().catch(error => {
