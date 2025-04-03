@@ -1343,6 +1343,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // New API endpoint for simplified historical data fetch
+  app.get("/api/historical/:symbol", async (req, res) => {
+    try {
+      const symbol = req.params.symbol.toUpperCase();
+      // Get the time period from the query parameter, default to '1M'
+      const period = (req.query.period as string) || '1M';
+      const interval = (req.query.interval as string) || 'daily';
+      console.log(`[API] Getting historical data for: ${symbol}, period: ${period}, interval: ${interval}`);
+      
+      // If using PostgreSQL, get the data from there
+      if (stockService.isUsingPostgres()) {
+        try {
+          // Try to get price history from PostgreSQL
+          const pgPriceHistory = await pgStockService.getPriceHistory(symbol, period);
+          
+          if (pgPriceHistory && pgPriceHistory.prices) {
+            console.log(`[API] Retrieved historical data for ${symbol} (${period}) from PostgreSQL`);
+            
+            // Format the response depending on the data structure
+            return res.json({
+              symbol,
+              period,
+              interval,
+              source: "PostgreSQL Database",
+              prices: pgPriceHistory.prices
+            });
+          }
+        } catch (pgError) {
+          console.error(`[API] PostgreSQL error for ${symbol}:`, pgError);
+        }
+      }
+      
+      // If we couldn't get data from PostgreSQL or it's not enabled, use JSON fallback
+      try {
+        const stockData = jsonStockService.getStockData(symbol);
+        if (stockData) {
+          // Generate some price points if we got the stock data
+          const currentPrice = stockData.price || 100;
+          const volatility = 0.02; // 2% volatility
+          const dataPoints = getPeriodDataPoints(period);
+          const prices = generateRealisticPriceHistory(currentPrice, period, dataPoints);
+          
+          // Generate formatted date labels
+          const dates = generateDateLabels(period, dataPoints);
+          
+          // Format into a simple array of objects with date and price
+          const formattedPrices = dates.map((date, i) => ({
+            date,
+            price: prices[i]
+          }));
+          
+          return res.json({
+            symbol,
+            period,
+            interval,
+            source: "Fallback Data",
+            prices: formattedPrices
+          });
+        }
+      } catch (jsonError) {
+        console.error(`[API] JSON fallback error for ${symbol}:`, jsonError);
+      }
+      
+      // If we still don't have data, return an error
+      return res.status(404).json({
+        error: "Historical data not found",
+        message: `No historical data available for ${symbol} with period ${period}`,
+        symbol,
+        period
+      });
+    } catch (error: any) {
+      console.error(`[API] Error in historical data endpoint:`, error);
+      res.status(500).json({
+        error: "Failed to fetch historical data",
+        message: error.message
+      });
+    }
+  });
+  
   // No longer generating mock history data - using real JSON data only
   
   // New endpoint to get all available periods for a stock
