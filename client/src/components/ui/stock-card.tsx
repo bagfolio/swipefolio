@@ -68,7 +68,7 @@ interface StockCardProps {
   x?: ReturnType<typeof useMotionValue<number>>; // Optional motion value from parent
 }
 
-type TimeFrame = "1D" | "5D" | "1M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX";
+type TimeFrame = "1D" | "5D" | "1M" | "3M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX" | "1W";
 
 // Helper functions (getTimeScaleLabels, getIndustryAverageData)
 // Note: generateTimeBasedData removed - we now only use real data from PostgreSQL
@@ -84,6 +84,61 @@ const getTimeScaleLabels = (timeFrame: TimeFrame): string[] => {
     case "MAX": return ["2015", "2017", "2019", "2021", "2023"];
     default: return ["9:30", "11:00", "12:30", "14:00", "15:30", "16:00"];
   }
+};
+
+// Function to format date labels based on the timeframe
+const getDisplayDates = (dates: string[], timeFrame: TimeFrame): string[] => {
+  if (!dates.length) return [];
+  
+  // Display different formats based on timeframe
+  const formatDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    
+    switch (timeFrame) {
+      case "5D":
+      case "1W":
+        // Show day of week for short periods
+        return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(date);
+      case "1M":
+        // Show day and month for a month
+        return new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(date);
+      case "3M":
+      case "6M":
+        // Show month for medium periods
+        return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
+      case "1Y":
+        // Show month for a year
+        return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
+      case "5Y":
+        // Show year for long periods
+        return new Intl.DateTimeFormat('en-US', { year: 'numeric' }).format(date);
+      default:
+        return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+    }
+  };
+  
+  // Select evenly spaced dates to display (max 6 labels)
+  const displayCount = Math.min(6, dates.length);
+  const step = Math.max(1, Math.floor(dates.length / displayCount));
+  
+  const result: string[] = [];
+  
+  // Always include first date
+  if (dates.length > 0) {
+    result.push(formatDate(dates[0]));
+  }
+  
+  // Add middle dates at even intervals
+  for (let i = step; i < dates.length - step; i += step) {
+    result.push(formatDate(dates[i]));
+  }
+  
+  // Always include last date
+  if (dates.length > 1) {
+    result.push(formatDate(dates[dates.length - 1]));
+  }
+  
+  return result;
 };
 const getIndustryAverageData = (stock: StockData, metricType: string) => {
   const industryAvgs = getIndustryAverages(stock.industry);
@@ -196,14 +251,21 @@ export default function StockCard({
     }
   }, [periodsQuery.data]);
   
-  // Fetch price history data
+  // Fetch price history data using the new historical endpoint
   const historyQuery = useQuery({
-    queryKey: ['/api/stock/history', stock.ticker, timeFrame],
+    queryKey: ['/api/historical', stock.ticker, timeFrame],
     queryFn: async () => {
       try {
-        const response = await fetch(`/api/stock/${stock.ticker}/history?period=${timeFrame}`);
+        // Try the new historical endpoint first
+        const response = await fetch(`/api/historical/${stock.ticker}?period=${timeFrame}&interval=daily`);
         if (!response.ok) {
-          throw new Error(`Failed to fetch price history for ${stock.ticker}`);
+          // If that fails, try the old endpoint as fallback
+          console.warn(`New historical endpoint failed for ${stock.ticker}, trying fallback`);
+          const fallbackResponse = await fetch(`/api/stock/${stock.ticker}/history?period=${timeFrame}`);
+          if (!fallbackResponse.ok) {
+            throw new Error(`Failed to fetch price history for ${stock.ticker}`);
+          }
+          return fallbackResponse.json();
         }
         return response.json();
       } catch (error) {
@@ -301,7 +363,7 @@ export default function StockCard({
     return stock;
   }, [stock, metricsQuery.data, metricsQuery.isError]);
   
-  // Use real data from API only - we've removed all fallbacks to hardcoded data
+  // Use historical data API for the chart
   const chartData = useMemo(() => {
     // If we have real data from the API, use it
     if (historyQuery.data?.prices && Array.isArray(historyQuery.data.prices)) {
@@ -311,6 +373,14 @@ export default function StockCard({
     console.warn(`No price history data available for ${stock.ticker} (${timeFrame})`);
     return [stock.price, stock.price, stock.price]; // Minimum fallback to show flat line at current price
   }, [historyQuery.data, stock.ticker, timeFrame, stock.price]);
+  
+  // Get dates for the X-axis labels if available
+  const chartDates = useMemo(() => {
+    if (historyQuery.data?.dates && Array.isArray(historyQuery.data.dates)) {
+      return historyQuery.data.dates;
+    }
+    return [];
+  }, [historyQuery.data]);
   
   // Format numbers based on the requirements:
   // - 2 decimal places max for numbers less than 10
@@ -787,7 +857,17 @@ export default function StockCard({
                         </div>
                     </div>
                     <div className="absolute left-0 right-0 bottom-1 pl-12 pr-4 flex justify-between text-[10px] text-slate-900 font-medium pointer-events-none"> {/* X Axis */}
-                        {timeScaleLabels.map((label, index) => (<span key={index}>{label}</span>))}
+                        {chartDates.length > 0 ? (
+                          // If we have real dates from the API, use them intelligently
+                          getDisplayDates(chartDates, timeFrame).map((label, index) => (
+                            <span key={index}>{label}</span>
+                          ))
+                        ) : (
+                          // Fall back to generic labels if no dates
+                          timeScaleLabels.map((label, index) => (
+                            <span key={index}>{label}</span>
+                          ))
+                        )}
                     </div>
                   </div>
                   <div className="mt-4 flex items-center justify-between text-xs h-6">
