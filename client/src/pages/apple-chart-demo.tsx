@@ -15,55 +15,80 @@ interface ChartDataPoint {
   price: number;
 }
 
-// Sample Apple stock data for demonstration
-const demoData = [
-  {"date":"2024-04-01","price":217.1},
-  {"date":"2024-03-31","price":216.32},
-  {"date":"2024-03-30","price":216.32},
-  {"date":"2024-03-29","price":216.32},
-  {"date":"2024-03-28","price":215.52},
-  {"date":"2024-03-27","price":215.88},
-  {"date":"2024-03-26","price":216.32},
-  {"date":"2024-03-25","price":216.95},
-  {"date":"2024-03-24","price":217.45},
-  {"date":"2024-03-23","price":217.45},
-  {"date":"2024-03-22","price":217.45},
-  {"date":"2024-03-21","price":218.12},
-  {"date":"2024-03-20","price":216.8},
-  {"date":"2024-03-19","price":215.32},
-  {"date":"2024-03-18","price":214.2},
-  {"date":"2024-03-17","price":213.02},
-  {"date":"2024-03-16","price":213.02},
-  {"date":"2024-03-15","price":213.02},
-  {"date":"2024-03-14","price":213.95},
-  {"date":"2024-03-13","price":214.82},
-  {"date":"2024-03-12","price":215.32},
-  {"date":"2024-03-11","price":215.88},
-  {"date":"2024-03-10","price":216.45},
-  {"date":"2024-03-09","price":216.45},
-  {"date":"2024-03-08","price":216.45},
-  {"date":"2024-03-07","price":214.92},
-  {"date":"2024-03-06","price":214.1},
-  {"date":"2024-03-05","price":213.8},
-  {"date":"2024-03-04","price":214.72},
-  {"date":"2024-03-03","price":215.01}
-];
+// API response interfaces
+interface PriceResponse {
+  symbol: string;
+  period: string;
+  interval: string;
+  prices: any[];
+  dates?: string[];
+  source: string;
+}
 
 export default function AppleChartDemo() {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [timeFrame, setTimeFrame] = useState('1M');
   
+  // Fetch data from API
   useEffect(() => {
-    // Format the data for the chart (with formatted dates)
-    const formattedData = demoData.map(item => ({
-      date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      price: item.price
-    }));
+    async function fetchAppleStockData() {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        console.log('Fetching Apple stock data from API...');
+        
+        // Make the API call
+        const response = await fetch(`/api/historical/AAPL?period=${timeFrame.toLowerCase()}`);
+        
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        
+        const data: PriceResponse = await response.json();
+        console.log('Received API data:', data);
+        
+        if (!data || !data.prices || !Array.isArray(data.prices) || data.prices.length === 0) {
+          setChartData([]);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Process the data based on its format
+        let formattedData: ChartDataPoint[] = [];
+        
+        if (typeof data.prices[0] === 'object' && 'date' in data.prices[0] && 'price' in data.prices[0]) {
+          // Already in the right format with date/price objects
+          formattedData = data.prices.map((item: any) => ({
+            date: new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            price: typeof item.price === 'number' ? item.price : parseFloat(item.price)
+          }));
+        } else if (typeof data.prices[0] === 'number' && data.dates && Array.isArray(data.dates)) {
+          // Separate arrays for dates and prices
+          formattedData = data.prices.map((price: number, index: number) => ({
+            date: new Date(data.dates![index]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            price: price
+          }));
+        }
+        
+        console.log(`Processed ${formattedData.length} data points`);
+        
+        // Sort from oldest to newest (if needed)
+        // formattedData.reverse();
+        
+        setChartData(formattedData);
+      } catch (err) {
+        console.error('Error fetching Apple stock data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load stock data');
+      } finally {
+        setIsLoading(false);
+      }
+    }
     
-    // Reverse to show oldest to newest
-    setChartData(formattedData.reverse());
-  }, []);
+    fetchAppleStockData();
+  }, [timeFrame]);
   
   // Calculate price change
   const calculateChange = () => {
@@ -86,13 +111,53 @@ export default function AppleChartDemo() {
     return `$${value.toFixed(2)}`;
   };
   
-  // If still loading initial data
-  if (chartData.length === 0) {
+  // Loading state
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-700">Loading Apple stock data...</p>
+          <p className="mt-4 text-gray-700">Loading Apple stock data from API...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-100">
+        <div className="text-center max-w-lg mx-auto">
+          <div className="bg-red-100 border border-red-300 text-red-800 p-6 rounded-lg">
+            <h2 className="text-xl font-semibold mb-2">Error Loading Data</h2>
+            <p className="mb-4">{error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // Empty data state
+  if (chartData.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-100">
+        <div className="text-center max-w-lg mx-auto">
+          <div className="bg-yellow-100 border border-yellow-300 text-yellow-800 p-6 rounded-lg">
+            <h2 className="text-xl font-semibold mb-2">No Data Available</h2>
+            <p className="mb-4">No stock price history is available for AAPL.</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -115,8 +180,23 @@ export default function AppleChartDemo() {
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-semibold">Stock Price Chart</h2>
               
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-500">1 Month View</span>
+              <div className="flex items-center">
+                {/* Time period selectors */}
+                <div className="flex space-x-1">
+                  {['1D', '5D', '1W', '1M', '3M', '6M', '1Y'].map((period) => (
+                    <button
+                      key={period}
+                      onClick={() => setTimeFrame(period)}
+                      className={`text-xs px-2 py-1 rounded-md ${
+                        timeFrame === period
+                          ? 'bg-blue-100 text-blue-700 font-medium'
+                          : 'text-gray-500 hover:bg-gray-100'
+                      }`}
+                    >
+                      {period}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             
@@ -196,7 +276,9 @@ export default function AppleChartDemo() {
           {/* Source attribution */}
           <div className="px-4 pb-4 text-right text-xs text-gray-500">
             <div className="flex items-center justify-end">
-              <span>Data source: Replit Financial Service</span>
+              <span>Period: {timeFrame}</span>
+              <span className="mx-2">•</span>
+              <span>Data source: PostgreSQL</span>
             </div>
           </div>
         </div>
