@@ -1,0 +1,25 @@
+Okay, here is a summary you can provide to the Replit agent to help them investigate the stock card swipe issues:
+
+"Hey Replit agent, I'm having trouble with the swipe interaction on my stock cards (StockCard.tsx). Ever since I added the feature to show a preview of the next card behind the current one during a swipe, the interaction feels inconsistent.
+
+Sometimes the card catches and stops mid-swipe, and other times it swipes way too fast. The friction feels off.
+
+Could you please investigate the following areas in the code (repomix-output-bagfolio-swipefolio.git (12).txt) to identify the problem and suggest fixes?
+
+Drag Handling Logic in StockCard.tsx:
+
+Review the logic in handleDragStart, handleDrag, and handleDragEnd.
+Check the thresholds used to determine if a swipe is intentional vs. an accidental scroll (horizontal vs. vertical distance, drag duration, screen width percentage) [cite: 9288-9290, 9299-9301]. These might be too sensitive or conflicting, causing the "catching" or overly fast swipes.
+See if the snap-back logic for "unintentional" drags could be improved.
+Animation Physics (framer-motion):
+
+Look at the transition properties (stiffness, damping) used for the drag animations in StockCard.tsx (via cardControls) and potentially SwipeableCard.tsx [cite: 7315, 7317, 7322, 7325, 7328-7329, 9188, 10893-10894]. Adjusting these might fix the "friction" feeling or the fast swipes.
+Check the velocity and offset thresholds used in the drag end logic.
+Component Interaction (StockCard.tsx / SwipeableCard.tsx):
+
+Verify how StockCard and SwipeableCard interact [cite: 7307-7308, 7321, 9183]. Ensure there aren't conflicting drag handlers active on the same element. Focus on the drag logic within StockCard.tsx if that's the primary component in use on the affected page.
+Preview Card Rendering (StockCard.tsx):
+
+Examine how the nextStock preview is rendered and styled in the realtime display mode. Ensure its absolute positioning, z-index, or styles aren't interfering with the main card's drag events [cite: 7311, 7323-7324, 7331-7332].
+Consider if rendering the preview card is causing any performance issues affecting animation smoothness.
+The goal is to make the swipe feel smooth, consistent, and predictable, reliably triggering the 'skip' (left) or 'invest' (right) actions only when the user intends."

@@ -557,8 +557,13 @@ export default function StockCard({
     className="h-full w-full rounded-2xl shadow-xl" // Added larger rounded corners for better appearance
     drag={cardControls ? "x" : false} // Only draggable if interactive
     dragConstraints={{ left: 0, right: 0 }}
-    dragElastic={0.5}
-    dragPropagation // Allow scroll events to propagate
+    dragElastic={0.3} // Reduced elastic factor to make drag more controlled and predictable
+    dragTransition={{ 
+      power: 0.15, // Lower power for easier initiation
+      timeConstant: 350, // Higher time constant for smoother motion
+      modifyTarget: (target) => Math.round(target / 50) * 50 // Snap to grid for consistent behavior
+    }}
+    dragPropagation={false} // Don't propagate drag events to improve reliability
     onDragStart={handleDragStart}
     onDrag={handleDrag}
     onDragEnd={handleDragEnd}
@@ -570,7 +575,8 @@ export default function StockCard({
       scale: cardScale,
       backgroundColor: displayMode === 'simple' ? '#111827' : '#FFFFFF',
       color: displayMode === 'simple' ? 'white' : '#1F2937',
-      cursor: cardControls ? 'grab' : 'default'
+      cursor: cardControls ? 'grab' : 'default',
+      willChange: 'transform' // Hint to the browser to optimize transform animations
     }}
     whileTap={cardControls ? { cursor: 'grabbing' } : {}}
   >
