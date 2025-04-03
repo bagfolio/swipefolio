@@ -291,9 +291,11 @@ export class PgStockService {
    */
   async getPriceHistory(ticker: string, period: string = '1M'): Promise<any> {
     try {
-      // Get detailed data that contains closing history
+      console.log(`[PG-STOCK] Getting price history for ${ticker} (${period})`);
+      
+      // Get historical price data from stock_data table - this is our primary source
       const result = await pool.query(`
-        SELECT ticker, closing_history 
+        SELECT ticker, closing_history
         FROM stock_data 
         WHERE ticker = $1
       `, [ticker]);
@@ -303,32 +305,78 @@ export class PgStockService {
         return null;
       }
       
-      // Extract the price history for the requested period
-      const closingHistory = result.rows[0].closing_history;
+      // Use closing_history as our data source
+      let priceData = result.rows[0].closing_history;
       
-      // Parse the JSON if it's a string
-      let history = closingHistory;
-      if (typeof closingHistory === 'string') {
+      // Parse JSON if it's a string
+      if (typeof priceData === 'string') {
         try {
-          history = JSON.parse(closingHistory);
+          priceData = JSON.parse(priceData);
         } catch (e) {
           console.warn(`Error parsing closing_history JSON for ${ticker}:`, e);
           return null;
         }
       }
       
-      // Check if the requested period exists
-      if (history && history[period]) {
+      // First check if period-specific data exists
+      if (priceData && priceData[period]) {
+        console.log(`[PG-STOCK] Found period-specific data for ${ticker} (${period})`);
+        
+        // Check if it's an array (older format) or object with dates/prices (newer format)
+        if (Array.isArray(priceData[period])) {
+          return {
+            ticker: ticker,
+            period: period,
+            prices: priceData[period],
+            lastUpdated: new Date().toISOString()
+          };
+        } else if (priceData[period].prices && priceData[period].dates) {
+          return {
+            ticker: ticker,
+            period: period,
+            prices: priceData[period].prices,
+            dates: priceData[period].dates,
+            lastUpdated: new Date().toISOString()
+          };
+        }
+      }
+      
+      // If no period-specific data, check for raw price data
+      if (priceData && priceData.Close && priceData.Date) {
+        console.log(`[PG-STOCK] Using raw price data for ${ticker}`);
+        
+        // Filter based on period
+        const dates = priceData.Date;
+        const prices = priceData.Close;
+        
+        // Convert period to days
+        let daysToInclude = 30; // Default to 1M
+        
+        if (period === '1D') daysToInclude = 1;
+        else if (period === '5D') daysToInclude = 5;
+        else if (period === '1W') daysToInclude = 7;
+        else if (period === '1M') daysToInclude = 30;
+        else if (period === '3M') daysToInclude = 90;
+        else if (period === '6M') daysToInclude = 180;
+        else if (period === '1Y') daysToInclude = 365;
+        else if (period === '5Y') daysToInclude = 365 * 5;
+        else if (period === 'MAX') daysToInclude = 365 * 20; // Just use all available data
+        
+        // Take the most recent X days worth of data
+        const filteredPrices = prices.slice(0, Math.min(daysToInclude, prices.length));
+        const filteredDates = dates.slice(0, Math.min(daysToInclude, dates.length));
+        
         return {
           ticker: ticker,
           period: period,
-          prices: history[period],
-          lastUpdated: new Date().toISOString()
+          prices: filteredPrices.reverse(), // Reverse to get chronological order
+          dates: filteredDates.reverse(),   // Reverse to get chronological order
+          source: 'postgresql'
         };
-      } else {
-        console.log(`No price history data for period '${period}' found for '${ticker}'`);
-        return null;
       }
+      
+      console.log(`No usable price history data found for '${ticker}' in stock_data`);
+      return null;
     } catch (error) {
       console.error(`Error fetching price history for '${ticker}' (${period}) from PostgreSQL:`, error);
       return null;

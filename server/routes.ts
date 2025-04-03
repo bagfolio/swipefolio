@@ -1250,20 +1250,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Generate realistic historical data if not found in PostgreSQL
-      console.log(`[API] PostgreSQL historical data not found for ${ticker}, generating data`);
-      
-      const points = getPeriodDataPoints(period);
-      const prices = generateRealisticPriceHistory(await getCurrentPrice(ticker), period, points);
-      const dates = generateDateLabels(period, prices.length);
-      
-      return res.json({
+      // Return error if data not found in PostgreSQL - no more generated data
+      console.error(`[API] No historical price data available for ${ticker} (${period})`);
+      return res.status(404).json({
+        error: "Historical data not found",
+        message: `No historical price data available for ${ticker} with period ${period}`,
         symbol: ticker,
-        period: period,
-        interval: interval,
-        prices: prices,
-        dates: dates,
-        source: 'generated'
+        period: period
       });
     } catch (error: any) {
       console.error(`[API] Error in historical data endpoint:`, error);

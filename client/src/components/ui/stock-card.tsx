@@ -364,18 +364,26 @@ export default function StockCard({
     return stock;
   }, [stock, metricsQuery.data, metricsQuery.isError]);
   
-  // Use historical data API for the chart
+  // Use historical data API for the chart - only use real data from PostgreSQL
   const chartData = useMemo(() => {
     // If we have real data from the API, use it
     if (historyQuery.data?.prices && Array.isArray(historyQuery.data.prices)) {
       // Log the actual data to verify what we're getting
       console.log(`[Chart] Got ${historyQuery.data.prices.length} price points for ${stock.ticker} (${timeFrame})`);
-      console.log(`[Chart] Data source: ${historyQuery.data.source}`);
-      return historyQuery.data.prices;
+      console.log(`[Chart] Data source: ${historyQuery.data.source || 'database'}`);
+      // Only use data if it's from PostgreSQL or a valid source (not 'generated')
+      if (historyQuery.data.source !== 'generated') {
+        return historyQuery.data.prices;
+      } else {
+        console.warn(`Received generated data for ${stock.ticker} - ignoring`);
+      }
     }
-    // Empty array if no data available - will show blank chart (better than fake data)
-    console.warn(`No price history data available for ${stock.ticker} (${timeFrame})`);
-    return [stock.price, stock.price, stock.price]; // Minimum fallback to show flat line at current price
+    
+    // Show warning if no real data available
+    console.warn(`No real historical price data available for ${stock.ticker} (${timeFrame})`);
+    
+    // Return minimal data to show error state in UI (flat line at current price)
+    return [stock.price, stock.price, stock.price];
   }, [historyQuery.data, stock.ticker, timeFrame, stock.price]);
   
   // Get dates for the X-axis labels if available
@@ -672,36 +680,40 @@ export default function StockCard({
         }} 
     >
 
-      {/* --- Time frame selector (realtime mode only) --- */}
-      {/* Always show time period buttons in all modes */}
-          <div className="sticky top-0 z-20 flex justify-center space-x-2 px-4 py-4 border-b border-slate-100 bg-white shadow-md">
-               <h3 className="text-xs font-semibold text-slate-500 mr-1 self-center">TIMEFRAME:</h3>
-               {periodsQuery.isLoading ? (
-                 // Show loading state for time periods
-                 <div className="flex justify-center space-x-2">
-                   {["5D", "1M", "3M", "6M", "1Y"].map((period) => (
-                     <Skeleton key={period} className="w-12 h-8 rounded-md" />
-                   ))}
-                 </div>
-               ) : (
-                 // Show available periods from API, filtering out non-timeframe keys
-                 (availablePeriods && availablePeriods.length > 0 ? availablePeriods : ["5D", "1M", "3M", "6M", "1Y"])
-                   .filter(period => 
-                     ["1D", "5D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y", "MAX"].includes(period)
-                   )
-                   .map((period) => (
-                   <button
-                       key={period}
-                       className={`px-3 py-2 text-xs font-bold rounded-md transition-all duration-200 ${
-                           timeFrame === period
-                               ? `${realTimeChange >= 0 ? 'text-green-700 bg-green-100 border border-green-300 shadow-sm' : 'text-red-700 bg-red-100 border border-red-300 shadow-sm'}`
-                               : 'text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200'
-                       }`}
-                       onClick={() => setTimeFrame(period as TimeFrame)}
-                   >
-                       {period}
-                   </button>
-               )))}
+      {/* --- Time frame selector - ENHANCED AND MORE VISIBLE --- */}
+      {/* Always show time period buttons in all modes with a bold header and larger buttons */}
+          <div className="sticky top-0 z-20 flex flex-col px-4 py-3 border-b border-slate-200 bg-white shadow-lg">
+               <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider">TIMEFRAME</h3>
+               <div className="flex flex-wrap justify-center gap-2">
+                 {periodsQuery.isLoading ? (
+                   // Show loading state for time periods
+                   <div className="flex justify-center gap-2">
+                     {["5D", "1M", "3M", "6M", "1Y"].map((period) => (
+                       <Skeleton key={period} className="w-16 h-10 rounded-md" />
+                     ))}
+                   </div>
+                 ) : (
+                   // Show available periods from API, filtering out non-timeframe keys
+                   (availablePeriods && availablePeriods.length > 0 ? availablePeriods : ["5D", "1M", "3M", "6M", "1Y"])
+                     .filter(period => 
+                       ["1D", "5D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y", "MAX"].includes(period)
+                     )
+                     .map((period) => (
+                     <button
+                         key={period}
+                         className={`px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 ${
+                             timeFrame === period
+                                 ? `${realTimeChange >= 0 
+                                     ? 'text-green-800 bg-green-100 border-2 border-green-400 shadow-md scale-105' 
+                                     : 'text-red-800 bg-red-100 border-2 border-red-400 shadow-md scale-105'}`
+                                 : 'text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300'
+                         }`}
+                         onClick={() => setTimeFrame(period as TimeFrame)}
+                     >
+                         {period}
+                     </button>
+                   )))}
+               </div>
            </div>
 
       {/* --- Content Specific to Mode --- */}
@@ -854,7 +866,7 @@ export default function StockCard({
                     </div>
                   </div>
                   
-                  <div className="relative mt-4 h-64 py-2"> {/* Chart Area - increased height from h-44 to h-64 */}
+                  <div className="relative mt-4 h-96 py-2"> {/* Chart Area - increased height to 2/5 of screen (h-96) */}
                     <div className="absolute inset-0 px-4"> {/* Chart Visual */}
                         <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-slate-900 font-medium pointer-events-none py-3 z-10 w-12"> {/* Y Axis */}
                             <span>${Math.round(priceRangeMax)}</span> <span>${Math.round((priceRangeMax + priceRangeMin) / 2)}</span> <span>${Math.round(priceRangeMin)}</span>
