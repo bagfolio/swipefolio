@@ -58,9 +58,15 @@ export default function StockChart({ symbol }: StockChartProps) {
         // If prices is already an array of objects with date and price
         if (typeof result.prices[0] === 'object' && result.prices[0].date && result.prices[0].price !== undefined) {
           console.log('Using object array format', result.prices.slice(0, 3));
+          // Ensure price is a number
+          const formattedPrices = result.prices.map((item: any) => ({
+            date: item.date,
+            price: typeof item.price === 'string' ? parseFloat(item.price) : item.price
+          }));
+          
           return {
             ...result,
-            chartData: result.prices
+            chartData: formattedPrices
           };
         }
         
@@ -69,7 +75,7 @@ export default function StockChart({ symbol }: StockChartProps) {
           console.log('Using separate prices/dates arrays');
           const chartData = result.dates.map((date: string, i: number) => ({
             date: new Date(date).toLocaleDateString(),
-            price: result.prices[i]
+            price: typeof result.prices[i] === 'string' ? parseFloat(result.prices[i]) : result.prices[i]
           }));
           
           return {
@@ -79,12 +85,22 @@ export default function StockChart({ symbol }: StockChartProps) {
         }
         
         // If we just have prices array, generate dates
-        if (Array.isArray(result.prices) && typeof result.prices[0] === 'number') {
+        if (Array.isArray(result.prices) && result.prices.length > 0) {
           console.log('Using prices array only, generating dates');
-          const chartData = result.prices.map((price: number, i: number) => ({
-            date: `Day ${i+1}`,
-            price
-          }));
+          const chartData = result.prices.map((price: any, i: number) => {
+            let priceValue = price;
+            // Handle if price is itself an object with a numeric value
+            if (typeof price === 'object' && price !== null) {
+              priceValue = price.price ?? price.value ?? Object.values(price)[0];
+            }
+            // Ensure it's a number
+            priceValue = typeof priceValue === 'string' ? parseFloat(priceValue) : priceValue;
+            
+            return {
+              date: `Day ${i+1}`,
+              price: priceValue
+            };
+          });
           
           return {
             ...result,

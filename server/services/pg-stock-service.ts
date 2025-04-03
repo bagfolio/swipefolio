@@ -383,7 +383,7 @@ export class PgStockService {
 
         // Format prices as numbers and ensure dates are strings
         const formattedPrices = filteredPrices.map((p: any) => {
-          return typeof p === 'string' ? parseFloat(p) : p;
+          return typeof p === 'string' ? parseFloat(p) : Number(p);
         });
         
         const formattedDates = filteredDates.map((d: any) => d.toString());
@@ -391,18 +391,40 @@ export class PgStockService {
         // Log what we're returning for debugging
         console.log(`[PG-STOCK] Returning ${formattedPrices.length} data points for ${ticker} (${normalizedPeriod})`);
         
-        // IMPROVEMENT: Return array of objects with date and price for better frontend compatibility
-        const dataPoints = formattedDates.map((date, index) => ({
-          date,
-          price: formattedPrices[index]
-        })).reverse(); // Reverse to get chronological order
+        // Create array of objects with date and price - in chronological order
+        // First reverse arrays to get chronological order (oldest to newest)
+        const reversedPrices = [...formattedPrices].reverse();
+        const reversedDates = [...formattedDates].reverse();
+        
+        // Now create objects with properly formatted dates that will display correctly
+        const dataPoints = reversedDates.map((date, index) => {
+          // Parse the date string and format it to a shorter readable format
+          try {
+            // Try to create a Date object and format to MM/DD
+            const dateObj = new Date(date);
+            if (!isNaN(dateObj.getTime())) {
+              return {
+                date: `${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getDate().toString().padStart(2, '0')}`,
+                price: reversedPrices[index]
+              };
+            }
+          } catch (e) {
+            console.warn(`Error formatting date ${date}:`, e);
+          }
+          
+          // Fallback if date parsing fails
+          return {
+            date: date.split('T')[0].slice(5), // Just use MM-DD portion
+            price: reversedPrices[index]
+          };
+        });
+        
+        console.log(`[PG-STOCK] Formatted data points sample:`, dataPoints.slice(0, 3));
         
         return {
           ticker: ticker,
           period: normalizedPeriod,
           prices: dataPoints, // Return formatted data points
-          rawPrices: formattedPrices.reverse(), // Also include raw arrays for backward compatibility
-          dates: formattedDates.reverse(),
           source: 'postgresql',
           lastUpdated: new Date().toISOString()
         };

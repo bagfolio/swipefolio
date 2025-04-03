@@ -1348,7 +1348,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const symbol = req.params.symbol.toUpperCase();
       // Get the time period from the query parameter, default to '1M'
-      const period = (req.query.period as string) || '1M';
+      // Normalize period to uppercase for consistency
+      const period = ((req.query.period as string) || '1M').toUpperCase();
       const interval = (req.query.interval as string) || 'daily';
       console.log(`[API] Getting historical data for: ${symbol}, period: ${period}, interval: ${interval}`);
       
@@ -1361,13 +1362,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (pgPriceHistory && pgPriceHistory.prices) {
             console.log(`[API] Retrieved historical data for ${symbol} (${period}) from PostgreSQL`);
             
-            // Format the response depending on the data structure
+            // Log data structure for debugging
+            if (pgPriceHistory.prices.length > 0) {
+              console.log(`[API] Data structure sample: `, 
+                typeof pgPriceHistory.prices[0], 
+                pgPriceHistory.prices.slice(0, 2)
+              );
+            }
+            
+            // Format the response consistently
             return res.json({
               symbol,
               period,
               interval,
               source: "PostgreSQL Database",
-              prices: pgPriceHistory.prices
+              prices: pgPriceHistory.prices // This should already be an array of {date, price} objects
             });
           }
         } catch (pgError) {
@@ -1378,10 +1387,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If we couldn't get data from PostgreSQL or it's not enabled, use JSON fallback
       try {
         const stockData = jsonStockService.getStockData(symbol);
-        if (stockData) {
+        if (stockData && stockData.price) {
           // Generate some price points if we got the stock data
-          const currentPrice = stockData.price || 100;
-          const volatility = 0.02; // 2% volatility
+          const currentPrice = stockData.price;
           const dataPoints = getPeriodDataPoints(period);
           const prices = generateRealisticPriceHistory(currentPrice, period, dataPoints);
           
@@ -1390,15 +1398,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Format into a simple array of objects with date and price
           const formattedPrices = dates.map((date, i) => ({
-            date,
-            price: prices[i]
+            // Format date to MM/DD format for better chart display
+            date: date.split('-').slice(1).join('/'),
+            price: parseFloat(prices[i].toFixed(2)) // Ensure price is a number with 2 decimal places
           }));
+          
+          console.log(`[API] Using JSON fallback data for ${symbol} (${period}), sample:`, formattedPrices.slice(0, 2));
           
           return res.json({
             symbol,
             period,
             interval,
-            source: "Fallback Data",
+            source: "JSON files (generated data)",
             prices: formattedPrices
           });
         }

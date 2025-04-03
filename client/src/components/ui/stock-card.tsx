@@ -257,18 +257,30 @@ export default function StockCard({
     queryKey: ['/api/historical', stock.ticker, timeFrame],
     queryFn: async () => {
       try {
-        // Try the new historical endpoint first
-        const response = await fetch(`/api/historical/${stock.ticker}?period=${timeFrame}&interval=daily`);
+        // Try the new historical endpoint first - normalize period to uppercase for consistency
+        const normalizedTimeFrame = timeFrame.toUpperCase();
+        const response = await fetch(`/api/historical/${stock.ticker}?period=${normalizedTimeFrame}&interval=daily`);
+        
         if (!response.ok) {
           // If that fails, try the old endpoint as fallback
           console.warn(`New historical endpoint failed for ${stock.ticker}, trying fallback`);
-          const fallbackResponse = await fetch(`/api/stock/${stock.ticker}/history?period=${timeFrame}`);
+          const fallbackResponse = await fetch(`/api/stock/${stock.ticker}/history?period=${normalizedTimeFrame}`);
           if (!fallbackResponse.ok) {
             throw new Error(`Failed to fetch price history for ${stock.ticker}`);
           }
           return fallbackResponse.json();
         }
-        return response.json();
+        
+        const result = await response.json();
+        console.log(`[StockCard] Retrieved historical data for ${stock.ticker} (${normalizedTimeFrame}) from ${result.source || 'unknown source'}`);
+        
+        // Log the structure of what we got from the server
+        if (result.prices && result.prices.length > 0) {
+          console.log(`[StockCard] Data structure: ${typeof result.prices[0]}`);
+          console.log(`[StockCard] First 2 data points:`, result.prices.slice(0, 2));
+        }
+        
+        return result;
       } catch (error) {
         console.error('Error fetching price history:', error);
         return null;
@@ -373,11 +385,31 @@ export default function StockCard({
     if (historyQuery.data?.prices && Array.isArray(historyQuery.data.prices) && historyQuery.data.prices.length > 0) {
       // Log the actual data to verify what we're getting
       console.log(`[Chart] Got ${historyQuery.data.prices.length} price points for ${stock.ticker} (${timeFrame})`);
-      console.log(`[Chart] First price: ${historyQuery.data.prices[0]}, Last price: ${historyQuery.data.prices[historyQuery.data.prices.length - 1]}`);
-      console.log(`[Chart] Data source: ${historyQuery.data.source || 'database'}`);
       
-      // Always use the data we get from the API since it's coming from PostgreSQL
-      return historyQuery.data.prices as ChartDataWithError;
+      // Check if prices are objects with date and price properties
+      if (typeof historyQuery.data.prices[0] === 'object' && 'price' in historyQuery.data.prices[0]) {
+        console.log(`[Chart] Using object format with date/price properties`);
+        // Extract just the price values from the array of objects
+        const priceValues = historyQuery.data.prices.map((item: any) => {
+          // Ensure price is a number
+          return typeof item.price === 'string' ? parseFloat(item.price) : item.price;
+        });
+        console.log(`[Chart] First price: ${priceValues[0]}, Last price: ${priceValues[priceValues.length - 1]}`);
+        console.log(`[Chart] Data source: ${historyQuery.data.source || 'database'}`);
+        return priceValues as ChartDataWithError;
+      } else {
+        // Direct array of price values
+        console.log(`[Chart] Using direct array of price values`);
+        console.log(`[Chart] First price: ${historyQuery.data.prices[0]}, Last price: ${historyQuery.data.prices[historyQuery.data.prices.length - 1]}`);
+        console.log(`[Chart] Data source: ${historyQuery.data.source || 'database'}`);
+        
+        // Ensure all values are numbers
+        const priceValues = historyQuery.data.prices.map((price: any) => 
+          typeof price === 'string' ? parseFloat(price) : price
+        );
+        
+        return priceValues as ChartDataWithError;
+      }
     }
     
     // Show warning if no real data available
@@ -391,12 +423,26 @@ export default function StockCard({
   
   // Get dates for the X-axis labels if available
   const chartDates = useMemo(() => {
+    // First check if we have an array of price objects with date properties
+    if (historyQuery.data?.prices && Array.isArray(historyQuery.data.prices) && historyQuery.data.prices.length > 0) {
+      // Check if prices array contains objects with date properties
+      if (typeof historyQuery.data.prices[0] === 'object' && 'date' in historyQuery.data.prices[0]) {
+        const dates = historyQuery.data.prices.map((item: any) => item.date);
+        console.log(`[Chart] Extracted ${dates.length} dates from price objects for ${stock.ticker} (${timeFrame})`);
+        console.log(`[Chart] Date range: ${dates[0]} to ${dates[dates.length - 1]}`);
+        return dates;
+      }
+    }
+    
+    // Fall back to dates array if available
     if (historyQuery.data?.dates && Array.isArray(historyQuery.data.dates) && historyQuery.data.dates.length > 0) {
       // Log the dates to verify what we're getting
-      console.log(`[Chart] Got ${historyQuery.data.dates.length} date points for ${stock.ticker} (${timeFrame})`);
+      console.log(`[Chart] Got ${historyQuery.data.dates.length} date points from dates array for ${stock.ticker} (${timeFrame})`);
       console.log(`[Chart] Date range: ${historyQuery.data.dates[0]} to ${historyQuery.data.dates[historyQuery.data.dates.length - 1]}`);
       return historyQuery.data.dates;
     }
+    
+    // If no dates found, return empty array
     return [];
   }, [historyQuery.data, stock.ticker, timeFrame]);
   
