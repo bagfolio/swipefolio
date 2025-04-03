@@ -615,6 +615,17 @@ export default function StockCard({
                         <div className="absolute inset-0 pl-12 pr-4"> {/* Chart Path */}
                            <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
                              <path d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue)) * 100} ${chartPrices.map((point: number, i: number) => `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`).join(' ')} L105,${100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue)) * 100}`} className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                             
+                             {/* Debug points to show actual data points */}
+                             {chartPrices.map((point: number, i: number) => (
+                               <circle 
+                                 key={i}
+                                 cx={`${(i / (chartPrices.length - 1)) * 110 - 5}`}
+                                 cy={`${100 - ((point - minValue) / (maxValue - minValue)) * 100}`}
+                                 r="2"
+                                 className={`${realTimeChange >= 0 ? 'fill-green-600' : 'fill-red-600'}`}
+                               />
+                             ))}
                            </svg>
                         </div>
                     </div>
