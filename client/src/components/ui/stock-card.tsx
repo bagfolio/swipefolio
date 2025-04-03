@@ -418,6 +418,7 @@ export default function StockCard({
   const dragStartYRef = useRef<number>(0);
   const dragDistanceThresholdRef = useRef<number>(0);
   const isDraggingIntentionallyRef = useRef<boolean>(false);
+  const screenWidthRef = useRef<number>(0);
   
   // Track when drag starts with initial position
   const handleDragStart = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -426,6 +427,9 @@ export default function StockCard({
     dragStartYRef.current = info.point.y;
     isDraggingIntentionallyRef.current = false;
     dragDistanceThresholdRef.current = 0;
+    
+    // Get screen width to use as a percentage reference
+    screenWidthRef.current = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
   };
   
   // Handle drag during movement to determine intentional vs accidental
@@ -437,99 +441,101 @@ export default function StockCard({
     const verticalDistance = Math.abs(info.point.y - dragStartYRef.current);
     dragDistanceThresholdRef.current = Math.max(dragDistanceThresholdRef.current, horizontalDistance);
     
-    // Get drag duration
+    // Get drag duration and screen width percentage (how far they've swiped)
     const dragDuration = Date.now() - dragStartTimeRef.current;
+    const screenWidthPercentage = (horizontalDistance / screenWidthRef.current) * 100;
     
-    // Only consider it an intentional horizontal drag if:
-    // 1. Horizontal movement is significantly greater than vertical (1.5x)
-    // 2. Horizontal distance exceeds minimum threshold (40px instead of 20px)
-    // 3. They've been dragging for enough time (150ms instead of 50ms)
-    if (horizontalDistance > verticalDistance * 1.5 && 
-        horizontalDistance > 40 && 
-        dragDuration > 150) {
+    // Much more restrictive conditions:
+    // 1. Horizontal movement must be at least 3x greater than vertical
+    // 2. Horizontal distance must exceed minimum 25% of screen width
+    // 3. Longer drag duration required (250ms)
+    // 4. Must be a deliberate swipe with some velocity
+    if (horizontalDistance > verticalDistance * 3 && 
+        screenWidthPercentage > 25 &&  // Require at least 25% of screen width
+        dragDuration > 250 && 
+        horizontalDistance > 80) {   // Minimum pixel threshold regardless of screen size
       isDraggingIntentionallyRef.current = true;
     }
   };
   
-  // Drag handler with improved responsiveness
+  // Drag handler with improved responsiveness - much more restrictive
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (!cardControls) return; // Not interactive if no controls
 
-    // If the drag wasn't intentional, just snap back quickly
-    if (!isDraggingIntentionallyRef.current) {
+    // ALWAYS snap back to center position first - this ensures consistent behavior
+    const snapBack = (stiffness = 250, damping = 20, duration = 0.3) => {
       cardControls.start({ 
         x: 0, 
         transition: { 
           type: "spring", 
-          stiffness: 250,  // Stiffer spring for faster snapback
-          damping: 20,     // Balanced damping
-          duration: 0.3    // Faster reset for unintentional movements
-        }
-      });
-      return;
-    }
-
-    // Calculate vertical movement to ensure we're not interpreting vertical scrolls as swipes
-    const verticalDistance = Math.abs(info.point.y - dragStartYRef.current);
-    const horizontalDistance = Math.abs(info.offset.x);
-    
-    // If vertical movement is significant compared to horizontal, treat as vertical scroll not swipe
-    if (verticalDistance > horizontalDistance * 0.8) {
-      cardControls.start({ 
-        x: 0, 
-        transition: { 
-          type: "spring", 
-          stiffness: 250,
-          damping: 20,
-          duration: 0.3
-        }
-      });
-      return;
-    }
-
-    // More demanding swipe thresholds - require more deliberate movement
-    const rightThreshold = 100; // Increased from 80
-    const leftThreshold = 100;  // Increased from 60
-    // Higher velocity threshold - require faster swipes
-    const velocityThreshold = 200; // Increased from 150
-    
-    const dragVelocity = info.velocity.x;
-    const dragOffset = info.offset.x;
-
-    // Determine swipe direction based on stricter combination of offset and velocity
-    if (dragOffset > rightThreshold || (dragOffset > 80 && dragVelocity > velocityThreshold)) { 
-      // Swipe Right - needs very deliberate movement
-      if (displayMode === 'realtime') {
-        if (onInvest) onInvest();
-        // Animation with rotation
-        cardControls.start({ 
-          x: 0, 
-          rotate: [3, 0],
-          transition: { 
-            type: "spring", 
-            stiffness: 150,  
-            damping: 12,     
-            duration: 0.35,  
-            ease: "easeOut"
-          }
-        });
-      } else { // Simple mode: Right swipe = Previous
-        if (onPrevious) onPrevious();
-      }
-    } else if (dragOffset < -leftThreshold || (dragOffset < -80 && dragVelocity < -velocityThreshold)) { 
-      // Swipe Left - requires deliberate movement
-      if (onNext) onNext(); // Both modes: Left swipe = Next/Skip
-    } else { // Snap back with smooth animation
-      cardControls.start({ 
-        x: 0, 
-        transition: { 
-          type: "spring", 
-          stiffness: 250,  
-          damping: 25,     // Slightly reduced damping for smoother return
-          duration: 0.5,   // Shorter duration than before
+          stiffness,
+          damping,
+          duration,
           ease: "easeOut"
         }
       });
+    };
+
+    // If the drag wasn't explicitly intentional, just snap back and return immediately
+    if (!isDraggingIntentionallyRef.current) {
+      snapBack(300, 25, 0.25); // Very quick snapback for unintentional movements
+      return;
+    }
+
+    // Even after passing intentionality check, verify we didn't have significant vertical movement
+    const verticalDistance = Math.abs(info.point.y - dragStartYRef.current);
+    const horizontalDistance = Math.abs(info.offset.x);
+    
+    // If vertical movement is at all significant, treat as vertical scroll not swipe
+    if (verticalDistance > horizontalDistance * 0.5) {
+      snapBack(300, 25, 0.25);
+      return;
+    }
+
+    // Get screen width to calculate percentage
+    const screenWidth = screenWidthRef.current;
+    const dragOffsetPercentage = (Math.abs(info.offset.x) / screenWidth) * 100;
+    
+    // Much more demanding swipe thresholds - require very deliberate movement
+    // Require 1/3 of screen width OR high velocity
+    const offsetThreshold = screenWidth / 3; // 33% of screen width
+    const velocityThreshold = 500; // Much higher velocity threshold (was 200)
+    
+    const dragVelocity = info.velocity.x;
+    const dragOffset = info.offset.x;
+    
+    // Only trigger swipe action if user has dragged at least 33% of screen width 
+    // OR has a very high velocity + 20% of screen width
+    if ((Math.abs(dragOffset) > offsetThreshold) || 
+        (Math.abs(dragVelocity) > velocityThreshold && dragOffsetPercentage > 20)) {
+      
+      // Right swipe (positive offset)
+      if (dragOffset > 0) {
+        if (displayMode === 'realtime') {
+          if (onInvest) onInvest();
+          // Animation with rotation
+          cardControls.start({ 
+            x: 0, 
+            rotate: [3, 0],
+            transition: { 
+              type: "spring", 
+              stiffness: 150,  
+              damping: 12,     
+              duration: 0.35,  
+              ease: "easeOut"
+            }
+          });
+        } else { // Simple mode: Right swipe = Previous
+          if (onPrevious) onPrevious();
+        }
+      } 
+      // Left swipe (negative offset)
+      else if (dragOffset < 0) {
+        if (onNext) onNext(); // Both modes: Left swipe = Next/Skip
+      }
+    } else {
+      // Not enough movement - snap back with smooth animation
+      snapBack(250, 25, 0.4);
     }
   };
 
@@ -575,9 +581,12 @@ export default function StockCard({
     <div
         className={`absolute inset-0 overflow-y-auto overflow-x-hidden pb-16 stock-card-scroll-content rounded-2xl hide-scrollbar ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black text-white' : 'bg-white text-slate-900'}`}
         style={{ 
+          // Allow only vertical panning and make sure it's prioritized
           touchAction: 'pan-y', 
           WebkitOverflowScrolling: 'touch',
-          scrollBehavior: 'smooth'
+          scrollBehavior: 'smooth',
+          // Improve scrolling momentum
+          overscrollBehavior: 'contain'
         }} 
     >
 
