@@ -5,7 +5,7 @@
  * It can fall back to the JSON-based stock service during the transition period.
  */
 
-import { postgresStockService } from './postgres-stock-service';
+import { pgStockService } from './pg-stock-service';
 import { jsonStockService } from './json-stock-service';
 import { log } from '../vite';
 
@@ -31,11 +31,11 @@ export class StockService {
   private async initializeService(): Promise<void> {
     try {
       // Try to initialize PostgreSQL service
-      const pgLoaded = await postgresStockService.loadStockData();
+      const pgLoaded = await pgStockService.loadStockData();
       
       if (pgLoaded) {
         // Get the available symbols from PostgreSQL
-        const symbols = await postgresStockService.getAvailableSymbols();
+        const symbols = await pgStockService.getAvailableSymbols();
         symbols.forEach(symbol => this.postgresSymbols.add(symbol));
         
         log(`Successfully initialized PostgreSQL stock service with ${symbols.length} stocks`, 'stock-service');
@@ -66,7 +66,7 @@ export class StockService {
       
       // If we're using PostgreSQL and the symbol is available in PostgreSQL
       if (this.usingPostgres && this.postgresSymbols.has(normalizedSymbol)) {
-        const pgData = await postgresStockService.getStockData(normalizedSymbol);
+        const pgData = await pgStockService.getStockData(normalizedSymbol);
         
         if (pgData) {
           return pgData;
