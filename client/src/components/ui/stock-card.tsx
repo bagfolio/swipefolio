@@ -368,6 +368,9 @@ export default function StockCard({
   const chartData = useMemo(() => {
     // If we have real data from the API, use it
     if (historyQuery.data?.prices && Array.isArray(historyQuery.data.prices)) {
+      // Log the actual data to verify what we're getting
+      console.log(`[Chart] Got ${historyQuery.data.prices.length} price points for ${stock.ticker} (${timeFrame})`);
+      console.log(`[Chart] Data source: ${historyQuery.data.source}`);
       return historyQuery.data.prices;
     }
     // Empty array if no data available - will show blank chart (better than fake data)
@@ -378,6 +381,8 @@ export default function StockCard({
   // Get dates for the X-axis labels if available
   const chartDates = useMemo(() => {
     if (historyQuery.data?.dates && Array.isArray(historyQuery.data.dates)) {
+      // Log the dates to verify what we're getting
+      console.log(`[Chart] Got ${historyQuery.data.dates.length} date points for ${stock.ticker} (${timeFrame})`);
       return historyQuery.data.dates;
     }
     return [];
@@ -669,27 +674,28 @@ export default function StockCard({
 
       {/* --- Time frame selector (realtime mode only) --- */}
       {/* Always show time period buttons in all modes */}
-          <div className={`${displayMode === 'realtime' ? 'sticky top-0 z-20' : ''} flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm`}>
+          <div className="sticky top-0 z-20 flex justify-center space-x-2 px-4 py-4 border-b border-slate-100 bg-white shadow-md">
+               <h3 className="text-xs font-semibold text-slate-500 mr-1 self-center">TIMEFRAME:</h3>
                {periodsQuery.isLoading ? (
                  // Show loading state for time periods
-                 <div className="flex justify-center space-x-1">
+                 <div className="flex justify-center space-x-2">
                    {["5D", "1M", "3M", "6M", "1Y"].map((period) => (
-                     <Skeleton key={period} className="w-10 h-6 rounded-full" />
+                     <Skeleton key={period} className="w-12 h-8 rounded-md" />
                    ))}
                  </div>
                ) : (
                  // Show available periods from API, filtering out non-timeframe keys
-                 (availablePeriods || ["5D", "1M", "3M", "6M", "1Y"])
+                 (availablePeriods && availablePeriods.length > 0 ? availablePeriods : ["5D", "1M", "3M", "6M", "1Y"])
                    .filter(period => 
                      ["1D", "5D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y", "MAX"].includes(period)
                    )
                    .map((period) => (
                    <button
                        key={period}
-                       className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
+                       className={`px-3 py-2 text-xs font-bold rounded-md transition-all duration-200 ${
                            timeFrame === period
-                               ? `${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm' : 'text-red-600 bg-red-50 border border-red-200 shadow-sm'}`
-                               : 'text-slate-600 hover:bg-slate-100 border border-slate-200'
+                               ? `${realTimeChange >= 0 ? 'text-green-700 bg-green-100 border border-green-300 shadow-sm' : 'text-red-700 bg-red-100 border border-red-300 shadow-sm'}`
+                               : 'text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200'
                        }`}
                        onClick={() => setTimeFrame(period as TimeFrame)}
                    >
