@@ -408,7 +408,17 @@ export default function StockCard({
   };
   
   const displayPrice = formatNumber(stock.price);
-  const realTimeChange = parseFloat(formatNumber(stock.change));
+  
+  // Use changePercent if available (from PostgreSQL), otherwise calculate it from change if needed
+  let realTimeChange: number;
+  if (stock.changePercent !== undefined) {
+    realTimeChange = parseFloat(formatNumber(stock.changePercent));
+  } else if (stock.change !== undefined && stock.price !== undefined) {
+    // If we have change but no changePercent, estimate it based on price (% of current price)
+    realTimeChange = parseFloat(formatNumber((stock.change / stock.price) * 100));
+  } else {
+    realTimeChange = 0;
+  }
   const minValue = Math.min(...(chartData || [1])) - 5;
   const maxValue = Math.max(...(chartData || [1])) + 5;
   const timeScaleLabels = useMemo(() => getTimeScaleLabels(timeFrame), [timeFrame]);
@@ -854,7 +864,7 @@ export default function StockCard({
                       <span className="text-3xl font-bold text-slate-900 drop-shadow-sm">${displayPrice}</span>
                       <div className="mt-1 flex items-center text-xs text-slate-500">
                         <span className="mr-2">Day's Range:</span>
-                        <span className="font-medium">${formatNumber(parseFloat(displayPrice) * 0.98)} - ${formatNumber(parseFloat(displayPrice) * 1.02)}</span>
+                        <span className="font-medium">${formatNumber((stock.dayLow !== undefined) ? stock.dayLow : parseFloat(displayPrice) * 0.98)} - ${formatNumber((stock.dayHigh !== undefined) ? stock.dayHigh : parseFloat(displayPrice) * 1.02)}</span>
                       </div>
                     </div>
                     <div className="flex flex-col items-end">
@@ -862,7 +872,7 @@ export default function StockCard({
                         {realTimeChange >= 0 ? <TrendingUp size={16} className="mr-1.5" /> : <TrendingDown size={16} className="mr-1.5" />}
                         {realTimeChange >= 0 ? '+' : ''}{formatNumber(realTimeChange)}%
                       </div>
-                      <span className="text-xs text-slate-500 mt-1 italic">Last price: ${formatNumber(stock.price - (stock.price * (realTimeChange/100)))}</span>
+                      <span className="text-xs text-slate-500 mt-1 italic">Last price: ${formatNumber(stock.previousClose !== undefined ? stock.previousClose : (stock.price - stock.change))}</span>
                     </div>
                   </div>
                   

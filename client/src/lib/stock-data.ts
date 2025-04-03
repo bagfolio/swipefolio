@@ -320,8 +320,12 @@ export interface StockData {
   ticker: string;
   price: number;
   change: number;
+  changePercent?: number;
   rating: number;
   smartScore?: string;
+  dayHigh?: number;
+  dayLow?: number;
+  previousClose?: number;
   description: string;
   oneYearReturn?: string; // 1-year return percentage (e.g., "13.27%")
   predictedPrice?: string; // Predicted future price (e.g., "$128.79")
@@ -3966,13 +3970,43 @@ Object.keys(hardcodedStocks).forEach(industry => {
   });
 });
 
+// Helper function to validate and patch any potentially missing required properties 
+// This ensures backward compatibility with older data formats
+function ensureRequiredProperties(stock: any): StockData {
+  // Create a copy to avoid modifying original
+  const updatedStock = {...stock};
+  
+  // Add changePercent if missing (using change and price)
+  if (updatedStock.changePercent === undefined && updatedStock.change !== undefined) {
+    updatedStock.changePercent = updatedStock.price ? (updatedStock.change / updatedStock.price) * 100 : 0;
+  }
+  
+  // Handle day range values if missing
+  if (updatedStock.dayHigh === undefined) {
+    updatedStock.dayHigh = updatedStock.price ? updatedStock.price * 1.02 : 0;
+  }
+  
+  if (updatedStock.dayLow === undefined) {
+    updatedStock.dayLow = updatedStock.price ? updatedStock.price * 0.98 : 0;
+  }
+  
+  // Handle previousClose if missing
+  if (updatedStock.previousClose === undefined) {
+    updatedStock.previousClose = updatedStock.price && updatedStock.change ? 
+      (updatedStock.price - updatedStock.change) : 0;
+  }
+  
+  return updatedStock as StockData;
+}
+
 // Get all available stocks from all industries
 export const getAllStocks = (): StockData[] => {
   const allStocks: StockData[] = [];
   
-  // Combine stocks from all available industries
+  // Combine stocks from all available industries and ensure required properties
   Object.keys(hardcodedStocks).forEach(industry => {
-    allStocks.push(...hardcodedStocks[industry]);
+    const patchedStocks = hardcodedStocks[industry].map(ensureRequiredProperties);
+    allStocks.push(...patchedStocks);
   });
   
   console.log(`Found ${allStocks.length} total stocks across all industries`);
@@ -4006,7 +4040,11 @@ export const getIndustryStocks = (industry: string): StockData[] => {
   
   // Return hardcoded stocks if available for the industry
   const stocks = hardcodedStocks[mappedIndustry] || [];
-  console.log(`Found ${stocks.length} stocks for mapped industry "${mappedIndustry}"`);
   
-  return stocks;
+  // Apply our property validation helper to ensure all properties exist
+  const patchedStocks = stocks.map(ensureRequiredProperties);
+  
+  console.log(`Found ${patchedStocks.length} stocks for mapped industry "${mappedIndustry}"`);
+  
+  return patchedStocks;
 };
