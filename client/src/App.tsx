@@ -23,7 +23,6 @@ import AppleChartDemo from "@/pages/apple-chart-demo";
 import { AuthProvider } from "@/hooks/use-auth";
 import { UserProgressProvider } from "@/contexts/user-progress-context";
 import { PortfolioProvider } from "@/contexts/portfolio-context";
-import { PreloadProvider } from "@/contexts/preload-context";
 
 function Router() {
   return (
@@ -61,10 +60,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <UserProgressProvider>
-          <PreloadProvider>
-            <Router />
-            <Toaster />
-          </PreloadProvider>
+          <Router />
+          <Toaster />
         </UserProgressProvider>
       </AuthProvider>
     </QueryClientProvider>

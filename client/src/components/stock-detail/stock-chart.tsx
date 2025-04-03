@@ -10,7 +10,6 @@ import {
 } from 'recharts';
 import { RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { usePreloadedData } from '@/contexts/preload-context';
 
 // Super simple props
 interface StockChartProps {
@@ -23,9 +22,6 @@ export default function StockChart({ symbol }: StockChartProps) {
   const [chartData, setChartData] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState('');
-  
-  // Get preloaded data context
-  const { getStockData } = usePreloadedData();
   
   // Format currency
   const formatPrice = (value: number) => {
@@ -45,27 +41,13 @@ export default function StockChart({ symbol }: StockChartProps) {
     
     try {
       console.log(`CHART: Fetching data for ${symbol} with period ${timeFrame}...`);
+      const response = await fetch(`/api/historical/${symbol}?period=${timeFrame.toLowerCase()}`);
       
-      // First, try to get preloaded data
-      const preloadedData = getStockData(symbol, timeFrame);
-      let result;
-      
-      if (preloadedData) {
-        // Use preloaded data if available
-        console.log(`CHART: Using preloaded data for ${symbol} (${timeFrame})`);
-        result = preloadedData;
-      } else {
-        // Fetch from API if no preloaded data is available
-        console.log(`CHART: No preloaded data found, fetching from API...`);
-        const response = await fetch(`/api/historical/${symbol}?period=${timeFrame.toLowerCase()}`);
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch data (status ${response.status})`);
-        }
-        
-        result = await response.json();
+      if (!response.ok) {
+        throw new Error(`Failed to fetch data (status ${response.status})`);
       }
       
+      const result = await response.json();
       console.log(`CHART: Got data:`, result);
       
       if (!result.prices || !Array.isArray(result.prices) || result.prices.length === 0) {
