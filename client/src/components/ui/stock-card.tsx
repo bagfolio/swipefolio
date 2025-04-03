@@ -770,6 +770,7 @@ export default function StockCard({
                  recommendations={stockWithMetrics.recommendations}
                  priceTarget={stockWithMetrics.priceTarget}
                  currentPrice={stock.price}
+                 metrics={metricsQuery.data} // Pass the raw metrics data from PostgreSQL
                />
              </div>
              
