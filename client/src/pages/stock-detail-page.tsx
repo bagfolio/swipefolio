@@ -13,7 +13,8 @@ import AIAssistant from "@/components/ui/ai-assistant";              // Ensure p
 import MetricPopup from "@/components/ui/metric-popup-fixed";         // Ensure path is correct
 import PortfolioImpactCalculator from "@/components/ui/portfolio-impact-calculator"; // Ensure path is correct
 import PurchaseSuccessModal from "@/components/ui/purchase-success-modal";     // Ensure path is correct
-// Import motion and hooks
+// Import Analyst Sentiment component
+import { AnalystSentiment } from "@/components/stock-recommendations/AnalystSentiment";
 // Import motion and hooks
 import { motion, useAnimation, useMotionValue, AnimatePresence, motionValue } from "framer-motion";
 
@@ -343,6 +344,13 @@ const handlePreviousStock = useCallback(() => {
                 stocksCount={stocks.length} // Access length safely
             />
        </div>
+      {/* Analyst Sentiment Panel */}
+      {currentStockData && (
+        <div className="absolute bottom-16 right-4 z-20 w-64">
+          <AnalystSentiment symbol={currentStockData.symbol} />
+        </div>
+      )}
+      
       {/* AI Assistant - position as needed, ensure z-index is appropriate */}
       <div className="absolute bottom-4 right-4 z-30">
         <AIAssistant />
