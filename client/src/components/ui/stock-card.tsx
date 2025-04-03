@@ -151,11 +151,14 @@ export default function StockCard({
   // Use Yahoo Finance data if available, otherwise fallback to mock data
   const chartPrices = useMemo(() => {
     if (displayMode === 'realtime' && yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0) {
+      // Log the actual Yahoo Finance data for debugging/reviewing
+      console.log(`Yahoo Finance data for ${stock.ticker} with timeFrame: ${timeFrame}`);
+      console.log('Quote data:', yahooChartData.quotes);
       return extractChartPrices(yahooChartData);
     }
     // Fallback to the generated mock data if Yahoo Finance data is not available
     return generateTimeBasedData(stock.chartData, timeFrame);
-  }, [stock.chartData, timeFrame, yahooChartData, displayMode]);
+  }, [stock.chartData, timeFrame, yahooChartData, displayMode, stock.ticker]);
   
   const displayPrice = stock.price.toFixed(2);
   const realTimeChange = stock.change;
@@ -400,21 +403,62 @@ export default function StockCard({
 
       {/* --- Time frame selector (realtime mode only) --- */}
       {displayMode === 'realtime' && (
-          <div className="sticky top-0 z-20 flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">
-               {["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"].map((period) => (
-                   <button
-                       key={period}
-                       className={`px-3 py-1 text-xs rounded-full transition-all duration-200 ${
-                           timeFrame === period
-                               ? `${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm' : 'text-red-600 bg-red-50 border border-red-200 shadow-sm'} font-medium`
-                               : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                       }`}
-                       onClick={() => setTimeFrame(period as TimeFrame)}
-                   >
-                       {period}
-                   </button>
-               ))}
-           </div>
+          <>
+            <div className="sticky top-0 z-20 flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">
+                {["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"].map((period) => (
+                    <button
+                        key={period}
+                        className={`px-3 py-1 text-xs rounded-full transition-all duration-200 ${
+                            timeFrame === period
+                                ? `${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm' : 'text-red-600 bg-red-50 border border-red-200 shadow-sm'} font-medium`
+                                : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                        }`}
+                        onClick={() => setTimeFrame(period as TimeFrame)}
+                    >
+                        {period}
+                    </button>
+                ))}
+            </div>
+            
+            {/* Yahoo Finance Data Points Table for Review */}
+            {yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0 && (
+              <div className="p-4 bg-white text-xs border-b border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-slate-900">Yahoo Finance Data Points ({yahooChartData.quotes.length})</h3>
+                  <span className="text-slate-500">{timeFrame} Range</span>
+                </div>
+                <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                  <table className="min-w-full border-collapse text-left text-xs">
+                    <thead className="bg-slate-50 sticky top-0">
+                      <tr>
+                        <th className="p-2 border border-slate-200 font-medium">Date</th>
+                        <th className="p-2 border border-slate-200 font-medium">Open</th>
+                        <th className="p-2 border border-slate-200 font-medium">High</th>
+                        <th className="p-2 border border-slate-200 font-medium">Low</th>
+                        <th className="p-2 border border-slate-200 font-medium">Close</th>
+                        <th className="p-2 border border-slate-200 font-medium">Volume</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {yahooChartData.quotes.map((quote, index) => (
+                        <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                          <td className="p-2 border border-slate-200">{new Date(quote.date).toLocaleDateString()}</td>
+                          <td className="p-2 border border-slate-200">${quote.open?.toFixed(2) || 'N/A'}</td>
+                          <td className="p-2 border border-slate-200">${quote.high?.toFixed(2) || 'N/A'}</td>
+                          <td className="p-2 border border-slate-200">${quote.low?.toFixed(2) || 'N/A'}</td>
+                          <td className="p-2 border border-slate-200 font-medium">${quote.close?.toFixed(2) || 'N/A'}</td>
+                          <td className="p-2 border border-slate-200">{quote.volume?.toLocaleString() || 'N/A'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-2 text-slate-500 text-[10px] italic">
+                  Data source: Yahoo Finance - {stock.ticker}
+                </div>
+              </div>
+            )}
+          </>
       )}
       {displayMode === 'simple' && <div className="pt-4"></div>}
 
