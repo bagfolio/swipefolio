@@ -221,6 +221,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       dataSource: source
     });
   });
+  
+  // API for checking database status and configuration
+  app.get("/api/system/database-status", async (req, res) => {
+    try {
+      const connResult = await pool.query("SELECT 1 as connected");
+      
+      // Get database name and host without exposing full credentials
+      const dbHost = process.env.PGHOST || '(not set)';
+      const dbName = process.env.PGDATABASE || '(not set)';
+      const dbUser = process.env.PGUSER || '(not set)';
+      
+      // Check for stock data table
+      const stockDataResult = await pool.query(`
+        SELECT COUNT(*) as count FROM stock_data
+      `);
+      
+      // Check for news data specifically
+      const stockNewsQuery = `
+        SELECT COUNT(*) as count 
+        FROM stock_data 
+        WHERE news IS NOT NULL AND news::text <> '[]'::text
+      `;
+      
+      const newsResult = await pool.query(stockNewsQuery);
+      
+      res.json({ 
+        connected: connResult.rows[0].connected === 1,
+        database: {
+          host: dbHost.slice(0, 20) + '...', // Only show beginning of host for privacy
+          name: dbName,
+          user: dbUser.length > 10 ? dbUser.slice(0, 5) + '...' : dbUser,
+          stockRecords: parseInt(stockDataResult.rows[0].count),
+          stockRecordsWithNews: parseInt(newsResult.rows[0].count),
+          time: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        connected: false, 
+        error: (error as Error).message,
+        database: {
+          host: process.env.PGHOST ? (process.env.PGHOST.slice(0, 20) + '...') : '(not set)',
+          name: process.env.PGDATABASE || '(not set)',
+          user: process.env.PGUSER ? 
+            (process.env.PGUSER.length > 10 ? process.env.PGUSER.slice(0, 5) + '...' : process.env.PGUSER) : 
+            '(not set)',
+          time: new Date().toISOString()
+        }
+      });
+    }
+  });
   // Set up authentication routes
   setupAuth(app);
 
