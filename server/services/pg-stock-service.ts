@@ -373,8 +373,8 @@ export class PgStockService {
         }
 
         // Format prices as numbers and ensure dates are strings
-        const formattedPrices = filteredPrices.map(p => typeof p === 'string' ? parseFloat(p) : p);
-        const formattedDates = filteredDates.map(d => d.toString());
+        const formattedPrices = filteredPrices.map((p: any) => typeof p === 'string' ? parseFloat(p) : p);
+        const formattedDates = filteredDates.map((d: any) => d.toString());
 
         return {
           ticker: ticker,

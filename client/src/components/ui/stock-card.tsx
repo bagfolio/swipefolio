@@ -364,37 +364,41 @@ export default function StockCard({
     return stock;
   }, [stock, metricsQuery.data, metricsQuery.isError]);
   
+  // Define a custom type for chart data that can include an error flag
+  type ChartDataWithError = number[] & { hasError?: boolean };
+  
   // Use historical data API for the chart - only use real data from PostgreSQL
-  const chartData = useMemo(() => {
+  const chartData = useMemo<ChartDataWithError>(() => {
     // If we have real data from the API, use it
-    if (historyQuery.data?.prices && Array.isArray(historyQuery.data.prices)) {
+    if (historyQuery.data?.prices && Array.isArray(historyQuery.data.prices) && historyQuery.data.prices.length > 0) {
       // Log the actual data to verify what we're getting
       console.log(`[Chart] Got ${historyQuery.data.prices.length} price points for ${stock.ticker} (${timeFrame})`);
+      console.log(`[Chart] First price: ${historyQuery.data.prices[0]}, Last price: ${historyQuery.data.prices[historyQuery.data.prices.length - 1]}`);
       console.log(`[Chart] Data source: ${historyQuery.data.source || 'database'}`);
-      // Only use data if it's from PostgreSQL or a valid source (not 'generated')
-      if (historyQuery.data.source !== 'generated') {
-        return historyQuery.data.prices;
-      } else {
-        console.warn(`Received generated data for ${stock.ticker} - ignoring`);
-      }
+      
+      // Always use the data we get from the API since it's coming from PostgreSQL
+      return historyQuery.data.prices as ChartDataWithError;
     }
     
     // Show warning if no real data available
-    console.warn(`No real historical price data available for ${stock.ticker} (${timeFrame})`);
+    console.warn(`No historical price data available for ${stock.ticker} (${timeFrame})`);
     
-    // Return minimal data to show error state in UI (flat line at current price)
-    return [stock.price, stock.price, stock.price];
+    // Show a message in the UI to indicate no data
+    const errorData = [stock.price, stock.price, stock.price] as ChartDataWithError;
+    errorData.hasError = true; // Flag to show error state in UI
+    return errorData;
   }, [historyQuery.data, stock.ticker, timeFrame, stock.price]);
   
   // Get dates for the X-axis labels if available
   const chartDates = useMemo(() => {
-    if (historyQuery.data?.dates && Array.isArray(historyQuery.data.dates)) {
+    if (historyQuery.data?.dates && Array.isArray(historyQuery.data.dates) && historyQuery.data.dates.length > 0) {
       // Log the dates to verify what we're getting
       console.log(`[Chart] Got ${historyQuery.data.dates.length} date points for ${stock.ticker} (${timeFrame})`);
+      console.log(`[Chart] Date range: ${historyQuery.data.dates[0]} to ${historyQuery.data.dates[historyQuery.data.dates.length - 1]}`);
       return historyQuery.data.dates;
     }
     return [];
-  }, [historyQuery.data]);
+  }, [historyQuery.data, stock.ticker, timeFrame]);
   
   // Format numbers based on the requirements:
   // - 2 decimal places max for numbers less than 10
@@ -693,8 +697,11 @@ export default function StockCard({
       {/* --- Time frame selector - ENHANCED AND MORE VISIBLE --- */}
       {/* Always show time period buttons in all modes with a bold header and larger buttons */}
           <div className="sticky top-0 z-20 flex flex-col px-4 py-3 border-b border-slate-200 bg-white shadow-lg">
-               <h3 className="text-sm font-bold text-slate-700 mb-2 uppercase tracking-wider">TIMEFRAME</h3>
-               <div className="flex flex-wrap justify-center gap-2">
+               <h3 className="text-base font-bold text-gray-700 mb-2 uppercase tracking-wider flex items-center">
+                 <Calendar size={16} className="mr-2" />
+                 TIME FRAME
+               </h3>
+               <div className="flex flex-wrap justify-center gap-2 py-1">
                  {periodsQuery.isLoading ? (
                    // Show loading state for time periods
                    <div className="flex justify-center gap-2">
@@ -876,60 +883,130 @@ export default function StockCard({
                     </div>
                   </div>
                   
-                  <div className="relative mt-4 h-96 py-2"> {/* Chart Area - increased height to 2/5 of screen (h-96) */}
-                    <div className="absolute inset-0 px-4"> {/* Chart Visual */}
-                        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-slate-900 font-medium pointer-events-none py-3 z-10 w-12"> {/* Y Axis */}
-                            <span>${Math.round(priceRangeMax)}</span> <span>${Math.round((priceRangeMax + priceRangeMin) / 2)}</span> <span>${Math.round(priceRangeMin)}</span>
-                        </div>
-                        <div className="absolute inset-0 pl-12 pr-4"> {/* Chart Path */}
-                           <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
-                             {/* Fill area under the curve */}
-                             <defs>
-                               <linearGradient id={`${stock.ticker}-gradient`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                 <stop offset="0%" stopColor={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} stopOpacity="0.2" />
-                                 <stop offset="100%" stopColor={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} stopOpacity="0.05" />
-                               </linearGradient>
-                             </defs>
-                             
-                             {/* Fill path */}
-                             <path 
-                               d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} 
-                                  ${chartData.map((point: number, i: number) => 
-                                    `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
-                                  ).join(' ')} 
-                                  L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100} 
-                                  L105,100 L-5,100 Z`} 
-                               fill={`url(#${stock.ticker}-gradient)`}
-                             />
-                             
-                             {/* Line path */}
-                             <path 
-                               d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} 
-                                  ${chartData.map((point: number, i: number) => 
-                                    `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
-                                  ).join(' ')} 
-                                  L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100}`} 
-                               className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} 
-                               strokeWidth="2" 
-                               strokeLinecap="round" 
-                               strokeLinejoin="round" 
-                             />
-                           </svg>
-                        </div>
+                  <div className="relative mt-4 h-96 py-2 bg-slate-50/50 rounded-lg"> {/* Chart Area with background and rounded corners */}
+                    {/* Chart Title and Last Updated */}
+                    <div className="absolute top-0 left-0 right-0 px-4 py-1 flex justify-between items-center">
+                      <span className="text-xs font-medium text-slate-500">
+                        {stock.ticker} Price Chart ({timeFrame})
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        Last updated: {latestTradingDay}
+                      </span>
                     </div>
-                    <div className="absolute left-0 right-0 bottom-1 pl-12 pr-4 flex justify-between text-[10px] text-slate-900 font-medium pointer-events-none"> {/* X Axis */}
-                        {chartDates.length > 0 ? (
-                          // If we have real dates from the API, use them intelligently
-                          getDisplayDates(chartDates, timeFrame).map((label, index) => (
-                            <span key={index}>{label}</span>
-                          ))
-                        ) : (
-                          // Fall back to generic labels if no dates
-                          timeScaleLabels.map((label, index) => (
-                            <span key={index}>{label}</span>
-                          ))
-                        )}
-                    </div>
+                    
+                    {historyQuery.isLoading || isRefreshing ? (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="bg-white/90 px-6 py-3 rounded-xl shadow-md">
+                          <div className="flex items-center">
+                            <RefreshCw size={20} className="text-blue-500 animate-spin mr-2" />
+                            <span className="text-blue-600 font-semibold">
+                              {isRefreshing ? 'Updating chart...' : 'Loading chart data...'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Y Axis */}
+                        <div className="absolute left-0 top-6 bottom-0 flex flex-col justify-between text-[10px] text-slate-900 font-medium pointer-events-none py-3 z-10 w-12">
+                            <span>${Math.round(priceRangeMax)}</span> 
+                            <span>${Math.round((priceRangeMax + priceRangeMin) / 2)}</span> 
+                            <span>${Math.round(priceRangeMin)}</span>
+                        </div>
+                        
+                        {/* Chart Path */}
+                        <div className="absolute inset-0 pl-12 pr-4 pt-6"> 
+                           {chartData && chartData.length > 0 ? (
+                             <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
+                               {/* Fill area under the curve */}
+                               <defs>
+                                 <linearGradient id={`${stock.ticker}-gradient`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                   <stop offset="0%" stopColor={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} stopOpacity="0.2" />
+                                   <stop offset="100%" stopColor={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} stopOpacity="0.05" />
+                                 </linearGradient>
+                               </defs>
+                               
+                               {/* Fill path */}
+                               <path 
+                                 d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} 
+                                    ${chartData.map((point: number, i: number) => 
+                                      `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
+                                    ).join(' ')} 
+                                    L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100} 
+                                    L105,100 L-5,100 Z`} 
+                                 fill={`url(#${stock.ticker}-gradient)`}
+                               />
+                               
+                               {/* Line path */}
+                               <path 
+                                 d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} 
+                                    ${chartData.map((point: number, i: number) => 
+                                      `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
+                                    ).join(' ')} 
+                                    L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100}`} 
+                                 className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} 
+                                 strokeWidth="2.5" 
+                                 strokeLinecap="round" 
+                                 strokeLinejoin="round" 
+                               />
+                               
+                               {/* Add small data points at intervals */}
+                               {chartData.length > 5 && chartData.filter((_: any, i: number) => 
+                                 i % Math.ceil(chartData.length / 5) === 0 || i === chartData.length - 1
+                               ).map((point: number, i: number) => {
+                                 const index = i * Math.ceil(chartData.length / 5);
+                                 const actualIndex = Math.min(index, chartData.length - 1);
+                                 const x = (actualIndex / (chartData.length - 1)) * 110 - 5;
+                                 const y = 100 - ((chartData[actualIndex] - minValue) / (maxValue - minValue)) * 100;
+                                 return (
+                                   <circle 
+                                     key={i} 
+                                     cx={x} 
+                                     cy={y} 
+                                     r="1.5" 
+                                     className={`${realTimeChange >= 0 ? 'fill-green-600 stroke-white' : 'fill-red-600 stroke-white'}`}
+                                     strokeWidth="1"
+                                   />
+                                 );
+                               })}
+                             </svg>
+                           ) : (
+                             <div className="h-full w-full flex items-center justify-center">
+                               <div className="text-center">
+                                 <p className="text-slate-500">No data available</p>
+                               </div>
+                             </div>
+                           )}
+                        </div>
+                        
+                        {/* X Axis */}
+                        <div className="absolute left-0 right-0 bottom-1 pl-12 pr-4 flex justify-between text-[10px] text-slate-900 font-medium pointer-events-none">
+                          {chartDates.length > 0 ? (
+                            // If we have real dates from the API, use them intelligently
+                            getDisplayDates(chartDates, timeFrame).map((label, index) => (
+                              <span key={index}>{label}</span>
+                            ))
+                          ) : (
+                            // Fall back to generic labels if no dates
+                            timeScaleLabels.map((label, index) => (
+                              <span key={index}>{label}</span>
+                            ))
+                          )}
+                        </div>
+                      </>
+                    )}
+                    
+                    {/* Show error state if the data has an error flag */}
+                    {chartData && 'hasError' in chartData && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="bg-white/90 px-6 py-3 rounded-xl shadow-md border border-amber-200">
+                          <div className="flex items-center">
+                            <Info size={20} className="text-amber-500 mr-2" />
+                            <span className="text-amber-700 font-semibold">No data available for {timeFrame} period</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="mt-4 flex items-center justify-between text-xs h-6">
                     <span className="text-slate-900 font-medium">Last updated: {latestTradingDay}</span>
