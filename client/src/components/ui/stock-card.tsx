@@ -603,7 +603,7 @@ export default function StockCard({
              </div>
              {/* Analysis */}
 
-             {/* News */}
+             {/* News Section */}
              <div className="bg-white border-t border-slate-100 mb-4">
                 <div className="p-4">
                     <h3 className="font-semibold text-slate-900 mb-3 flex items-center">
