@@ -19,7 +19,6 @@ import MarketAdventurePage from "@/pages/market-adventure-page";
 import MacroMastermindPage from "@/pages/macro-mastermind-page";
 import InvestorSimulatorPage from "@/pages/investor-simulator-page";
 import AdminSettingsPage from "@/pages/admin-settings-page";
-import AppleChartDemo from "@/pages/apple-chart-demo";
 import { AuthProvider } from "@/hooks/use-auth";
 import { UserProgressProvider } from "@/contexts/user-progress-context";
 import { PortfolioProvider } from "@/contexts/portfolio-context";
@@ -48,7 +47,6 @@ function Router() {
         <Route path="/games/macro-mastermind" component={MacroMastermindPage} />
         <Route path="/games/investor-simulator" component={InvestorSimulatorPage} />
         <Route path="/admin/settings" component={AdminSettingsPage} />
-        <Route path="/apple-chart" component={AppleChartDemo} />
         <Route component={NotFound} />
       </Switch>
     </PortfolioProvider>
