@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AreaChart,
@@ -11,93 +11,139 @@ import {
 } from 'recharts';
 import { RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button'; // Import Button for retry
 
-// Simplified interfaces
+// Interface for the data points used by the chart
 interface ChartDataPoint {
-  date: string;
+  date: string; // Formatted date string for display
   price: number;
 }
 
+// Interface for the API response from the new endpoint
+interface PriceHistoryApiResponse {
+  ticker: string;
+  period: string;
+  data: {
+    dates: string[]; // Array of date strings (e.g., "2024-07-10")
+    prices: number[]; // Array of corresponding prices
+  };
+  source: string;
+  last_updated: string;
+}
+
 // Supported time periods
-type TimeFrame = '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y';
+type TimeFrame = '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y' | 'MAX'; // Added MAX
 
 interface StockChartProps {
   symbol: string;
 }
 
 export default function StockChart({ symbol }: StockChartProps) {
-  const [timeFrame, setTimeFrame] = useState<TimeFrame>('1M');
-  
-  // Directly fetch price history with a fixed set of periods that we know work
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/history', symbol, timeFrame],
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>('1M'); // Default to 1 Month
+
+  // Fetch price history using the NEW endpoint: /api/stock/:ticker/period/:period
+  const { data: apiResponse, isLoading, error, refetch, isFetching } = useQuery<PriceHistoryApiResponse, Error>({
+    // Key structure: [endpoint_base, ticker, 'period', period_value]
+    queryKey: ['/api/stock', symbol, 'period', timeFrame],
     queryFn: async () => {
       if (!symbol) {
-        console.log('Cannot fetch history: Symbol is undefined');
-        return { chartData: [] };
+        console.warn('Cannot fetch history: Symbol is undefined', 'StockChart'); // Use console.warn
+        throw new Error('Stock symbol is missing');
       }
-      
-      console.log(`Fetching direct price history for ${symbol} with period ${timeFrame}`);
-      
-      // Get the raw data directly from the closing history in PostgreSQL
-      const response = await fetch(`/api/historical/${symbol}?period=${timeFrame.toLowerCase()}`);
-      
+      const endpoint = `/api/stock/${symbol}/period/${timeFrame}`;
+      console.log(`Fetching history from NEW endpoint: ${endpoint}`, 'StockChart'); // Use console.log
+
+      const response = await fetch(endpoint);
       if (!response.ok) {
-        throw new Error(`Failed to fetch price history for ${symbol}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`Error fetching history: ${response.status} ${response.statusText}`, 'StockChart', errorData); // Use console.error
+        throw new Error(errorData.message || `Failed to fetch price history for ${symbol} (${timeFrame})`);
       }
-      
       const result = await response.json();
-      console.log(`Received data for ${symbol}:`, result);
-      
-      // Extract and format the price data
-      let chartData: ChartDataPoint[] = [];
-      
-      if (result.prices && Array.isArray(result.prices)) {
-        if (typeof result.prices[0] === 'object' && 'date' in result.prices[0] && 'price' in result.prices[0]) {
-          // Already in the correct format
-          chartData = result.prices.map((point: any) => ({
-            date: new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            price: typeof point.price === 'number' ? point.price : parseFloat(point.price)
-          }));
-        } else if (typeof result.prices[0] === 'number' && result.dates && Array.isArray(result.dates)) {
-          // Convert parallel arrays to array of objects
-          chartData = result.prices.map((price: number, index: number) => ({
-            date: new Date(result.dates[index]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            price
-          }));
-        }
-      }
-      
-      console.log(`Formatted ${chartData.length} data points for ${symbol}`);
-      return { chartData, source: result.source };
+      console.log(`Received data from NEW endpoint for ${symbol} (${timeFrame}):`, 'StockChart', { source: result.source, points: result.data?.prices?.length }); // Use console.log
+      return result;
     },
-    staleTime: 60 * 1000, // 1 minute cache
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
     enabled: !!symbol, // Only run when symbol is available
+    refetchOnWindowFocus: false, // Avoid unnecessary refetches
   });
-  
-  // Calculate price change
-  const calculateChange = () => {
-    if (!data?.chartData || data.chartData.length < 2) {
+
+  // Memoized function to format data for Recharts
+  const chartData = useMemo(() => {
+    if (!apiResponse?.data?.dates || !apiResponse?.data?.prices) {
+      console.warn('No dates or prices found in API response', 'StockChart'); // Use console.warn
+      return [];
+    }
+
+    const { dates, prices } = apiResponse.data;
+
+    if (dates.length !== prices.length) {
+      console.warn(`Data mismatch: ${dates.length} dates, ${prices.length} prices`, 'StockChart'); // Use console.warn
+      return [];
+    }
+
+    // Combine dates and prices into the format Recharts expects
+    const formattedData = dates.map((dateStr, index) => {
+      // Format date for display on X-axis
+      let displayDate: string;
+      try {
+        const dateObj = new Date(dateStr);
+         // Adjust formatting based on timeframe for clarity
+         if (timeFrame === '1D' || timeFrame === '5D' || timeFrame === '1W') {
+            displayDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); // e.g., Jul 10
+         } else if (timeFrame === '1M' || timeFrame === '3M' || timeFrame === '6M') {
+            displayDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); // e.g., Jul 10
+         } else if (timeFrame === '1Y') {
+            displayDate = dateObj.toLocaleDateString('en-US', { month: 'short' }); // e.g., Jul
+         } else { // 5Y, MAX
+            displayDate = dateObj.toLocaleDateString('en-US', { year: 'numeric' }); // e.g., 2024
+         }
+      } catch (e) {
+         console.error(`Error parsing date: ${dateStr}`, 'StockChart', e); // Use console.error
+         displayDate = dateStr; // Fallback to original string
+      }
+
+      return {
+        date: displayDate,
+        price: Number(prices[index]) || 0 // Ensure price is a number
+      };
+    });
+
+    console.log(`Formatted ${formattedData.length} data points for chart`, 'StockChart'); // Use console.log
+    return formattedData;
+
+  }, [apiResponse, timeFrame]); // Depend on apiResponse and timeFrame
+
+  // Calculate price change based on the *formatted* chartData
+  const { change, percentage } = useMemo(() => {
+    if (!chartData || chartData.length < 2) {
       return { change: 0, percentage: 0 };
     }
-    
-    const firstPrice = data.chartData[0].price;
-    const lastPrice = data.chartData[data.chartData.length - 1].price;
-    
+    const firstPrice = chartData[0].price;
+    const lastPrice = chartData[chartData.length - 1].price;
+
+    // Ensure prices are valid numbers before calculating
+    if (isNaN(firstPrice) || isNaN(lastPrice) || firstPrice === 0) {
+        return { change: 0, percentage: 0 };
+    }
+
+    const changeValue = lastPrice - firstPrice;
+    const percentageValue = (changeValue / firstPrice) * 100;
+
     return {
-      change: +(lastPrice - firstPrice).toFixed(2),
-      percentage: +((lastPrice - firstPrice) / firstPrice * 100).toFixed(2)
+      change: +changeValue.toFixed(2),
+      percentage: +percentageValue.toFixed(2)
     };
-  };
-  
-  const { change, percentage } = calculateChange();
+  }, [chartData]); // Depend only on chartData
+
   const isPositiveChange = change >= 0;
-  
+
   // Format currency
   const formatPrice = (value: number) => {
+    if (isNaN(value)) return '$--.--';
     return `$${value.toFixed(2)}`;
   };
-  
+
   // Loading state
   if (isLoading) {
     return (
@@ -116,7 +162,7 @@ export default function StockChart({ symbol }: StockChartProps) {
       </div>
     );
   }
-  
+
   // Error state
   if (error) {
     return (
@@ -127,59 +173,82 @@ export default function StockChart({ symbol }: StockChartProps) {
         <div className="p-8 text-center text-red-600">
           <p>Failed to load chart data</p>
           <p className="text-sm text-gray-500 mt-2">
-            {error instanceof Error ? error.message : "An error occurred while fetching stock history"}
+            {error.message || "An error occurred while fetching stock history"}
           </p>
+           <Button onClick={() => refetch()} variant="outline" size="sm" className="mt-4">
+             Retry
+           </Button>
         </div>
       </div>
     );
   }
-  
+
   // No data state
-  if (!data?.chartData || data.chartData.length === 0) {
+  if (!chartData || chartData.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-4 border-b">
           <h2 className="text-lg font-semibold">Price History</h2>
         </div>
         <div className="p-8 text-center text-gray-600">
-          <p>No historical data available for {symbol}</p>
+          <p>No historical data available for {symbol} ({timeFrame})</p>
+          <p className="text-sm text-gray-500 mt-2">
+             Data source: {apiResponse?.source || 'Unknown'}
+          </p>
+           <Button onClick={() => refetch()} variant="outline" size="sm" className="mt-4">
+             Retry
+           </Button>
         </div>
       </div>
     );
   }
-  
-  // The last price point is the current price
-  const currentPrice = data.chartData[data.chartData.length - 1].price;
-  
+
+  // The last price point is the current price shown in the header
+  const currentPrice = chartData[chartData.length - 1]?.price ?? 0;
+
+  // Determine min/max for Y-axis domain
+  const prices = chartData.map(p => p.price);
+  const yMin = Math.min(...prices);
+  const yMax = Math.max(...prices);
+  // Add padding to the domain
+  const yDomainPadding = (yMax - yMin) * 0.1; // 10% padding
+  const yDomain = [
+      Math.max(0, yMin - yDomainPadding), // Ensure min is not negative
+      yMax + yDomainPadding
+  ];
+
+
   // Chart component with data
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="p-4 border-b">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold">Price History</h2>
-          
+          <h2 className="text-lg font-semibold">Price History ({timeFrame})</h2>
+
           {/* Time frame selector */}
           <div className="flex space-x-1 items-center">
             {/* Refresh button */}
             <button
               onClick={() => refetch()}
-              className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full"
+              className={`p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full ${isFetching ? 'animate-spin' : ''}`}
               title="Refresh chart data"
+              disabled={isFetching}
             >
               <RefreshCw size={16} />
             </button>
-            
+
             {/* Available time periods - fixed set */}
             <div className="flex flex-wrap justify-end space-x-1">
-              {['1D', '5D', '1W', '1M', '3M', '6M', '1Y'].map((tf) => (
+              {['1D', '5D', '1W', '1M', '3M', '6M', '1Y', '5Y', 'MAX'].map((tf) => (
                 <button
                   key={tf}
                   onClick={() => setTimeFrame(tf as TimeFrame)}
-                  className={`text-xs px-2 py-1 rounded-md ${
+                  className={`text-xs px-2 py-1 rounded-md transition-colors duration-150 ${
                     timeFrame === tf
-                      ? 'bg-blue-100 text-blue-700 font-medium'
+                      ? 'bg-blue-600 text-white font-medium shadow-sm'
                       : 'text-gray-500 hover:bg-gray-100'
                   }`}
+                  disabled={isFetching} // Disable while fetching
                 >
                   {tf}
                 </button>
@@ -187,87 +256,94 @@ export default function StockChart({ symbol }: StockChartProps) {
             </div>
           </div>
         </div>
-        
+
         {/* Current price and change */}
         <div className="flex items-center">
           <span className="text-2xl font-semibold mr-2">
             {formatPrice(currentPrice)}
           </span>
-          <span 
+          <span
             className={`text-sm font-medium px-2 py-0.5 rounded ${
               isPositiveChange ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'
             }`}
           >
             {isPositiveChange ? '+' : ''}{change} ({isPositiveChange ? '+' : ''}{percentage}%)
           </span>
+          <span className="text-xs text-gray-500 ml-2">
+              (Change over {timeFrame})
+          </span>
         </div>
       </div>
-      
+
       {/* Chart */}
       <div className="p-4 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
-            data={data.chartData}
-            margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+            data={chartData}
+            margin={{ top: 5, right: 5, left: -25, bottom: 5 }} // Adjusted left margin for Y-axis ticks
           >
             <defs>
-              <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                <stop 
-                  offset="5%" 
-                  stopColor={isPositiveChange ? "#10B981" : "#EF4444"} 
-                  stopOpacity={0.3} 
-                />
-                <stop 
-                  offset="95%" 
-                  stopColor={isPositiveChange ? "#10B981" : "#EF4444"} 
-                  stopOpacity={0} 
-                />
+              <linearGradient id="chartGradientPositive" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="chartGradientNegative" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
-            <XAxis 
-              dataKey="date" 
-              tick={{ fontSize: 12 }} 
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" opacity={0.5} />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 10, fill: '#6b7280' }} // Smaller font size, gray color
               tickLine={false}
-              axisLine={{ stroke: '#E5E7EB' }}
-              tickMargin={10}
-              minTickGap={30}
+              axisLine={{ stroke: '#e5e7eb' }}
+              tickMargin={8}
+              minTickGap={20} // Adjust gap between ticks
             />
-            <YAxis 
+            <YAxis
               tickFormatter={formatPrice}
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 10, fill: '#6b7280' }} // Smaller font size, gray color
               tickLine={false}
               axisLine={false}
-              tickMargin={10}
-              domain={['auto', 'auto']}
+              tickMargin={5}
+              domain={yDomain} // Use calculated domain with padding
+              allowDataOverflow={false} // Prevent line going outside bounds
+              width={35} // Explicit width for Y-axis
             />
             <Tooltip
               formatter={(value: number) => [formatPrice(value), 'Price']}
-              labelFormatter={(label) => `Date: ${label}`}
-              contentStyle={{ 
-                borderRadius: '4px', 
-                border: '1px solid #E5E7EB',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
+              labelFormatter={(label) => `Date: ${label}`} // Use the formatted date label
+              contentStyle={{
+                borderRadius: '6px',
+                border: '1px solid #e5e7eb',
+                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
+                fontSize: '12px',
+                padding: '6px 10px'
               }}
+              itemStyle={{ color: '#374151' }}
+              labelStyle={{ color: '#6b7280', marginBottom: '4px' }}
             />
-            <Area 
-              type="monotone" 
-              dataKey="price" 
-              stroke={isPositiveChange ? "#10B981" : "#EF4444"} 
+            <Area
+              type="monotone"
+              dataKey="price"
+              stroke={isPositiveChange ? "#10B981" : "#EF4444"}
               strokeWidth={2}
               fillOpacity={1}
-              fill="url(#colorPrice)" 
+              fill={isPositiveChange ? "url(#chartGradientPositive)" : "url(#chartGradientNegative)"}
+              connectNulls={true} // Connect gaps if any data points are missing
+              isAnimationActive={false} // Disable default animation for smoother updates
             />
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      
+
       {/* Source attribution */}
       <div className="px-4 pb-4 text-right text-xs text-gray-500">
         <div className="flex items-center justify-end">
-          <span>Period: {timeFrame}</span>
+          <span>Source: {apiResponse?.source || 'Replit Financial'}</span>
           <span className="mx-2">•</span>
-          <span>Source: {data.source || 'Replit Financial'}</span>
+          <span>Last Updated: {apiResponse?.last_updated ? new Date(apiResponse.last_updated).toLocaleTimeString() : 'N/A'}</span>
         </div>
       </div>
     </div>
