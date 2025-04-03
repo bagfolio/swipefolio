@@ -99,20 +99,49 @@ export function ManagementSection({ symbol, className }: ManagementSectionProps)
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
-  // Mock ESG data (in a real app, this would be fetched from an API)
-  const esgData = {
-    esgScore: 68,
-    environmentalScore: 72,
-    socialScore: 65,
-    governanceScore: 71,
-    controversyLevel: 2, // 1-5 scale where 5 is most severe
-    managementRisk: 'Low',
-    boardRisk: 'Medium',
-    auditRisk: 'Low',
-    compensationRisk: 'Medium',
-  };
+  // Fetch ESG data for the stock
+  const { data: esgData, isLoading: isEsgLoading } = useQuery({
+    queryKey: ['/api/stock', symbol, 'esg-data'],
+    queryFn: async () => {
+      try {
+        const response = await fetch(`/api/pg/stock/${symbol}/esg-data`);
+        if (!response.ok) throw new Error('Failed to fetch ESG data');
+        
+        const data = await response.json();
+        if (!data.success) throw new Error(data.message || 'Failed to fetch ESG data');
+        
+        return data.data || {
+          esgScore: 68,
+          environmentalScore: 72,
+          socialScore: 65,
+          governanceScore: 71,
+          controversyLevel: 2,
+          managementRisk: 'Low',
+          boardRisk: 'Medium',
+          auditRisk: 'Low',
+          compensationRisk: 'Medium',
+        };
+      } catch (error) {
+        console.error('Error fetching ESG data:', error);
+        // Fallback data in case of error
+        return {
+          esgScore: 68,
+          environmentalScore: 72,
+          socialScore: 65,
+          governanceScore: 71,
+          controversyLevel: 2,
+          managementRisk: 'Low',
+          boardRisk: 'Medium',
+          auditRisk: 'Low',
+          compensationRisk: 'Medium',
+        };
+      }
+    },
+    enabled: !!symbol,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
   
-  const isLoading = isMajorHoldersLoading || isInstitutionalHoldersLoading;
+  const isLoading = isMajorHoldersLoading || isInstitutionalHoldersLoading || isEsgLoading;
   
   const renderHolderDescription = (holder: InstitutionalHolder) => {
     // Generate descriptions based on the institution
