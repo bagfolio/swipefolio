@@ -1,60 +1,85 @@
-import { useState, useRef, useMemo, useEffect } from "react";
-import { Link } from "wouter";
-import { StockData, fetchStockMetrics, formatMetricsFromDatabase } from "@/lib/stock-data";
-
-// Define metric type to satisfy TypeScript
-interface MetricObject {
-  value: string | number;
-  color: "green" | "yellow" | "red";
-  details: any;
-  explanation: string;
-}
-
-// Define metrics structure in StockData
-interface Metrics {
-  [key: string]: MetricObject;
-}
-import { useQuery } from "@tanstack/react-query";
+import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { useMotionValue, useTransform, motion, AnimationControls, PanInfo } from 'framer-motion';
+import { Link } from 'wouter';
 import {
-  Info,
+  Calendar,
+  BarChart3,
   ChevronLeft,
   ChevronRight,
-  RefreshCw,
-  DollarSign,
   TrendingUp,
   TrendingDown,
-  Shield,
-  Zap,
+  Info,
   MessageCircle,
-  Calendar,
-  Lock,
-  BarChart3,
   Layers,
-  Check,
-  X,
-  Building
-} from "lucide-react";
-import { motion, useAnimation, useMotionValue, useTransform, PanInfo, AnimationControls } from "framer-motion";
-import OverallAnalysisCard from "@/components/overall-analysis-card";
+  RefreshCw,
+} from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery } from '@tanstack/react-query';
+import { StockData, fetchStockMetrics, formatMetricsFromDatabase } from "@/lib/stock-data";
+import { getIndustryAverages } from '@/lib/industry-data';
+import AskAI from '@/components/ui/ask-ai';
 
-import { AnalystRecommendations } from "@/components/stock-detail/analyst-recommendations";
-import { ModernAnalystRating } from "@/components/stock-detail/modern-analyst-rating";
-import { SwipeableNews } from "@/components/stock-detail/swipeable-news";
-import { ManagementSection } from "@/components/stock-detail/management-section";
-import { Skeleton } from "@/components/ui/skeleton";
-import ComparativeAnalysis from "@/components/comparative-analysis";
-import AskAI from "./ask-ai";
-import { StockCardNews } from "./stock-card-news";
-import { getIndustryAverages } from "@/lib/industry-data";
-
-
-// Define Metric structure used in handleMetricClick callback
+// Define metric type to satisfy TypeScript
 export interface MetricClickData {
   name: string;
   color: "green" | "yellow" | "red";
-  data: any; // Keep the detailed data structure needed by the modal
+  data: {
+    values: Array<{
+      label: string;
+      value: string | number;
+      suffix?: string;
+      explanation?: string;
+    }>;
+    rating: string;
+    industryAverage: Array<{ label: string; value: string }>;
+    industry: string;
+    explanation: string;
+    name: string;
+  };
 }
 
+// Define Metrics interface
+export interface Metrics {
+  performance: {
+    value: string;
+    color: string;
+    details: any;
+    explanation?: string;
+  };
+  stability: {
+    value: string;
+    color: string;
+    details: any;
+    explanation?: string;
+  };
+  value: {
+    value: string;
+    color: string;
+    details: any;
+    explanation?: string;
+  };
+  momentum: {
+    value: string;
+    color: string;
+    details: any;
+    explanation?: string;
+  };
+  potential?: {
+    value: string;
+    color: string;
+    details: any;
+    explanation?: string;
+  };
+}
+
+interface PurchaseData {
+  symbol: string;
+  amount: number;
+  price: number;
+  shares: number;
+}
+
+// Interface for stock prop with full typing to work with TypeScript
 interface StockCardProps {
   stock: StockData;
   onNext?: () => void;
@@ -69,78 +94,20 @@ interface StockCardProps {
   x?: ReturnType<typeof useMotionValue<number>>; // Optional motion value from parent
 }
 
-type TimeFrame = "1D" | "5D" | "1M" | "3M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX" | "1W";
+type TimeFrame = '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | '1Y';
 
-// Helper functions (getTimeScaleLabels, getIndustryAverageData)
-// Note: generateTimeBasedData removed - we now only use real data from PostgreSQL
-const getTimeScaleLabels = (timeFrame: TimeFrame): string[] => {
-  switch(timeFrame) {
-    case "1D": return ["9:30", "11:00", "12:30", "14:00", "15:30", "16:00"];
-    case "5D": return ["Mon", "Tue", "Wed", "Thu", "Fri"];
-    case "1M": return ["Week 1", "Week 2", "Week 3", "Week 4"];
-    case "6M": return ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-    case "YTD": return ["Jan", "Mar", "May", "Jul", "Sep", "Nov"];
-    case "1Y": return ["Jan", "Mar", "May", "Jul", "Sep", "Nov"];
-    case "5Y": return ["2020", "2021", "2022", "2023", "2024"];
-    case "MAX": return ["2015", "2017", "2019", "2021", "2023"];
-    default: return ["9:30", "11:00", "12:30", "14:00", "15:30", "16:00"];
+// Add CSS to hide scrollbars while preserving scroll functionality
+const scrollbarHidingCSS = `
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
   }
-};
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+`;
 
-// Function to format date labels based on the timeframe
-const getDisplayDates = (dates: string[], timeFrame: TimeFrame): string[] => {
-  if (!dates.length) return [];
-  
-  // Display different formats based on timeframe
-  const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    
-    switch (timeFrame) {
-      case "5D":
-      case "1W":
-        // Show day of week for short periods
-        return new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(date);
-      case "1M":
-        // Show day and month for a month
-        return new Intl.DateTimeFormat('en-US', { day: 'numeric' }).format(date);
-      case "3M":
-      case "6M":
-        // Show month for medium periods
-        return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
-      case "1Y":
-        // Show month for a year
-        return new Intl.DateTimeFormat('en-US', { month: 'short' }).format(date);
-      case "5Y":
-        // Show year for long periods
-        return new Intl.DateTimeFormat('en-US', { year: 'numeric' }).format(date);
-      default:
-        return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
-    }
-  };
-  
-  // Select evenly spaced dates to display (max 6 labels)
-  const displayCount = Math.min(6, dates.length);
-  const step = Math.max(1, Math.floor(dates.length / displayCount));
-  
-  const result: string[] = [];
-  
-  // Always include first date
-  if (dates.length > 0) {
-    result.push(formatDate(dates[0]));
-  }
-  
-  // Add middle dates at even intervals
-  for (let i = step; i < dates.length - step; i += step) {
-    result.push(formatDate(dates[i]));
-  }
-  
-  // Always include last date
-  if (dates.length > 1) {
-    result.push(formatDate(dates[dates.length - 1]));
-  }
-  
-  return result;
-};
+// Get industry average data for comparisons
 const getIndustryAverageData = (stock: StockData, metricType: string) => {
   const industryAvgs = getIndustryAverages(stock.industry);
   if (!industryAvgs) return []; // Handle case where averages might not exist
@@ -173,17 +140,6 @@ const getIndustryAverageData = (stock: StockData, metricType: string) => {
   return [];
 };
 
-// Add CSS to hide scrollbars while preserving scroll functionality
-const scrollbarHidingCSS = `
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-`;
-
 export default function StockCard({
   stock,
   onNext,
@@ -197,7 +153,6 @@ export default function StockCard({
   cardControls,
   x // Optional motion value from parent
 }: StockCardProps) {
-
   // Create a local motion value if none is provided from the parent
   const localX = useMotionValue(0);
   const xToUse = x ?? localX;
@@ -212,7 +167,6 @@ export default function StockCard({
   // Internal state for UI ONLY within the card
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("1M");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [availablePeriods, setAvailablePeriods] = useState<string[]>([]);
   
   // Fetch available periods for the stock
   const periodsQuery = useQuery({
@@ -226,56 +180,10 @@ export default function StockCard({
         return response.json();
       } catch (error) {
         console.error('Error fetching available periods:', error);
-        return { availablePeriods: ['5D', '1W', '1M', '3M', '6M', '1Y', '5Y'] };
+        return { availablePeriods: ['5D', '1W', '1M', '3M', '6M', '1Y'] };
       }
     },
     staleTime: 60 * 1000, // 1 minute
-  });
-  
-  // Set available periods when data is received
-  useEffect(() => {
-    if (periodsQuery.data?.availablePeriods) {
-      setAvailablePeriods(periodsQuery.data.availablePeriods);
-      
-      // If the current timeFrame isn't available, set it to the first available one
-      if (periodsQuery.data.availablePeriods.includes('1M')) {
-        setTimeFrame('1M');
-      } else if (periodsQuery.data.availablePeriods.length > 0) {
-        // Filter out non-timeframe keys like "last_update"
-        const validPeriods = periodsQuery.data.availablePeriods.filter((p: string) => 
-          ['1D', '5D', '1W', '1M', '3M', '6M', '1Y', '5Y'].includes(p)
-        );
-        if (validPeriods.length > 0) {
-          setTimeFrame(validPeriods[0] as TimeFrame);
-        }
-      }
-    }
-  }, [periodsQuery.data]);
-  
-  // Fetch price history data using the new historical endpoint
-  const historyQuery = useQuery({
-    queryKey: ['/api/historical', stock.ticker, timeFrame],
-    queryFn: async () => {
-      try {
-        // Try the new historical endpoint first
-        const response = await fetch(`/api/historical/${stock.ticker}?period=${timeFrame}&interval=daily`);
-        if (!response.ok) {
-          // If that fails, try the old endpoint as fallback
-          console.warn(`New historical endpoint failed for ${stock.ticker}, trying fallback`);
-          const fallbackResponse = await fetch(`/api/stock/${stock.ticker}/history?period=${timeFrame}`);
-          if (!fallbackResponse.ok) {
-            throw new Error(`Failed to fetch price history for ${stock.ticker}`);
-          }
-          return fallbackResponse.json();
-        }
-        return response.json();
-      } catch (error) {
-        console.error('Error fetching price history:', error);
-        return null;
-      }
-    },
-    staleTime: 60 * 1000, // 1 minute
-    enabled: Boolean(timeFrame), // Only run query when timeFrame is available
   });
   
   // Fetch metrics data from PostgreSQL
@@ -364,42 +272,6 @@ export default function StockCard({
     return stock;
   }, [stock, metricsQuery.data, metricsQuery.isError]);
   
-  // Define a custom type for chart data that can include an error flag
-  type ChartDataWithError = number[] & { hasError?: boolean };
-  
-  // Use historical data API for the chart - only use real data from PostgreSQL
-  const chartData = useMemo<ChartDataWithError>(() => {
-    // If we have real data from the API, use it
-    if (historyQuery.data?.prices && Array.isArray(historyQuery.data.prices) && historyQuery.data.prices.length > 0) {
-      // Log the actual data to verify what we're getting
-      console.log(`[Chart] Got ${historyQuery.data.prices.length} price points for ${stock.ticker} (${timeFrame})`);
-      console.log(`[Chart] First price: ${historyQuery.data.prices[0]}, Last price: ${historyQuery.data.prices[historyQuery.data.prices.length - 1]}`);
-      console.log(`[Chart] Data source: ${historyQuery.data.source || 'database'}`);
-      
-      // Always use the data we get from the API since it's coming from PostgreSQL
-      return historyQuery.data.prices as ChartDataWithError;
-    }
-    
-    // Show warning if no real data available
-    console.warn(`No historical price data available for ${stock.ticker} (${timeFrame})`);
-    
-    // Show a message in the UI to indicate no data
-    const errorData = [stock.price, stock.price, stock.price] as ChartDataWithError;
-    errorData.hasError = true; // Flag to show error state in UI
-    return errorData;
-  }, [historyQuery.data, stock.ticker, timeFrame, stock.price]);
-  
-  // Get dates for the X-axis labels if available
-  const chartDates = useMemo(() => {
-    if (historyQuery.data?.dates && Array.isArray(historyQuery.data.dates) && historyQuery.data.dates.length > 0) {
-      // Log the dates to verify what we're getting
-      console.log(`[Chart] Got ${historyQuery.data.dates.length} date points for ${stock.ticker} (${timeFrame})`);
-      console.log(`[Chart] Date range: ${historyQuery.data.dates[0]} to ${historyQuery.data.dates[historyQuery.data.dates.length - 1]}`);
-      return historyQuery.data.dates;
-    }
-    return [];
-  }, [historyQuery.data, stock.ticker, timeFrame]);
-  
   // Format numbers based on the requirements:
   // - 2 decimal places max for numbers less than 10
   // - 1 decimal place for numbers 10 or greater
@@ -413,21 +285,17 @@ export default function StockCard({
   
   const displayPrice = formatNumber(stock.price);
   
-  // Use changePercent if available (from PostgreSQL), otherwise calculate it from change if needed
+  // Use changePercent if available (from PostgreSQL), otherwise calculate it from change
   let realTimeChange: number;
   if (stock.changePercent !== undefined) {
     realTimeChange = parseFloat(formatNumber(stock.changePercent));
   } else if (stock.change !== undefined && stock.price !== undefined) {
-    // If we have change but no changePercent, estimate it based on price (% of current price)
+    // If we have change but no changePercent, estimate it based on price
     realTimeChange = parseFloat(formatNumber((stock.change / stock.price) * 100));
   } else {
     realTimeChange = 0;
   }
-  const minValue = Math.min(...(chartData || [1])) - 5;
-  const maxValue = Math.max(...(chartData || [1])) + 5;
-  const timeScaleLabels = useMemo(() => getTimeScaleLabels(timeFrame), [timeFrame]);
-  const priceRangeMin = Math.floor(minValue);
-  const priceRangeMax = Math.ceil(maxValue);
+  
   const latestTradingDay = new Date().toISOString().split('T')[0];
 
   // Refresh handler to refetch data from API
@@ -436,7 +304,6 @@ export default function StockCard({
     try {
       // Refetch all API calls
       await periodsQuery.refetch();
-      await historyQuery.refetch();
       await metricsQuery.refetch();
     } catch (error) {
       console.error('Error refreshing data:', error);
@@ -597,7 +464,7 @@ export default function StockCard({
     // Much more demanding swipe thresholds - require very deliberate movement
     // Require 1/3 of screen width OR high velocity
     const offsetThreshold = screenWidth / 3; // 33% of screen width
-    const velocityThreshold = 500; // Much higher velocity threshold (was 200)
+    const velocityThreshold = 500; // Much higher velocity threshold
     
     const dragVelocity = info.velocity.x;
     const dragOffset = info.offset.x;
@@ -647,509 +514,249 @@ export default function StockCard({
       }
   };
 
-
- return (
-  // Outer wrapper - No overflow-hidden, add dragPropagation
-  <motion.div
-    ref={cardRef}
-    className="h-full w-full rounded-2xl shadow-xl" // Added larger rounded corners for better appearance
-    drag={cardControls ? "x" : false} // Only draggable if interactive
-    dragConstraints={{ left: 0, right: 0 }}
-    dragElastic={0.3} // Reduced elastic factor to make drag more controlled and predictable
-    dragTransition={{ 
-      power: 0.15, // Lower power for easier initiation
-      timeConstant: 350, // Higher time constant for smoother motion
-      modifyTarget: (target) => Math.round(target / 50) * 50 // Snap to grid for consistent behavior
-    }}
-    dragPropagation={false} // Don't propagate drag events to improve reliability
-    onDragStart={handleDragStart}
-    onDrag={handleDrag}
-    onDragEnd={handleDragEnd}
-    animate={cardControls} // Use controls from parent (can be undefined)
-    style={{
-      x: xToUse, // Use our safe motion value
-      opacity: cardOpacity,
-      rotate: cardRotate,
-      scale: cardScale,
-      backgroundColor: displayMode === 'simple' ? '#111827' : '#FFFFFF',
-      color: displayMode === 'simple' ? 'white' : '#1F2937',
-      cursor: cardControls ? 'grab' : 'default',
-      willChange: 'transform' // Hint to the browser to optimize transform animations
-    }}
-    whileTap={cardControls ? { cursor: 'grabbing' } : {}}
-  >
-    {/* Add custom style to hide scrollbars */}
-    <style>{scrollbarHidingCSS}</style>
-    
-    {/* Inner scroll container - Absolutely positioned */}
-    <div
-        className={`absolute inset-0 overflow-y-auto overflow-x-hidden pb-16 stock-card-scroll-content rounded-2xl hide-scrollbar ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black text-white' : 'bg-white text-slate-900'}`}
+  return (
+    // Outer wrapper
+    <motion.div
+      ref={cardRef}
+      className="h-full w-full rounded-2xl shadow-xl"
+      drag={cardControls ? "x" : false}
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.3}
+      dragTransition={{ 
+        power: 0.15,
+        timeConstant: 350,
+        modifyTarget: (target) => Math.round(target / 50) * 50
+      }}
+      dragPropagation={false}
+      onDragStart={handleDragStart}
+      onDrag={handleDrag}
+      onDragEnd={handleDragEnd}
+      animate={cardControls}
+      style={{
+        x: xToUse,
+        opacity: cardOpacity,
+        rotate: cardRotate,
+        scale: cardScale,
+        backgroundColor: displayMode === 'simple' ? '#111827' : '#FFFFFF',
+        color: displayMode === 'simple' ? 'white' : '#1F2937',
+        cursor: cardControls ? 'grab' : 'default',
+        willChange: 'transform'
+      }}
+      whileTap={cardControls ? { cursor: 'grabbing' } : {}}
+    >
+      {/* Add custom style to hide scrollbars */}
+      <style>{scrollbarHidingCSS}</style>
+      
+      {/* Inner scroll container */}
+      <div
+        className={`absolute inset-0 overflow-y-auto overflow-x-hidden pb-16 stock-card-scroll-content rounded-2xl hide-scrollbar ${
+          displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black text-white' : 'bg-white text-slate-900'
+        }`}
         style={{ 
-          // Allow only vertical panning and make sure it's prioritized
           touchAction: 'pan-y', 
           WebkitOverflowScrolling: 'touch',
           scrollBehavior: 'smooth',
-          // Improve scrolling momentum
           overscrollBehavior: 'contain'
         }} 
-    >
-
-      {/* --- Time frame selector - ENHANCED AND MORE VISIBLE --- */}
-      {/* Always show time period buttons in all modes with a bold header and larger buttons */}
-          <div className="sticky top-0 z-20 flex flex-col px-4 py-3 border-b border-slate-200 bg-white shadow-lg">
-               <h3 className="text-base font-bold text-gray-700 mb-2 uppercase tracking-wider flex items-center">
-                 <Calendar size={16} className="mr-2" />
-                 TIME FRAME
-               </h3>
-               <div className="flex flex-wrap justify-center gap-2 py-2">
-                 {periodsQuery.isLoading ? (
-                   // Show loading state for time periods
-                   <div className="flex justify-center gap-2">
-                     {["5D", "1M", "3M", "6M", "1Y"].map((period) => (
-                       <Skeleton key={period} className="w-20 h-12 rounded-md" />
-                     ))}
-                   </div>
-                 ) : (
-                   // Show consistent time frame options with standardized periods
-                   ["5D", "1M", "3M", "6M", "1Y"].map((period) => (
-                     <button
-                       key={period}
-                       className={`px-4 py-3 text-base font-bold rounded-lg transition-all duration-200 min-w-[4.5rem] ${
-                         timeFrame === period
-                           ? `${realTimeChange >= 0 
-                               ? 'text-green-800 bg-green-100 border-2 border-green-400 shadow-md scale-105' 
-                               : 'text-red-800 bg-red-100 border-2 border-red-400 shadow-md scale-105'}`
-                           : 'text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 hover:scale-105'
-                       }`}
-                       onClick={() => setTimeFrame(period as TimeFrame)}
-                     >
-                       {period}
-                     </button>
-                   ))
-                 )}
-               </div>
-           </div>
-
-      {/* --- Content Specific to Mode --- */}
-      {displayMode === 'simple' ? (
-        <>
-          {/* Paste the *content* blocks for simple mode here */}
-             {/* Enhanced Header */}
-             <div className="p-5 border-b border-gray-800">
-                 {/* ... Simple Header JSX ... */}
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <a
-                        href={`/stock-detail/${stock.ticker}`}
-                        className="group inline-flex items-center gap-1.5"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <h2 className="text-xl md:text-2xl font-bold text-white mb-1 group-hover:text-blue-300 transition-colors">{stock.name} <span className="text-gray-400 group-hover:text-blue-400 transition-colors">({stock.ticker})</span></h2>
-                        <BarChart3 size={20} className="text-gray-400 group-hover:text-blue-300 transition-colors" />
-                      </a>
-                      <div className="flex items-center text-xs text-gray-400 mt-1 mb-2">
-                        <span className="mr-2">Day's Range:</span>
-                        <span className="font-medium">${formatNumber(stock.price * 0.98)} - ${formatNumber(stock.price * 1.02)}</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <div className={`flex items-center py-1.5 px-4 rounded-full ${stock.change >= 0 ? 'bg-green-900/30 text-green-300 border border-green-700/30' : 'bg-red-900/30 text-red-300 border border-red-700/30'} shadow-lg`}>
-                        <span className="font-bold text-2xl">${formatNumber(stock.price)}</span>
-                        <span className="ml-2 text-sm font-medium">{stock.change >= 0 ? '+' : ''}{formatNumber(stock.change)}%</span>
-                      </div>
-                      <span className="text-xs text-gray-500 mt-2">Updated: {new Date().toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-sm text-gray-300 leading-relaxed">
-                    {stock.description}
-                  </p>
-             </div>
-             {/* Metrics */}
-             <div className="grid grid-cols-2 gap-5 p-5 border-b border-gray-800">
-                 <h3 className="text-white text-lg font-bold col-span-2 mb-1 flex items-center">
-                     <TrendingUp className="w-5 h-5 mr-2 text-blue-400" /> Stock Metrics
-                 </h3>
-                 {Object.entries(stockWithMetrics.metrics as Metrics).map(([key, metricObj]) => {
-                    const metricName = key.charAt(0).toUpperCase() + key.slice(1);
-                    return (
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4, delay: Math.random() * 0.3 }}
-                            key={key}
-                            className={`p-4 rounded-xl relative ${
-                              metricObj.color === 'green' ? 'bg-gradient-to-br from-green-900/40 to-black border border-green-500/30' :
-                              metricObj.color === 'yellow' ? 'bg-gradient-to-br from-yellow-900/40 to-black border border-yellow-500/30' :
-                              'bg-gradient-to-br from-red-900/40 to-black border border-red-500/30'
-                            } active:scale-98 transition-all duration-150 cursor-pointer shadow-lg hover:shadow-xl`}
-                            onClick={() => handleMetricClickInternal(metricName)} // Use internal handler
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                        >
-                           <div className="absolute top-3 right-3 rounded-full bg-black/30 p-1">
-                              <Info size={16} className={`${ metricObj.color === 'green' ? 'text-green-400' : metricObj.color === 'yellow' ? 'text-yellow-400' : 'text-red-400' }`} />
-                           </div>
-                           <div className={`text-2xl font-bold ${ metricObj.color === 'green' ? 'text-green-300' : metricObj.color === 'yellow' ? 'text-yellow-300' : 'text-red-300' }`}>
-                               {typeof metricObj.value === 'number' ? formatNumber(metricObj.value) : metricObj.value}
-                           </div>
-                           <div className="text-white text-sm font-medium capitalize mt-1 mb-3">
-                               {metricName}
-                           </div>
-                           <div className={`absolute bottom-1 left-1 w-12 h-12 rounded-full opacity-20 blur-xl -z-10 ${ metricObj.color === 'green' ? 'bg-green-400' : metricObj.color === 'yellow' ? 'bg-yellow-400' : 'bg-red-400' }`} />
-                        </motion.div>
-                    );
-                 })}
-             </div>
-
-             {/* Ask AI */}
-             <div className="p-5 border-b border-gray-800">
-                 <h3 className="text-lg font-bold text-white mb-3 flex items-center">
-                     <MessageCircle className="w-5 h-5 mr-2 text-purple-400" /> Ask AI About {stock.ticker}
-                 </h3>
-                 <motion.div
-                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}
-                     className="rounded-xl border border-gray-700/50 overflow-hidden shadow-lg relative"
-                 >
-                     <div className="absolute -inset-1 bg-purple-500/5 blur-xl rounded-xl z-0"></div>
-                     <div className="relative z-10"> <AskAI stock={stockWithMetrics} /> </div>
-                 </motion.div>
-             </div>
-             {/* Forecast */}
-             <div className="p-5 border-b border-gray-800">
-                 <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                     <TrendingUp className="w-5 h-5 mr-2 text-amber-400" /> Price Forecast <span className="text-xs bg-gradient-to-r from-amber-800 to-amber-600 text-amber-100 px-3 py-1 rounded-full ml-2 shadow-inner shadow-amber-900/20 border border-amber-700/30">Premium</span>
-                 </h3>
-                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.3 }} className="grid grid-cols-2 gap-4">
-                     <div> {/* ... 1-Year Return ... */} </div>
-                     <div> {/* ... Predicted Price (Premium Lock) ... */} </div>
-                 </motion.div>
-             </div>
-             {/* Analysis */}
-             <div className="p-5">
-                 <h3 className="text-lg font-bold text-white mb-4 flex items-center"> <BarChart3 className="w-5 h-5 mr-2 text-blue-400" /> Stock Analysis </h3>
-                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.4 }}>
-                     <OverallAnalysisCard stock={stockWithMetrics} />
-                 </motion.div>
-                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.5 }} className="mt-4">
-                     <h3 className="text-lg font-bold text-white mb-4 flex items-center"> <Layers className="w-5 h-5 mr-2 text-indigo-400" /> Industry Comparison </h3>
-                     <ComparativeAnalysis currentStock={stockWithMetrics} />
-                 </motion.div>
-                 <div className="mt-8 mb-2 flex justify-center">
-                     <div className="text-gray-500 text-sm flex items-center"> <ChevronLeft className="w-4 h-4 mr-1" /> <span>Swipe to navigate</span> <ChevronRight className="w-4 h-4 ml-1" /> </div>
-                 </div>
-             </div>
-        </>
-      ) : ( // Realtime Mode
-          <>
-            {/* Paste the *content* blocks for realtime mode here */}
-             {/* Header/Chart */}
-             <div className="bg-white p-4 flex flex-col border-b border-slate-100 shadow-sm">
-                 {/* ... Realtime Header/Chart JSX ... */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Link
-                        to={`/stock-detail/${stock.ticker}`}
-                        className="group flex items-center gap-1.5"
-                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                      >
-                        <h2 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{stock.name}</h2>
-                        <span className="text-slate-500 font-medium bg-slate-50 px-2 py-0.5 rounded-md group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">{stock.ticker}</span>
-                        <BarChart3 size={18} className="text-slate-400 group-hover:text-blue-500 ml-1 transition-colors" />
-                      </Link>
-                    </div>
-                    <div className="flex items-center">
-                      <button onClick={refreshData} className="p-1.5 rounded-full hover:bg-slate-100 transition-colors" disabled={isRefreshing}>
-                        <RefreshCw size={17} className={`text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="flex flex-col">
-                      <span className="text-3xl font-bold text-slate-900 drop-shadow-sm">${displayPrice}</span>
-                      <div className="mt-1 flex items-center text-xs text-slate-500">
-                        <span className="mr-2">Day's Range:</span>
-                        <span className="font-medium">${formatNumber((stock.dayLow !== undefined) ? stock.dayLow : parseFloat(displayPrice) * 0.98)} - ${formatNumber((stock.dayHigh !== undefined) ? stock.dayHigh : parseFloat(displayPrice) * 1.02)}</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <div className={`flex items-center font-semibold px-3 py-1.5 rounded-lg ${realTimeChange >= 0 ? 'text-green-700 bg-green-100 border border-green-200' : 'text-red-700 bg-red-100 border border-red-200'}`}>
-                        {realTimeChange >= 0 ? <TrendingUp size={16} className="mr-1.5" /> : <TrendingDown size={16} className="mr-1.5" />}
-                        {realTimeChange >= 0 ? '+' : ''}{formatNumber(realTimeChange)}%
-                      </div>
-                      <span className="text-xs text-slate-500 mt-1 italic">Last price: ${formatNumber(stock.previousClose !== undefined ? stock.previousClose : (stock.price - stock.change))}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="relative mt-4 h-96 py-2 bg-slate-50/50 rounded-lg"> {/* Chart Area with background and rounded corners */}
-                    {/* Chart Title and Last Updated */}
-                    <div className="absolute top-0 left-0 right-0 px-4 py-1 flex justify-between items-center">
-                      <span className="text-xs font-medium text-slate-500">
-                        {stock.ticker} Price Chart ({timeFrame})
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        Last updated: {latestTradingDay}
-                      </span>
-                    </div>
-                    
-                    {historyQuery.isLoading || isRefreshing ? (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="bg-white/90 px-6 py-3 rounded-xl shadow-md">
-                          <div className="flex items-center">
-                            <RefreshCw size={20} className="text-blue-500 animate-spin mr-2" />
-                            <span className="text-blue-600 font-semibold">
-                              {isRefreshing ? 'Updating chart...' : 'Loading chart data...'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Y Axis */}
-                        <div className="absolute left-0 top-6 bottom-0 flex flex-col justify-between text-[10px] text-slate-900 font-medium pointer-events-none py-3 z-10 w-12">
-                            <span>${Math.round(priceRangeMax)}</span> 
-                            <span>${Math.round((priceRangeMax + priceRangeMin) / 2)}</span> 
-                            <span>${Math.round(priceRangeMin)}</span>
-                        </div>
-                        
-                        {/* Chart Path */}
-                        <div className="absolute inset-0 pl-12 pr-4 pt-6"> 
-                           {chartData && chartData.length > 0 ? (
-                             <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
-                               {/* Fill area under the curve */}
-                               <defs>
-                                 <linearGradient id={`${stock.ticker}-gradient`} x1="0%" y1="0%" x2="0%" y2="100%">
-                                   <stop offset="0%" stopColor={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} stopOpacity="0.2" />
-                                   <stop offset="100%" stopColor={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} stopOpacity="0.05" />
-                                 </linearGradient>
-                               </defs>
-                               
-                               {/* Fill path */}
-                               <path 
-                                 d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} 
-                                    ${chartData.map((point: number, i: number) => 
-                                      `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
-                                    ).join(' ')} 
-                                    L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100} 
-                                    L105,100 L-5,100 Z`} 
-                                 fill={`url(#${stock.ticker}-gradient)`}
-                               />
-                               
-                               {/* Line path */}
-                               <path 
-                                 d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} 
-                                    ${chartData.map((point: number, i: number) => 
-                                      `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
-                                    ).join(' ')} 
-                                    L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100}`} 
-                                 className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} 
-                                 strokeWidth="2.5" 
-                                 strokeLinecap="round" 
-                                 strokeLinejoin="round" 
-                               />
-                               
-                               {/* Add small data points at intervals */}
-                               {chartData.length > 5 && chartData.filter((_: any, i: number) => 
-                                 i % Math.ceil(chartData.length / 5) === 0 || i === chartData.length - 1
-                               ).map((point: number, i: number) => {
-                                 const index = i * Math.ceil(chartData.length / 5);
-                                 const actualIndex = Math.min(index, chartData.length - 1);
-                                 const x = (actualIndex / (chartData.length - 1)) * 110 - 5;
-                                 const y = 100 - ((chartData[actualIndex] - minValue) / (maxValue - minValue)) * 100;
-                                 return (
-                                   <circle 
-                                     key={i} 
-                                     cx={x} 
-                                     cy={y} 
-                                     r="1.5" 
-                                     className={`${realTimeChange >= 0 ? 'fill-green-600 stroke-white' : 'fill-red-600 stroke-white'}`}
-                                     strokeWidth="1"
-                                   />
-                                 );
-                               })}
-                             </svg>
-                           ) : (
-                             <div className="h-full w-full flex items-center justify-center">
-                               <div className="text-center">
-                                 <p className="text-slate-500">No data available</p>
-                               </div>
-                             </div>
-                           )}
-                        </div>
-                        
-                        {/* X Axis */}
-                        <div className="absolute left-0 right-0 bottom-1 pl-12 pr-4 flex justify-between text-[10px] text-slate-900 font-medium pointer-events-none">
-                          {chartDates.length > 0 ? (
-                            // If we have real dates from the API, use them intelligently
-                            getDisplayDates(chartDates, timeFrame).map((label, index) => (
-                              <span key={index}>{label}</span>
-                            ))
-                          ) : (
-                            // Fall back to generic labels if no dates
-                            timeScaleLabels.map((label, index) => (
-                              <span key={index}>{label}</span>
-                            ))
-                          )}
-                        </div>
-                      </>
-                    )}
-                    
-                    {/* Show error state if the data has an error flag */}
-                    {chartData && 'hasError' in chartData && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="bg-white/90 px-6 py-3 rounded-xl shadow-md border border-amber-200">
-                          <div className="flex items-center">
-                            <Info size={20} className="text-amber-500 mr-2" />
-                            <span className="text-amber-700 font-semibold">No data available for {timeFrame} period</span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-4 flex items-center justify-between text-xs h-6">
-                    <span className="text-slate-900 font-medium">Last updated: {latestTradingDay}</span>
-                    <span className="text-slate-700 italic">Swipe <span className="text-red-600 font-medium">left to skip</span> • Swipe <span className="text-green-600 font-medium">right to invest</span></span>
-                  </div>
-             </div>
-             {/* Metrics */}
-             <div className="grid grid-cols-2 gap-4 p-4 bg-white border-b border-slate-100">
-                 {Object.entries(stockWithMetrics.metrics as Metrics).map(([key, metricObj]) => {
-                    const metricName = key.charAt(0).toUpperCase() + key.slice(1);
-                     return (
-                        <div key={key} className="group relative" onClick={() => handleMetricClickInternal(metricName)} >
-                            <div className={`absolute inset-0 rounded-xl blur-sm transform scale-[0.98] translate-y-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ${ metricObj.color === 'green' ? 'bg-gradient-to-r from-green-100/30 to-emerald-100/30' : metricObj.color === 'yellow' ? 'bg-gradient-to-r from-amber-100/30 to-yellow-100/30' : 'bg-gradient-to-r from-red-100/30 to-rose-100/30'}`}></div>
-                            <div className={`p-4 rounded-xl border relative z-10 overflow-hidden active:scale-95 transition-all duration-150 cursor-pointer shadow-md hover:shadow-lg group-hover:translate-y-[-2px] ${ metricObj.color === 'green' ? 'bg-white border-green-200 group-hover:border-green-300' : metricObj.color === 'yellow' ? 'bg-white border-amber-200 group-hover:border-amber-300' : 'bg-white border-red-200 group-hover:border-red-300'}`}>
-                               <div className={`absolute top-0 left-0 w-full h-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${ metricObj.color === 'green' ? 'bg-gradient-to-r from-green-400 to-emerald-500' : metricObj.color === 'yellow' ? 'bg-gradient-to-r from-amber-400 to-yellow-500' : 'bg-gradient-to-r from-red-400 to-rose-500'}`}></div>
-                               <div className="flex items-center justify-between mb-2">
-                                 <div className={`flex items-center justify-center rounded-full w-8 h-8 ${ metricObj.color === 'green' ? 'bg-green-100 text-green-600' : metricObj.color === 'yellow' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'}`}>
-                                    {key === 'performance' && <TrendingUp size={16} />} {key === 'stability' && <Shield size={16} />} {key === 'value' && <DollarSign size={16} />} {key === 'momentum' && <Zap size={16} />}
-                                 </div>
-                                 <Info size={15} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
-                               </div>
-                               <div className={`text-lg font-semibold text-slate-900`}>{typeof metricObj.value === 'number' ? formatNumber(metricObj.value) : metricObj.value}</div>
-                               <div className="text-slate-500 text-sm font-medium mt-0.5 capitalize">{metricName}</div>
-                            </div>
-                        </div>
-                     );
-                 })}
-             </div>
-             {/* Modern Swipeable News */}
-             <div className="p-4 bg-gradient-to-br from-blue-50 to-white border-b border-slate-100">
-               <SwipeableNews symbol={stock.ticker} />
-             </div>
-
-             {/* Modern Analyst Ratings */}
-             <div className="mb-4">
-               <ModernAnalystRating 
-                 symbol={stock.ticker}
-                 recommendations={stockWithMetrics.recommendations}
-                 priceTarget={stockWithMetrics.priceTarget}
-                 currentPrice={stock.price}
-                 metrics={metricsQuery.data} // Pass the raw metrics data from PostgreSQL
-               />
-             </div>
-             
-             {/* Management Section */}
-             <div className="mb-4">
-               <ManagementSection symbol={stock.ticker} />
-             </div>
-
-             {/* Synopsis */}
-             <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden mb-4">
-                 <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30 rounded-xl opacity-30"></div>
-                 
-                 {/* Price Trend */}
-                 <div className="p-4 border-b border-slate-100 relative">
-                     <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
-                         <TrendingUp size={16} className="text-blue-500 mr-2" />
-                         Price Trend
-                     </h3>
-                     <p className="text-sm text-slate-600 leading-relaxed">
-                         {stock.change >= 0 
-                            ? `${stock.name} has shown positive momentum, rising ${formatNumber(stock.change)}% recently.` 
-                            : `${stock.name} has been under pressure, falling ${formatNumber(Math.abs(stock.change))}% recently.`} 
-                         The current price of ${formatNumber(stock.price)} places it 
-                         {stockWithMetrics.metrics.value.color === "green" 
-                            ? " at an attractive valuation compared to peers."
-                            : " above average valuation metrics for its sector."}
-                     </p>
-                 </div>
-                 
-                 {/* Company Overview */}
-                 <div className="p-4 border-b border-slate-100 relative">
-                     <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
-                         <Building size={16} className="text-indigo-500 mr-2" />
-                         Company Overview
-                     </h3>
-                     <p className="text-sm text-slate-600 leading-relaxed">
-                         {stock.description.length > 200 
-                            ? stock.description.substring(0, 200) + "..." 
-                            : stock.description}
-                     </p>
-                 </div>
-                 
-                 {/* Portfolio Role */}
-                 <div className="p-4 relative">
-                     <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
-                         <BarChart3 size={16} className="text-amber-500 mr-2" />
-                         Portfolio Role
-                     </h3>
-                     <p className="text-sm text-slate-600 leading-relaxed">
-                         This {stock.industry} stock 
-                         {stockWithMetrics.metrics.stability.color === "green" 
-                            ? " offers strong stability and could serve as a defensive holding."
-                            : stockWithMetrics.metrics.performance.color === "green"
-                                ? " provides growth potential and could boost portfolio returns."
-                                : " has balanced metrics and fits well in a diversified portfolio."}
-                         {stockWithMetrics.metrics.stability.value === "Excellent" || stockWithMetrics.metrics.performance.value === "Excellent" 
-                            ? " Rated high quality by our analysis."
-                            : stockWithMetrics.metrics.stability.value === "Good" || stockWithMetrics.metrics.performance.value === "Good"
-                                ? " Considered medium quality in our assessment."
-                                : " Currently rated lower in our quality metrics."}
-                     </p>
-                 </div>
-             </div>
-             {/* Comparison */}
-             <div className="bg-white border-t border-b border-slate-100 comparative-analysis-container" onClick={(e) => { /* Stop propagation for inner clicks */ }}>
-               <ComparativeAnalysis currentStock={stockWithMetrics} />
-             </div>
-             {/* Bottom Buttons */}
-             <div className="p-4 bg-white border-t border-b border-slate-100 mb-4">
-                 <Link to={`/stock-detail/${stock.ticker}`} className="..." onClick={(e) => e.stopPropagation()}> View Detailed Chart </Link>
-                 <div className="text-center text-sm font-medium text-slate-600 my-2"> Swipe <span className="text-red-600 font-medium">left to skip</span> • Swipe <span className="text-green-600 font-medium">right to invest</span> </div>
-             </div>
-             {/* Analysis */}
-             {stockWithMetrics.overallAnalysis && ( <div className="p-5 bg-gradient-to-b from-white to-slate-50"> <div className="mb-1"> <OverallAnalysisCard stock={stockWithMetrics} /> </div> </div> )}
-          </>
-      )}
-
-      {/* Action Buttons - Render only for interactive card */}
-      {cardControls && (
-        <div className="fixed bottom-0 left-0 right-0 px-2 pb-2 z-30 flex justify-center space-x-2">
-            {/* Card shadow/gradient edge - only at the very bottom of screen */}
-            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black to-transparent opacity-25 -z-10 pointer-events-none"></div>
-            
-            <button
-                className="px-6 py-3.5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white font-semibold shadow-lg flex items-center justify-center w-1/2 hover:from-red-600 hover:to-red-700 active:scale-95 transition-all duration-300 border border-red-400"
-                onClick={() => onNext && onNext()}
-            >
-                <ChevronLeft className="mr-2" size={18} />
-                Skip
-            </button>
-            
-            <button
-                className="px-6 py-3.5 rounded-xl bg-gradient-to-br from-green-500 to-green-600 text-white font-semibold shadow-lg flex items-center justify-center w-1/2 hover:from-green-600 hover:to-green-700 active:scale-95 transition-all duration-300 border border-green-400"
-                data-testid="buy-button"
-                onClick={() => onInvest && onInvest()}
-            >
-                <DollarSign className="mr-2" size={18} />
-                Buy
-            </button>
+      >
+        {/* Time period selector */}
+        <div className="sticky top-0 z-20 flex flex-col px-4 py-3 border-b border-slate-200 bg-white shadow-lg">
+          <h3 className="text-base font-bold text-gray-700 mb-2 uppercase tracking-wider flex items-center">
+            <Calendar size={16} className="mr-2" />
+            TIME PERIOD
+          </h3>
+          <div className="flex flex-wrap justify-center gap-2 py-2">
+            {periodsQuery.isLoading ? (
+              <div className="flex justify-center gap-2">
+                {["5D", "1M", "3M", "6M", "1Y"].map((period) => (
+                  <Skeleton key={period} className="w-20 h-12 rounded-md" />
+                ))}
+              </div>
+            ) : (
+              ["5D", "1M", "3M", "6M", "1Y"].map((period) => (
+                <button
+                  key={period}
+                  className={`px-4 py-3 text-base font-bold rounded-lg transition-all duration-200 min-w-[4.5rem] ${
+                    timeFrame === period
+                      ? `${realTimeChange >= 0 
+                          ? 'text-green-800 bg-green-100 border-2 border-green-400 shadow-md scale-105' 
+                          : 'text-red-800 bg-red-100 border-2 border-red-400 shadow-md scale-105'}`
+                      : 'text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 hover:scale-105'
+                  }`}
+                  onClick={() => setTimeFrame(period as TimeFrame)}
+                >
+                  {period}
+                </button>
+              ))
+            )}
+          </div>
         </div>
-      )}
 
-      {/* MODALS ARE RENDERED IN PARENT */}
-
-    </div> {/* End scrollable inner container */}
-  </motion.div> // End main motion wrapper
- );
+        {/* Simplified content for both modes */}
+        <div className="bg-white p-4 flex flex-col border-b border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Link
+                to={`/stock-detail/${stock.ticker}`}
+                className="group flex items-center gap-1.5"
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              >
+                <h2 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{stock.name}</h2>
+                <span className="text-slate-500 font-medium bg-slate-50 px-2 py-0.5 rounded-md group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">{stock.ticker}</span>
+                <BarChart3 size={18} className="text-slate-400 group-hover:text-blue-500 ml-1 transition-colors" />
+              </Link>
+            </div>
+            <div className="flex items-center">
+              <button onClick={refreshData} className="p-1.5 rounded-full hover:bg-slate-100 transition-colors" disabled={isRefreshing}>
+                <RefreshCw size={17} className={`text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-3xl font-bold text-slate-900 drop-shadow-sm">${displayPrice}</span>
+              <div className="mt-1 flex items-center text-xs text-slate-500">
+                <span className="mr-2">Day's Range:</span>
+                <span className="font-medium">${formatNumber((stock.dayLow !== undefined) ? stock.dayLow : parseFloat(displayPrice) * 0.98)} - ${formatNumber((stock.dayHigh !== undefined) ? stock.dayHigh : parseFloat(displayPrice) * 1.02)}</span>
+              </div>
+            </div>
+            <div className="flex flex-col items-end">
+              <div className={`flex items-center font-semibold px-3 py-1.5 rounded-lg ${realTimeChange >= 0 ? 'text-green-700 bg-green-100 border border-green-200' : 'text-red-700 bg-red-100 border border-red-200'}`}>
+                {realTimeChange >= 0 ? <TrendingUp size={16} className="mr-1.5" /> : <TrendingDown size={16} className="mr-1.5" />}
+                {realTimeChange >= 0 ? '+' : ''}{formatNumber(realTimeChange)}%
+              </div>
+              <span className="text-xs text-slate-500 mt-1 italic">Last price: ${formatNumber(stock.previousClose !== undefined ? stock.previousClose : (stock.price - stock.change))}</span>
+            </div>
+          </div>
+          
+          {/* Message about charts being removed */}
+          <div className="mt-4 bg-slate-50 p-6 rounded-lg text-center border border-slate-200">
+            <div className="font-medium text-slate-700">
+              Stock charts have been removed from this view. 
+              <br />
+              Please view detailed charts on the stock details page.
+            </div>
+            <Link 
+              to={`/stock-detail/${stock.ticker}`} 
+              className="mt-3 inline-block px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors"
+            >
+              View detailed charts
+            </Link>
+          </div>
+        </div>
+        
+        {/* Key Performance Metrics */}
+        <div className="bg-white p-4 border-b border-slate-100">
+          <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center">
+            <TrendingUp size={18} className="mr-2 text-blue-500" /> 
+            Key Performance Metrics
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            {Object.entries(stockWithMetrics.metrics).filter(([key]) => key !== 'potential').map(([key, metric]) => {
+              // Type assertion to work with the metric object
+              const typedMetric = metric as {
+                value: string;
+                color: string;
+                details: any;
+                explanation?: string;
+              };
+              const metricName = key.charAt(0).toUpperCase() + key.slice(1);
+              return (
+                <div 
+                  key={key}
+                  onClick={() => handleMetricClickInternal(metricName)}
+                  className={`p-4 rounded-lg border cursor-pointer transition-all duration-200 hover:shadow-md ${
+                    typedMetric.color === 'green' ? 'border-green-200 bg-green-50' : 
+                    typedMetric.color === 'yellow' ? 'border-yellow-200 bg-yellow-50' :
+                    'border-red-200 bg-red-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-slate-800">{metricName}</span>
+                    <Info size={16} className={`${
+                      typedMetric.color === 'green' ? 'text-green-600' : 
+                      typedMetric.color === 'yellow' ? 'text-yellow-600' : 
+                      'text-red-600'
+                    }`} />
+                  </div>
+                  <div className={`mt-2 text-lg font-bold ${
+                    typedMetric.color === 'green' ? 'text-green-700' : 
+                    typedMetric.color === 'yellow' ? 'text-yellow-700' : 
+                    'text-red-700'
+                  }`}>
+                    {typedMetric.value}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        
+        {/* Stock Details */}
+        <div className="bg-white p-4 border-b border-slate-100">
+          <h3 className="text-lg font-semibold text-slate-800 mb-3">Stock Overview</h3>
+          <p className="text-slate-600 mb-4">{stock.description || "No description available."}</p>
+          
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Industry:</span>
+              <span className="font-medium text-slate-800">{stock.industry}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">P/E Ratio:</span>
+              <span className="font-medium text-slate-800">
+                {stockWithMetrics.metrics.value.details.peRatio !== undefined 
+                  ? formatNumber(stockWithMetrics.metrics.value.details.peRatio as number) 
+                  : 'N/A'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Dividend Yield:</span>
+              <span className="font-medium text-slate-800">
+                {stockWithMetrics.metrics.value.details.dividendYield !== undefined && stockWithMetrics.metrics.value.details.dividendYield !== 'N/A'
+                  ? `${formatNumber(stockWithMetrics.metrics.value.details.dividendYield as number)}%` 
+                  : 'N/A'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Beta:</span>
+              <span className="font-medium text-slate-800">
+                {stockWithMetrics.metrics.stability.details.beta !== undefined 
+                  ? formatNumber(stockWithMetrics.metrics.stability.details.beta as number) 
+                  : 'N/A'}
+              </span>
+            </div>
+          </div>
+          
+          {/* Quick Buy Button (Investment) */}
+          {onInvest && (
+            <button
+              onClick={onInvest}
+              className="mt-4 w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg flex items-center justify-center transition-colors"
+            >
+              <span>Invest in {stock.ticker}</span>
+            </button>
+          )}
+        </div>
+        
+        {/* AI Assistant */}
+        <div className="bg-white p-4 border-b border-slate-100">
+          <h3 className="text-lg font-semibold text-slate-800 mb-3 flex items-center">
+            <MessageCircle size={18} className="mr-2 text-purple-500" /> 
+            AI Assistant
+          </h3>
+          <div className="border border-purple-100 rounded-lg bg-purple-50 overflow-hidden">
+            <AskAI stock={stockWithMetrics} />
+          </div>
+        </div>
+        
+        {/* Swipe Instructions */}
+        <div className="bg-white p-4 flex justify-center items-center text-sm text-slate-500">
+          <ChevronLeft size={16} className="mr-1" />
+          <span>Swipe to navigate</span>
+          <ChevronRight size={16} className="ml-1" />
+        </div>
+      </div>
+    </motion.div>
+  );
 }
