@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { Link } from "wouter";
 import { StockData } from "@/lib/stock-data";
 import {
@@ -21,10 +21,16 @@ import {
 } from "lucide-react";
 import { motion, useAnimation, useMotionValue, useTransform, PanInfo, AnimationControls } from "framer-motion";
 import OverallAnalysisCard from "@/components/overall-analysis-card";
-import { Skeleton } from "@/components/ui/skeleton"; // Keep if used, else remove
+import { Skeleton } from "@/components/ui/skeleton";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import AskAI from "./ask-ai";
-import { getIndustryAverages } from "@/lib/industry-data"; // Keep if needed for metric data preparation
+import { getIndustryAverages } from "@/lib/industry-data";
+import { 
+  useYahooChartData, 
+  extractChartPrices,
+  getYahooTimeScaleLabels,
+  timeFrameToRange 
+} from "@/lib/yahoo-finance-client";
 
 
 // Define Metric structure used in handleMetricClick callback
@@ -138,20 +144,57 @@ export default function StockCard({
   const [isRefreshing, setIsRefreshing] = useState(false);
   // Modal states are removed
 
-  // Chart data logic
-  const chartData = useMemo(() => generateTimeBasedData(stock.chartData, timeFrame), [stock.chartData, timeFrame]);
+  // Fetch Yahoo Finance data if in realtime mode
+  const { data: yahooChartData, isLoading: isLoadingYahooData, refetch: refetchYahooData } = 
+    useYahooChartData(stock.ticker, timeFrame);
+  
+  // Use Yahoo Finance data if available, otherwise fallback to mock data
+  const chartPrices = useMemo(() => {
+    if (displayMode === 'realtime' && yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0) {
+      return extractChartPrices(yahooChartData);
+    }
+    // Fallback to the generated mock data if Yahoo Finance data is not available
+    return generateTimeBasedData(stock.chartData, timeFrame);
+  }, [stock.chartData, timeFrame, yahooChartData, displayMode]);
+  
   const displayPrice = stock.price.toFixed(2);
   const realTimeChange = stock.change;
-  const minValue = Math.min(...chartData) - 5;
-  const maxValue = Math.max(...chartData) + 5;
-  const timeScaleLabels = useMemo(() => getTimeScaleLabels(timeFrame), [timeFrame]);
+  
+  // Calculate min/max values from the chart data
+  const minValue = Math.min(...chartPrices) - 5;
+  const maxValue = Math.max(...chartPrices) + 5;
+  
+  // Get appropriate time labels based on data source
+  const timeScaleLabels = useMemo(() => {
+    if (displayMode === 'realtime' && yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0) {
+      return getYahooTimeScaleLabels(timeFrame, yahooChartData);
+    }
+    return getTimeScaleLabels(timeFrame);
+  }, [timeFrame, yahooChartData, displayMode]);
+  
   const priceRangeMin = Math.floor(minValue);
   const priceRangeMax = Math.ceil(maxValue);
-  const latestTradingDay = new Date().toISOString().split('T')[0];
+  
+  // Use the latest trading day from Yahoo data if available
+  const latestTradingDay = useMemo(() => {
+    if (yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0) {
+      const lastQuote = yahooChartData.quotes[yahooChartData.quotes.length - 1];
+      return new Date(lastQuote.date).toISOString().split('T')[0];
+    }
+    return new Date().toISOString().split('T')[0];
+  }, [yahooChartData]);
 
   // Refresh handler
   const refreshData = async () => {
     setIsRefreshing(true);
+    // Refresh Yahoo Finance data if we're in realtime mode
+    if (displayMode === 'realtime') {
+      try {
+        await refetchYahooData();
+      } catch (error) {
+        console.error(`Error refreshing data for ${stock.ticker}:`, error);
+      }
+    }
     setTimeout(() => setIsRefreshing(false), 1000);
   };
 
@@ -527,7 +570,7 @@ export default function StockCard({
                         </div>
                         <div className="absolute inset-0 pl-12 pr-4"> {/* Chart Path */}
                            <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
-                             <path d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} ${chartData.map((point, i) => `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`).join(' ')} L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100}`} className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                             <path d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue)) * 100} ${chartPrices.map((point: number, i: number) => `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`).join(' ')} L105,${100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue)) * 100}`} className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                            </svg>
                         </div>
                     </div>
