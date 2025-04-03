@@ -131,7 +131,7 @@ export default function StockCard({
   // Create a local motion value if none is provided from the parent
   const localX = useMotionValue(0);
   const xToUse = x ?? localX;
-  
+
   // Use the appropriate motion value
   const cardOpacity = useTransform(xToUse, [-200, 0, 200], [0.5, 1, 0.5]);
   const cardRotate = useTransform(xToUse, [-200, 0, 200], [-10, 0, 10]);
@@ -147,33 +147,33 @@ export default function StockCard({
   // Fetch Yahoo Finance data if in realtime mode
   const { data: yahooChartData, isLoading: isLoadingYahooData, refetch: refetchYahooData } = 
     useYahooChartData(stock.ticker, timeFrame);
-  
+
   // Use Yahoo Finance data if available, otherwise fallback to mock data
   const chartPrices = useMemo(() => {
     if (displayMode === 'realtime' && yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0) {
       // Log the actual Yahoo Finance data for debugging/reviewing
       console.log(`Yahoo Finance data for ${stock.ticker} with timeFrame: ${timeFrame}`);
       console.log('Quote data:', yahooChartData.quotes);
-      
+
       // Extract close prices and make sure they're numbers
       const closePrices = yahooChartData.quotes.map(quote => 
         typeof quote.close === 'number' ? quote.close : 0
       ).filter(price => price > 0);
-      
+
       console.log('Extracted close prices:', closePrices);
       return closePrices;
     }
     // Fallback to the generated mock data if Yahoo Finance data is not available
     return generateTimeBasedData(stock.chartData, timeFrame);
   }, [stock.chartData, timeFrame, yahooChartData, displayMode, stock.ticker]);
-  
+
   const displayPrice = stock.price.toFixed(2);
   const realTimeChange = stock.change;
-  
+
   // Calculate min/max values from the chart data
   const minValue = Math.min(...chartPrices) - 5;
   const maxValue = Math.max(...chartPrices) + 5;
-  
+
   // Get appropriate time labels based on data source
   const timeScaleLabels = useMemo(() => {
     if (displayMode === 'realtime' && yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0) {
@@ -181,10 +181,10 @@ export default function StockCard({
     }
     return getTimeScaleLabels(timeFrame);
   }, [timeFrame, yahooChartData, displayMode]);
-  
+
   const priceRangeMin = Math.floor(minValue);
   const priceRangeMax = Math.ceil(maxValue);
-  
+
   // Use the latest trading day from Yahoo data if available
   const latestTradingDay = useMemo(() => {
     if (yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0) {
@@ -277,7 +277,7 @@ export default function StockCard({
   const dragStartXRef = useRef<number>(0);
   const dragDistanceThresholdRef = useRef<number>(0);
   const isDraggingIntentionallyRef = useRef<boolean>(false);
-  
+
   // Track when drag starts with initial position
   const handleDragStart = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     dragStartTimeRef.current = Date.now();
@@ -285,24 +285,24 @@ export default function StockCard({
     isDraggingIntentionallyRef.current = false;
     dragDistanceThresholdRef.current = 0;
   };
-  
+
   // Handle drag during movement to determine intentional vs accidental
   const handleDrag = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (!cardControls) return;
-    
+
     // Calculate absolute distance moved during this drag session
     const distanceMoved = Math.abs(info.point.x - dragStartXRef.current);
     dragDistanceThresholdRef.current = Math.max(dragDistanceThresholdRef.current, distanceMoved);
-    
+
     // Only consider it an intentional drag if they've moved a significant distance
     // AND they've been dragging for at least 150ms (to prevent accidental swipes)
     const dragDuration = Date.now() - dragStartTimeRef.current;
-    
+
     if (distanceMoved > 50 && dragDuration > 150) {
       isDraggingIntentionallyRef.current = true;
     }
   };
-  
+
   // Drag handler with significantly reduced sensitivity and higher thresholds
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (!cardControls) return; // Not interactive if no controls
@@ -326,7 +326,7 @@ export default function StockCard({
     const leftThreshold = 120;
     // Higher velocity threshold to require more deliberate swipes
     const velocityThreshold = 250;
-    
+
     const dragVelocity = info.velocity.x;
     const dragOffset = info.offset.x;
 
@@ -426,7 +426,7 @@ export default function StockCard({
                     </button>
                 ))}
             </div>
-            
+
             {/* Yahoo Finance Data Points Table for Review */}
             {yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0 && (
               <div className="p-4 bg-white text-xs border-b border-slate-100">
@@ -630,7 +630,7 @@ export default function StockCard({
                                    <stop offset="100%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.01)' : 'rgba(239, 68, 68, 0.01)'} />
                                  </linearGradient>
                                </defs>
-                               
+
                                {/* Chart line */}
                                <path 
                                  d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue)) * 100} ${
@@ -643,7 +643,7 @@ export default function StockCard({
                                  strokeLinecap="round" 
                                  strokeLinejoin="round" 
                                />
-                               
+
                                {/* Area fill */}
                                <path 
                                  d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue)) * 100} ${
@@ -654,7 +654,7 @@ export default function StockCard({
                                  fill="url(#chartGradient)" 
                                  fillOpacity="0.5"
                                />
-                               
+
                                {/* Data points */}
                                {chartPrices.map((point: number, i: number) => (
                                  <circle 
@@ -670,7 +670,34 @@ export default function StockCard({
                            ) : (
                              // Fallback to mock data chart
                              <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
-                               <path d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue)) * 100} ${chartPrices.map((point: number, i: number) => `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`).join(' ')} L105,${100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue)) * 100}`} className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                               {/* Chart path with better data normalization */}
+                               <path 
+                                 d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} 
+                                    ${chartPrices.map((point: number, i: number) => 
+                                      `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
+                                    ).join(' ')} 
+                                    L105,${100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue || 1)) * 100}`} 
+                                 className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} 
+                                 strokeWidth="2.5" 
+                                 strokeLinecap="round" 
+                                 strokeLinejoin="round" 
+                               />
+
+                               {/* Data points at key positions for visual reference */}
+                               {chartPrices
+                                 .filter((_, i) => i % Math.max(1, Math.floor(chartPrices.length / 5)) === 0 || i === chartPrices.length - 1)
+                                 .map((point: number, i: number) => {
+                                   const index = i * Math.max(1, Math.floor(chartPrices.length / 5));
+                                   return (
+                                     <circle 
+                                       key={i}
+                                       cx={`${(index / (chartPrices.length - 1)) * 110 - 5}`}
+                                       cy={`${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`}
+                                       r="2"
+                                       className={`${realTimeChange >= 0 ? 'fill-green-600' : 'fill-red-600'}`}
+                                     />
+                                   );
+                               })}
                              </svg>
                            )}
                         </div>
@@ -709,7 +736,7 @@ export default function StockCard({
              {/* Synopsis */}
              <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden mb-4">
                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30 rounded-xl opacity-30"></div>
-                 
+
                  {/* Price Trend */}
                  <div className="p-4 border-b border-slate-100 relative">
                      <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
@@ -726,7 +753,7 @@ export default function StockCard({
                             : " above average valuation metrics for its sector."}
                      </p>
                  </div>
-                 
+
                  {/* Company Overview */}
                  <div className="p-4 border-b border-slate-100 relative">
                      <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
@@ -739,7 +766,7 @@ export default function StockCard({
                             : stock.description}
                      </p>
                  </div>
-                 
+
                  {/* Portfolio Role */}
                  <div className="p-4 relative">
                      <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
@@ -780,7 +807,7 @@ export default function StockCard({
         <div className="fixed bottom-0 left-0 right-0 px-2 pb-2 z-30 flex justify-center space-x-2">
             {/* Card shadow/gradient edge - only at the very bottom of screen */}
             <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black to-transparent opacity-25 -z-10 pointer-events-none"></div>
-            
+
             <button
                 className="px-6 py-3.5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white font-semibold shadow-lg flex items-center justify-center w-1/2 hover:from-red-600 hover:to-red-700 active:scale-95 transition-all duration-300 border border-red-400"
                 onClick={() => onNext && onNext()}
@@ -788,7 +815,7 @@ export default function StockCard({
                 <ChevronLeft className="mr-2" size={18} />
                 Skip
             </button>
-            
+
             <button
                 className="px-6 py-3.5 rounded-xl bg-gradient-to-br from-green-500 to-green-600 text-white font-semibold shadow-lg flex items-center justify-center w-1/2 hover:from-green-600 hover:to-green-700 active:scale-95 transition-all duration-300 border border-green-400"
                 data-testid="buy-button"
