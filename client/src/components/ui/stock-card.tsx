@@ -151,38 +151,39 @@ export default function StockCard({
   const { data: yahooChartData, isLoading: isLoadingYahooData, refetch: refetchYahooData } = 
     useYahooChartData(stock.ticker, timeFrame);
 
-  // Loading state for chart transitions
-  const [isChartLoading, setIsChartLoading] = useState(false);
-  
   // Use Yahoo Finance data if available, otherwise fallback to mock data
   const chartPrices = useMemo(() => {
-    // First set loading state when timeFrame changes
-    if (displayMode === 'realtime' && yahooChartData?.quotes?.length === 0) {
-      setIsChartLoading(true);
-    } else {
-      setIsChartLoading(false);
-    }
-    
     if (displayMode === 'realtime' && yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0) {
+      // Log the actual Yahoo Finance data for debugging/reviewing
+      console.log(`Yahoo Finance data for ${stock.ticker} with timeFrame: ${timeFrame}`);
+      console.log('Quote data:', yahooChartData.quotes);
+
       // Extract close prices and make sure they're numbers
       const closePrices = yahooChartData.quotes.map(quote => 
         typeof quote.close === 'number' ? quote.close : 0
       ).filter(price => price > 0);
 
+      console.log('Extracted close prices:', closePrices);
       // Only return Yahoo data if we actually have valid prices
       if (closePrices.length > 0) {
+        console.log(`Using Yahoo close prices for ${stock.ticker} (${timeFrame}): ${closePrices.length} points`);
+
         // For 1D and 5D timeframes, we might need to filter the data to show a smoother chart
         if (timeFrame === "1D" || timeFrame === "5D") {
           // For very large datasets, sample points to make chart more manageable
           if (closePrices.length > 50) {
             const samplingRate = Math.floor(closePrices.length / 30); // Target around 30 points
             const sampledPrices = closePrices.filter((_, i) => i % samplingRate === 0 || i === closePrices.length - 1);
+            console.log(`Sampled intraday data from ${closePrices.length} to ${sampledPrices.length} points`);
             return sampledPrices;
           }
         }
 
         return closePrices;
       }
+
+      // Log fallback to mock data
+      console.log(`Yahoo data invalid or empty for ${stock.ticker} (${timeFrame}), using mock data instead`);
     }
 
     // Fallback to the generated mock data if Yahoo Finance data is not available or invalid
@@ -432,21 +433,62 @@ export default function StockCard({
 
       {/* --- Time frame selector (realtime mode only) --- */}
       {displayMode === 'realtime' && (
-          <div className="sticky top-0 z-20 flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">
-              {["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"].map((period) => (
-                  <button
-                      key={period}
-                      className={`px-3 py-1 text-xs rounded-full transition-all duration-200 ${
-                          timeFrame === period
-                              ? `${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm' : 'text-red-600 bg-red-50 border border-red-200 shadow-sm'} font-medium`
-                              : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                      }`}
-                      onClick={() => setTimeFrame(period as TimeFrame)}
-                  >
-                      {period}
-                  </button>
-              ))}
-          </div>
+          <>
+            <div className="sticky top-0 z-20 flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">
+                {["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"].map((period) => (
+                    <button
+                        key={period}
+                        className={`px-3 py-1 text-xs rounded-full transition-all duration-200 ${
+                            timeFrame === period
+                                ? `${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm' : 'text-red-600 bg-red-50 border border-red-200 shadow-sm'} font-medium`
+                                : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                        }`}
+                        onClick={() => setTimeFrame(period as TimeFrame)}
+                    >
+                        {period}
+                    </button>
+                ))}
+            </div>
+
+            {/* Yahoo Finance Data Points Table for Review */}
+            {yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0 && (
+              <div className="p-4 bg-white text-xs border-b border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-slate-900">Yahoo Finance Data Points ({yahooChartData.quotes.length})</h3>
+                  <span className="text-slate-500">{timeFrame} Range</span>
+                </div>
+                <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                  <table className="min-w-full border-collapse text-left text-xs">
+                    <thead className="bg-slate-50 sticky top-0">
+                      <tr>
+                        <th className="p-2 border border-slate-200 font-medium">Date</th>
+                        <th className="p-2 border border-slate-200 font-medium">Open</th>
+                        <th className="p-2 border border-slate-200 font-medium">High</th>
+                        <th className="p-2 border border-slate-200 font-medium">Low</th>
+                        <th className="p-2 border border-slate-200 font-medium">Close</th>
+                        <th className="p-2 border border-slate-200 font-medium">Volume</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {yahooChartData.quotes.map((quote, index) => (
+                        <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                          <td className="p-2 border border-slate-200">{new Date(quote.date).toLocaleDateString()}</td>
+                          <td className="p-2 border border-slate-200">${quote.open?.toFixed(2) || 'N/A'}</td>
+                          <td className="p-2 border border-slate-200">${quote.high?.toFixed(2) || 'N/A'}</td>
+                          <td className="p-2 border border-slate-200">${quote.low?.toFixed(2) || 'N/A'}</td>
+                          <td className="p-2 border border-slate-200 font-medium">${quote.close?.toFixed(2) || 'N/A'}</td>
+                          <td className="p-2 border border-slate-200">{quote.volume?.toLocaleString() || 'N/A'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-2 text-slate-500 text-[10px] italic">
+                  Data source: Yahoo Finance - {stock.ticker}
+                </div>
+              </div>
+            )}
+          </>
       )}
       {displayMode === 'simple' && <div className="pt-4"></div>}
 
@@ -626,12 +668,6 @@ export default function StockCard({
                     <span className="font-medium">${(parseFloat(displayPrice) * 0.98).toFixed(2)} - ${(parseFloat(displayPrice) * 1.02).toFixed(2)}</span>
                   </div>
                   <div className="relative mt-3 h-44 py-2"> {/* Chart Area */}
-                    {isChartLoading ? (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="animate-spin h-8 w-8 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                        <span className="ml-2 text-sm text-slate-600">Loading chart data...</span>
-                      </div>
-                    ) : (
                     <div className="absolute inset-0 px-4"> {/* Chart Visual */}
                         <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-slate-900 font-medium pointer-events-none py-3 z-10 w-12"> {/* Y Axis */}
                             <span>${Math.round(priceRangeMax)}</span> <span>${Math.round((priceRangeMax + priceRangeMin) / 2)}</span> <span>${Math.round(priceRangeMin)}</span>
@@ -722,7 +758,6 @@ export default function StockCard({
                     <div className="absolute left-0 right-0 bottom-1 pl-12 pr-4 flex justify-between text-[10px] text-slate-900 font-medium pointer-events-none"> {/* X Axis */}
                         {timeScaleLabels.map((label, index) => (<span key={index}>{label}</span>))}
                     </div>
-                    )}
                   </div>
                   <div className="mt-4 flex items-center justify-between text-xs h-6">
                     <span className="text-slate-900 font-medium">Last updated: {latestTradingDay}</span>
