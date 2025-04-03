@@ -574,7 +574,7 @@ export default function StockCard({
                      <div className="absolute -inset-1 bg-blue-500/5 blur-xl rounded-xl z-0"></div>
                      <div className="relative z-10 bg-gray-800/70 backdrop-blur-sm"> 
                          {/* Directly render StockNewsSection component */}
-                         <StockNewsSection stock={stock} />
+                         <StockNewsSection stock={stock} theme="dark" />
                      </div>
                  </motion.div>
              </div>
@@ -611,7 +611,7 @@ export default function StockCard({
                         Latest News
                     </h3>
                     <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                        <StockNewsSection stock={stock} />
+                        <StockNewsSection stock={stock} theme="light" />
                     </div>
                 </div>
              </div>

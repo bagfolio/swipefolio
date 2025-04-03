@@ -34,16 +34,32 @@ class YahooFinanceService {
     try {
       console.log(`Fetching chart data for ${symbol} with range: ${range}, interval: ${interval}`);
       
-      // Convert interval to supported type
-      const validInterval = this.getValidInterval(interval);
-      
-      const result = await yahooFinance.chart(symbol, {
-        period1: this.getDateFromRange(range),
-        interval: validInterval,
-        includePrePost: true,
-      });
-      
-      return result;
+      // For intraday data (1d, 5d), use different interval settings
+      if (range === '1d' || range === '5d') {
+        // For intraday data, we need more granular intervals
+        // Use '5m' (5-minute) intervals for 1d and '60m' (60-minute) for 5d
+        const intradayInterval = range === '1d' ? '5m' : '60m';
+        console.log(`Using intraday interval ${intradayInterval} for ${range} range`);
+        
+        const result = await yahooFinance.chart(symbol, {
+          period1: this.getDateFromRange(range),
+          interval: intradayInterval as any,
+          includePrePost: true,
+        });
+        
+        return result;
+      } else {
+        // For non-intraday data, use the regular interval
+        const validInterval = this.getValidInterval(interval);
+        
+        const result = await yahooFinance.chart(symbol, {
+          period1: this.getDateFromRange(range),
+          interval: validInterval,
+          includePrePost: true,
+        });
+        
+        return result;
+      }
     } catch (error) {
       console.error(`Error fetching chart data for ${symbol}:`, error);
       throw error;

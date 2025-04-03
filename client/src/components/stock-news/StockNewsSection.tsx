@@ -35,6 +35,7 @@ interface StockNewsItem extends YahooNewsItem {
 
 interface StockNewsSectionProps {
   stock: StockData;
+  theme?: 'dark' | 'light'; // Add theme prop with default to dark
 }
 
 // Helper function to format date from timestamp
@@ -144,7 +145,7 @@ const getMetricIcon = (metric: string, sentiment: 'positive' | 'negative' | 'neu
   }
 };
 
-export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => {
+export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock, theme = 'dark' }) => {
   // Fetch news data from the API
   const { data: newsData, isLoading, error } = useQuery<{ items: YahooNewsItem[] }>({
     queryKey: ['/api/yahoo-finance/news', stock.ticker],
@@ -172,13 +173,42 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
       }))
     : [];
 
+  // Define theme-specific styles
+  const styles = {
+    container: theme === 'dark' 
+      ? "p-4 bg-gray-800/70 border-t border-b border-gray-700" 
+      : "p-4 bg-white border-t border-b border-slate-100",
+    title: theme === 'dark'
+      ? "text-lg font-bold text-white mb-3 flex items-center"
+      : "font-semibold text-slate-900 mb-3 flex items-center",
+    iconColor: theme === 'dark' ? "text-blue-400" : "text-blue-500",
+    emptyText: theme === 'dark' ? "text-gray-400" : "text-slate-500",
+    errorText: theme === 'dark' ? "text-rose-400" : "text-rose-500",
+    skeletonBg: theme === 'dark' ? "bg-gray-700" : "bg-slate-200",
+    newsItem: theme === 'dark'
+      ? "block p-3 rounded-xl border border-gray-700 hover:border-blue-500 hover:bg-blue-900/10 transition-all duration-200 group"
+      : "block p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-200 group",
+    newsTitle: theme === 'dark'
+      ? "text-sm font-medium text-gray-300 group-hover:text-blue-400 pr-4 transition-colors"
+      : "text-sm font-medium text-slate-700 group-hover:text-blue-600 pr-4 transition-colors",
+    icon: theme === 'dark'
+      ? "w-4 h-4 text-gray-500 group-hover:text-blue-400 transition-colors flex-shrink-0"
+      : "w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors flex-shrink-0",
+    publisherBadge: theme === 'dark'
+      ? "bg-gray-800 rounded-full px-2 py-1 mr-2 text-gray-500"
+      : "bg-slate-100 rounded-full px-2 py-1 mr-2 text-slate-600",
+    metricTag: theme === 'dark'
+      ? "text-xs mr-1 capitalize bg-gray-800 px-2 py-1 rounded-full text-gray-400"
+      : "text-xs mr-1 capitalize bg-slate-100 px-2 py-1 rounded-full text-slate-600"
+  };
+
   if (error) {
     return (
-      <div className="p-4 bg-gray-800/70 border-t border-b border-gray-700">
-        <h3 className="text-lg font-bold text-white mb-3 flex items-center">
-          <Calendar className="w-5 h-5 mr-2 text-blue-400" /> Latest News
+      <div className={styles.container}>
+        <h3 className={styles.title}>
+          <Calendar className={`w-5 h-5 mr-2 ${styles.iconColor}`} /> Latest News
         </h3>
-        <div className="text-center py-6 text-rose-400">
+        <div className={`text-center py-6 ${styles.errorText}`}>
           <AlertCircle className="h-10 w-10 mx-auto mb-2" />
           <p>Could not load news for {stock.ticker}</p>
         </div>
@@ -188,16 +218,16 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
 
   if (isLoading) {
     return (
-      <div className="p-4 bg-gray-800/70 border-t border-b border-gray-700">
-        <h3 className="text-lg font-bold text-white mb-3 flex items-center">
-          <Calendar className="w-5 h-5 mr-2 text-blue-400" /> Latest News
+      <div className={styles.container}>
+        <h3 className={styles.title}>
+          <Calendar className={`w-5 h-5 mr-2 ${styles.iconColor}`} /> Latest News
         </h3>
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="animate-pulse">
-              <div className="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
-              <div className="h-3 bg-gray-700 rounded w-1/2 mb-1"></div>
-              <div className="h-3 bg-gray-700 rounded w-1/4"></div>
+              <div className={`h-4 ${styles.skeletonBg} rounded w-3/4 mb-2`}></div>
+              <div className={`h-3 ${styles.skeletonBg} rounded w-1/2 mb-1`}></div>
+              <div className={`h-3 ${styles.skeletonBg} rounded w-1/4`}></div>
             </div>
           ))}
         </div>
@@ -206,13 +236,13 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
   }
 
   return (
-    <div className="p-4 bg-gray-800/70 border-t border-b border-gray-700">
-      <h3 className="text-lg font-bold text-white mb-3 flex items-center">
-        <Calendar className="w-5 h-5 mr-2 text-blue-400" /> Latest News
+    <div className={styles.container}>
+      <h3 className={styles.title}>
+        <Calendar className={`w-5 h-5 mr-2 ${styles.iconColor}`} /> Latest News
       </h3>
       
       {processedNews.length === 0 ? (
-        <div className="text-center py-6 text-gray-400">
+        <div className={`text-center py-6 ${styles.emptyText}`}>
           <p>No recent news available for {stock.ticker}</p>
         </div>
       ) : (
@@ -228,27 +258,27 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
                 href={newsItem.link} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="block p-3 rounded-xl border border-gray-700 hover:border-blue-500 hover:bg-blue-900/10 transition-all duration-200 group"
+                className={styles.newsItem}
               >
                 <div className="flex justify-between items-start">
-                  <h4 className="text-sm font-medium text-gray-300 group-hover:text-blue-400 pr-4 transition-colors">
+                  <h4 className={styles.newsTitle}>
                     {newsItem.title}
                   </h4>
-                  <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-blue-400 transition-colors flex-shrink-0" />
+                  <ExternalLink className={styles.icon} />
                 </div>
                 
                 <div className="mt-2 flex items-center justify-between">
-                  <div className="flex items-center text-xs text-gray-500">
-                    <div className="bg-gray-800 rounded-full px-2 py-1 mr-2">
+                  <div className="flex items-center text-xs">
+                    <div className={styles.publisherBadge}>
                       {newsItem.publisher}
                     </div>
-                    <Clock className="w-3 h-3 mr-1" />
+                    <Clock className={`w-3 h-3 mr-1 ${theme === 'dark' ? 'text-gray-500' : 'text-slate-500'}`} />
                     {formatNewsDate(newsItem.providerPublishTime)}
                   </div>
                   
                   {primaryMetric && (
                     <div className="flex items-center">
-                      <span className="text-xs mr-1 capitalize bg-gray-800 px-2 py-1 rounded-full text-gray-400">
+                      <span className={styles.metricTag}>
                         {primaryMetric[0]}
                       </span>
                       {getMetricIcon(primaryMetric[0], primaryMetric[1])}
