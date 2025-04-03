@@ -141,7 +141,7 @@ export default function HomePage() {
     <>
       <AppHeader />
       
-      <main className="main-content pb-24 pt-20 px-4 bg-gradient-to-br from-slate-50 via-white to-blue-50/40">
+      <main className="main-content pb-24 pt-20 px-4 bg-gradient-to-br from-slate-50 via-white to-blue-50/40" style={{ touchAction: 'pan-y pinch-zoom', overscrollBehavior: 'contain' }}>
         <AnimatedContainer>
           <HeroSection />
           <ModernUserWelcome name="Belford&Co" rank={11} />
