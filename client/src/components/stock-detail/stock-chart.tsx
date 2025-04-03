@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AreaChart,
@@ -9,41 +9,17 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { CalendarIcon, ChevronDown, RefreshCw } from 'lucide-react';
-import { 
-  Popover, 
-  PopoverContent, 
-  PopoverTrigger 
-} from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// New interfaces for the updated API response format
-interface PriceDataPoint {
-  date: string;
-  price: number;
-}
-
-interface StockPriceHistoryResponse {
-  symbol: string;
-  period: string;
-  prices: number[] | PriceDataPoint[];
-  source: string;
-}
-
-interface AvailablePeriodsResponse {
-  symbol: string;
-  availablePeriods: string[];
-  source: string;
-}
-
-// Type for our formatted chart data
+// Simplified interfaces
 interface ChartDataPoint {
   date: string;
   price: number;
 }
 
-type TimeFrame = '5D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y';
+// Supported time periods
+type TimeFrame = '1D' | '5D' | '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y';
 
 interface StockChartProps {
   symbol: string;
@@ -52,150 +28,61 @@ interface StockChartProps {
 export default function StockChart({ symbol }: StockChartProps) {
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('1M');
   
-  // First, fetch available periods for this stock - but only if we have a valid symbol
-  const periodsQuery = useQuery<AvailablePeriodsResponse>({
-    queryKey: ['/api/stock/available-periods', symbol],
+  // Directly fetch price history with a fixed set of periods that we know work
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['/api/history', symbol, timeFrame],
     queryFn: async () => {
-      // Guard against undefined or empty symbol
       if (!symbol) {
-        console.warn('Cannot fetch available periods: No symbol provided');
-        return { symbol: '', availablePeriods: ['1M'], source: 'default' };
+        console.log('Cannot fetch history: Symbol is undefined');
+        return { chartData: [] };
       }
       
-      console.log(`Fetching available periods for: ${symbol}`);
-      const response = await fetch(`/api/stock/${symbol}/available-periods`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error(`Error fetching available periods: ${JSON.stringify(errorData)}`);
-        throw new Error(
-          errorData.message || `Failed to fetch available periods for ${symbol}`
-        );
-      }
-      const data = await response.json();
-      console.log(`Got available periods for ${symbol}:`, data.availablePeriods);
-      return data;
-    },
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    enabled: !!symbol, // Only run when we have a symbol
-  });
-  
-  // Make sure we're using a time frame that's available
-  useEffect(() => {
-    if (periodsQuery.data?.availablePeriods && periodsQuery.data.availablePeriods.length > 0) {
-      // If the current timeFrame isn't available, set it to the first available one
-      if (!periodsQuery.data.availablePeriods.includes(timeFrame)) {
-        setTimeFrame(periodsQuery.data.availablePeriods[0] as TimeFrame);
-      }
-    }
-  }, [periodsQuery.data, timeFrame]);
-  
-  // Fetch price history data for the selected time frame
-  const { data, isLoading, error, refetch } = useQuery<StockPriceHistoryResponse>({
-    queryKey: ['/api/historical', symbol, timeFrame],
-    queryFn: async () => {
-      // Guard against undefined or empty symbol
-      if (!symbol) {
-        console.warn('Cannot fetch historical data: No symbol provided');
-        throw new Error('Stock symbol is required to fetch price history');
-      }
+      console.log(`Fetching direct price history for ${symbol} with period ${timeFrame}`);
       
-      console.log(`Fetching historical data for ${symbol} with period ${timeFrame}`);
+      // Get the raw data directly from the closing history in PostgreSQL
       const response = await fetch(`/api/historical/${symbol}?period=${timeFrame.toLowerCase()}`);
+      
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error(`Error fetching historical data: ${JSON.stringify(errorData)}`);
-        throw new Error(
-          errorData.message || `Failed to fetch price history for ${symbol}`
-        );
+        throw new Error(`Failed to fetch price history for ${symbol}`);
       }
-      const data = await response.json();
-      console.log(`Got historical data: ${data.prices?.length} data points for ${symbol}`);
-      return data;
+      
+      const result = await response.json();
+      console.log(`Received data for ${symbol}:`, result);
+      
+      // Extract and format the price data
+      let chartData: ChartDataPoint[] = [];
+      
+      if (result.prices && Array.isArray(result.prices)) {
+        if (typeof result.prices[0] === 'object' && 'date' in result.prices[0] && 'price' in result.prices[0]) {
+          // Already in the correct format
+          chartData = result.prices.map((point: any) => ({
+            date: new Date(point.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            price: typeof point.price === 'number' ? point.price : parseFloat(point.price)
+          }));
+        } else if (typeof result.prices[0] === 'number' && result.dates && Array.isArray(result.dates)) {
+          // Convert parallel arrays to array of objects
+          chartData = result.prices.map((price: number, index: number) => ({
+            date: new Date(result.dates[index]).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            price
+          }));
+        }
+      }
+      
+      console.log(`Formatted ${chartData.length} data points for ${symbol}`);
+      return { chartData, source: result.source };
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    enabled: Boolean(symbol) && Boolean(timeFrame), // Only run query when we have both symbol and timeFrame
+    staleTime: 60 * 1000, // 1 minute cache
+    enabled: !!symbol, // Only run when symbol is available
   });
   
-  // Format the data for the chart
-  const formatChartData = (): ChartDataPoint[] => {
-    if (!data || !data.prices || data.prices.length === 0) {
-      console.log(`No chart data available for ${symbol}`);
-      return [];
-    }
-    
-    console.log(`Formatting chart data for ${symbol}: `, data.prices);
-    
-    try {
-      // Handle array of numbers (simple price array)
-      if (typeof data.prices[0] === 'number') {
-        console.log(`Handling number array format for ${symbol}`);
-        // Create dates based on the number of price points - going backward from today
-        const prices = data.prices as number[];
-        const result: ChartDataPoint[] = [];
-        
-        // Create a date range based on the selected time frame
-        let days = 30; // Default for 1M
-        switch (timeFrame) {
-          case '5D': days = 5; break;
-          case '1W': days = 7; break;
-          case '3M': days = 90; break;
-          case '6M': days = 180; break;
-          case '1Y': days = 365; break;
-          case '5Y': days = 1825; break;
-        }
-        
-        // Only use as many days as we have prices
-        const pointsToUse = Math.min(prices.length, days);
-        
-        // Create dates going backward from today
-        const today = new Date();
-        
-        for (let i = 0; i < pointsToUse; i++) {
-          const date = new Date(today);
-          date.setDate(today.getDate() - (pointsToUse - i - 1));
-          
-          result.push({
-            date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            price: prices[i]
-          });
-        }
-        
-        console.log(`Generated ${result.length} chart data points`);
-        return result;
-      }
-      
-      // Handle array of objects with date and price properties
-      if (typeof data.prices[0] === 'object' && 'date' in data.prices[0] && 'price' in data.prices[0]) {
-        console.log(`Handling object array format for ${symbol}`);
-        const result = (data.prices as PriceDataPoint[]).map(point => ({
-          date: new Date(point.date).toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric' 
-          }),
-          price: typeof point.price === 'string' ? parseFloat(point.price) : point.price
-        }));
-        
-        console.log(`Processed ${result.length} chart data points`);
-        return result;
-      }
-      
-      // If we got here, the data format is unexpected
-      console.error(`Unexpected data format for ${symbol} chart data:`, data.prices[0]);
-      return [];
-    } catch (err) {
-      console.error(`Error formatting chart data for ${symbol}:`, err);
-      return [];
-    }
-  };
-  
-  const chartData = formatChartData();
-  
-  // Calculate price change and percentage
+  // Calculate price change
   const calculateChange = () => {
-    if (chartData.length < 2) return { change: 0, percentage: 0 };
+    if (!data?.chartData || data.chartData.length < 2) {
+      return { change: 0, percentage: 0 };
+    }
     
-    const firstPrice = chartData[0].price;
-    const lastPrice = chartData[chartData.length - 1].price;
+    const firstPrice = data.chartData[0].price;
+    const lastPrice = data.chartData[data.chartData.length - 1].price;
     
     return {
       change: +(lastPrice - firstPrice).toFixed(2),
@@ -206,11 +93,12 @@ export default function StockChart({ symbol }: StockChartProps) {
   const { change, percentage } = calculateChange();
   const isPositiveChange = change >= 0;
   
-  // Format price to show 2 decimal places
+  // Format currency
   const formatPrice = (value: number) => {
     return `$${value.toFixed(2)}`;
   };
   
+  // Loading state
   if (isLoading) {
     return (
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -229,7 +117,8 @@ export default function StockChart({ symbol }: StockChartProps) {
     );
   }
   
-  if (error || !data) {
+  // Error state
+  if (error) {
     return (
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-4 border-b">
@@ -245,8 +134,8 @@ export default function StockChart({ symbol }: StockChartProps) {
     );
   }
   
-  // If no data available
-  if (chartData.length === 0) {
+  // No data state
+  if (!data?.chartData || data.chartData.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-4 border-b">
@@ -259,6 +148,10 @@ export default function StockChart({ symbol }: StockChartProps) {
     );
   }
   
+  // The last price point is the current price
+  const currentPrice = data.chartData[data.chartData.length - 1].price;
+  
+  // Chart component with data
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="p-4 border-b">
@@ -276,25 +169,21 @@ export default function StockChart({ symbol }: StockChartProps) {
               <RefreshCw size={16} />
             </button>
             
-            {/* Available time periods */}
+            {/* Available time periods - fixed set */}
             <div className="flex flex-wrap justify-end space-x-1">
-              {periodsQuery.isLoading ? (
-                <Skeleton className="h-8 w-32" />
-              ) : (
-                (periodsQuery.data?.availablePeriods || ['5D', '1W', '1M', '3M', '6M', '1Y', '5Y']).map((tf) => (
-                  <button
-                    key={tf}
-                    onClick={() => setTimeFrame(tf as TimeFrame)}
-                    className={`text-xs px-2 py-1 rounded-md ${
-                      timeFrame === tf
-                        ? 'bg-blue-100 text-blue-700 font-medium'
-                        : 'text-gray-500 hover:bg-gray-100'
-                    }`}
-                  >
-                    {tf}
-                  </button>
-                ))
-              )}
+              {['1D', '5D', '1W', '1M', '3M', '6M', '1Y'].map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setTimeFrame(tf as TimeFrame)}
+                  className={`text-xs px-2 py-1 rounded-md ${
+                    timeFrame === tf
+                      ? 'bg-blue-100 text-blue-700 font-medium'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  {tf}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -302,7 +191,7 @@ export default function StockChart({ symbol }: StockChartProps) {
         {/* Current price and change */}
         <div className="flex items-center">
           <span className="text-2xl font-semibold mr-2">
-            {chartData.length > 0 ? formatPrice(chartData[chartData.length - 1].price) : '$0.00'}
+            {formatPrice(currentPrice)}
           </span>
           <span 
             className={`text-sm font-medium px-2 py-0.5 rounded ${
@@ -318,7 +207,7 @@ export default function StockChart({ symbol }: StockChartProps) {
       <div className="p-4 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
-            data={chartData}
+            data={data.chartData}
             margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
           >
             <defs>
@@ -378,7 +267,7 @@ export default function StockChart({ symbol }: StockChartProps) {
         <div className="flex items-center justify-end">
           <span>Period: {timeFrame}</span>
           <span className="mx-2">•</span>
-          <span>Source: {data.source || 'Stock Data Provider'}</span>
+          <span>Source: {data.source || 'Replit Financial'}</span>
         </div>
       </div>
     </div>
