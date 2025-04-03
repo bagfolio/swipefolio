@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AreaChart,
@@ -18,24 +18,52 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
-interface StockHistoryItem {
+// Define types for Yahoo Finance data
+interface YahooChartQuote {
+  date: string;
+  high: number;
+  low: number;
+  open: number;
+  close: number;
+  volume: number;
+  adjclose: number;
+}
+
+interface YahooChartResponse {
+  meta: {
+    currency: string;
+    symbol: string;
+    regularMarketPrice: number;
+    chartPreviousClose: number;
+    previousClose: number;
+    dataGranularity: string;
+    range: string;
+  };
+  quotes: YahooChartQuote[];
+}
+
+// Type for our chart data format 
+interface ChartDataItem {
   Date: string;
   Open: number;
   High: number;
   Low: number;
   Close: number;
   Volume: number;
-  Dividends: number;
-  "Stock Splits": number;
-}
-
-interface StockHistoryResponse {
-  symbol: string;
-  history: StockHistoryItem[];
-  source: string;
 }
 
 type TimeFrame = '1W' | '1M' | '3M' | '6M' | '1Y' | '5Y' | 'MAX';
+
+// Map TimeFrame to Yahoo Finance range parameter
+const timeFrameToRange: Record<TimeFrame, string> = {
+  '1W': '5d',   // Yahoo has 5d not 7d
+  '1M': '1mo',
+  '3M': '3mo',
+  '6M': '6mo',
+  '1Y': '1y',
+  '5Y': '5y',
+  'MAX': 'max'
+};
 
 interface StockChartProps {
   symbol: string;
@@ -44,15 +72,15 @@ interface StockChartProps {
 export default function StockChart({ symbol }: StockChartProps) {
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('3M');
   
-  // Fetch stock history data from our JSON files
-  const { data, isLoading, error } = useQuery<StockHistoryResponse>({
-    queryKey: ['/api/stock/history', symbol],
+  // Fetch stock chart data from Yahoo Finance API
+  const { data, isLoading, error } = useQuery<YahooChartResponse>({
+    queryKey: ['/api/yahoo-finance/chart', symbol, timeFrameToRange[timeFrame]],
     queryFn: async () => {
-      const response = await fetch(`/api/stock/${symbol}/history`);
+      const response = await fetch(`/api/yahoo-finance/chart/${symbol}?interval=1d&range=${timeFrameToRange[timeFrame]}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
-          errorData.message || `Failed to fetch stock history for ${symbol}`
+          errorData.message || `Failed to fetch chart data for ${symbol}`
         );
       }
       return response.json();
@@ -60,60 +88,38 @@ export default function StockChart({ symbol }: StockChartProps) {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
   
-  // Function to filter data based on selected time frame
-  const getFilteredData = () => {
-    if (!data?.history || data.history.length === 0) {
+  // Process Yahoo Finance data into our chart format
+  const chartData = useMemo(() => {
+    if (!data?.quotes || data.quotes.length === 0) {
       return [];
     }
     
-    const now = new Date();
-    let startDate = new Date();
-    
-    // Calculate start date based on selected time frame
-    switch (timeFrame) {
-      case '1W':
-        startDate = new Date(now.setDate(now.getDate() - 7));
-        break;
-      case '1M':
-        startDate = new Date(now.setMonth(now.getMonth() - 1));
-        break;
-      case '3M':
-        startDate = new Date(now.setMonth(now.getMonth() - 3));
-        break;
-      case '6M':
-        startDate = new Date(now.setMonth(now.getMonth() - 6));
-        break;
-      case '1Y':
-        startDate = new Date(now.setFullYear(now.getFullYear() - 1));
-        break;
-      case '5Y':
-        startDate = new Date(now.setFullYear(now.getFullYear() - 5));
-        break;
-      case 'MAX':
-        return data.history; // Return all data
-      default:
-        startDate = new Date(now.setMonth(now.getMonth() - 3));
-    }
-    
-    const startTimestamp = startDate.getTime();
-    
-    // Filter data to only include dates after the start date
-    return data.history
-      .filter(item => new Date(item.Date).getTime() >= startTimestamp)
-      .map(item => ({
-        ...item,
-        Date: new Date(item.Date).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-        }),
-      }));
-  };
-  
-  const chartData = getFilteredData();
+    return data.quotes.map(quote => ({
+      Date: new Date(quote.date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      }),
+      Open: quote.open,
+      High: quote.high,
+      Low: quote.low,
+      Close: quote.close,
+      Volume: quote.volume
+    }));
+  }, [data]);
   
   // Calculate price change and percentage
   const calculateChange = () => {
-    if (chartData.length < 2) return { change: 0, percentage: 0 };
+    if (chartData.length < 2) {
+      // If we have market data but not enough chart points, use meta info
+      if (data?.meta) {
+        const lastPrice = data.meta.regularMarketPrice;
+        const previousClose = data.meta.previousClose || data.meta.chartPreviousClose;
+        const change = +(lastPrice - previousClose).toFixed(2);
+        const percentage = +((change / previousClose) * 100).toFixed(2);
+        return { change, percentage };
+      }
+      return { change: 0, percentage: 0 };
+    }
     
     const firstClose = chartData[0].Close;
     const lastClose = chartData[chartData.length - 1].Close;
@@ -280,7 +286,7 @@ export default function StockChart({ symbol }: StockChartProps) {
       
       {/* Source attribution */}
       <div className="px-4 pb-4 text-right text-xs text-gray-500">
-        Source: {data.source || 'Stock Data Provider'}
+        Source: Yahoo Finance
       </div>
     </div>
   );
