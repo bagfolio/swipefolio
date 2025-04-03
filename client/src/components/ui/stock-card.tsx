@@ -22,6 +22,7 @@ import {
   RefreshCw,
   DollarSign,
   TrendingUp,
+  TrendingDown,
   Shield,
   Zap,
   MessageCircle,
@@ -667,12 +668,12 @@ export default function StockCard({
     >
 
       {/* --- Time frame selector (realtime mode only) --- */}
-      {displayMode === 'realtime' && (
-          <div className="sticky top-0 z-20 flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">
+      {/* Always show time period buttons in all modes */}
+          <div className={`${displayMode === 'realtime' ? 'sticky top-0 z-20' : ''} flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm`}>
                {periodsQuery.isLoading ? (
                  // Show loading state for time periods
                  <div className="flex justify-center space-x-1">
-                   {["1M", "3M", "6M"].map((period) => (
+                   {["5D", "1M", "3M", "6M", "1Y"].map((period) => (
                      <Skeleton key={period} className="w-10 h-6 rounded-full" />
                    ))}
                  </div>
@@ -685,10 +686,10 @@ export default function StockCard({
                    .map((period) => (
                    <button
                        key={period}
-                       className={`px-3 py-1 text-xs rounded-full transition-all duration-200 ${
+                       className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 ${
                            timeFrame === period
-                               ? `${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm' : 'text-red-600 bg-red-50 border border-red-200 shadow-sm'} font-medium`
-                               : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                               ? `${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm' : 'text-red-600 bg-red-50 border border-red-200 shadow-sm'}`
+                               : 'text-slate-600 hover:bg-slate-100 border border-slate-200'
                        }`}
                        onClick={() => setTimeFrame(period as TimeFrame)}
                    >
@@ -696,8 +697,6 @@ export default function StockCard({
                    </button>
                )))}
            </div>
-      )}
-      {displayMode === 'simple' && <div className="pt-4"></div>}
 
       {/* --- Content Specific to Mode --- */}
       {displayMode === 'simple' ? (
@@ -832,27 +831,61 @@ export default function StockCard({
                       </button>
                     </div>
                   </div>
-                  <div className="mt-2 flex items-center">
-                    <span className="text-3xl font-bold text-slate-900 drop-shadow-sm">${displayPrice}</span>
-                    <div className="ml-2 flex items-center">
-                      <span className={`flex items-center text-sm font-semibold px-2 py-0.5 rounded-full ${realTimeChange >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
-                        {realTimeChange >= 0 ? <TrendingUp size={14} className="mr-1" /> : <ChevronLeft size={14} className="mr-1 rotate-90" />}
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-3xl font-bold text-slate-900 drop-shadow-sm">${displayPrice}</span>
+                      <div className="mt-1 flex items-center text-xs text-slate-500">
+                        <span className="mr-2">Day's Range:</span>
+                        <span className="font-medium">${formatNumber(parseFloat(displayPrice) * 0.98)} - ${formatNumber(parseFloat(displayPrice) * 1.02)}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <div className={`flex items-center font-semibold px-3 py-1.5 rounded-lg ${realTimeChange >= 0 ? 'text-green-700 bg-green-100 border border-green-200' : 'text-red-700 bg-red-100 border border-red-200'}`}>
+                        {realTimeChange >= 0 ? <TrendingUp size={16} className="mr-1.5" /> : <TrendingDown size={16} className="mr-1.5" />}
                         {realTimeChange >= 0 ? '+' : ''}{formatNumber(realTimeChange)}%
-                      </span>
+                      </div>
+                      <span className="text-xs text-slate-500 mt-1 italic">Last price: ${formatNumber(stock.price - (stock.price * (realTimeChange/100)))}</span>
                     </div>
                   </div>
-                  <div className="mt-1 flex items-center text-xs text-slate-500">
-                    <span className="mr-2">Day's Range:</span>
-                    <span className="font-medium">${formatNumber(parseFloat(displayPrice) * 0.98)} - ${formatNumber(parseFloat(displayPrice) * 1.02)}</span>
-                  </div>
-                  <div className="relative mt-3 h-44 py-2"> {/* Chart Area */}
+                  
+                  <div className="relative mt-4 h-64 py-2"> {/* Chart Area - increased height from h-44 to h-64 */}
                     <div className="absolute inset-0 px-4"> {/* Chart Visual */}
                         <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-slate-900 font-medium pointer-events-none py-3 z-10 w-12"> {/* Y Axis */}
                             <span>${Math.round(priceRangeMax)}</span> <span>${Math.round((priceRangeMax + priceRangeMin) / 2)}</span> <span>${Math.round(priceRangeMin)}</span>
                         </div>
                         <div className="absolute inset-0 pl-12 pr-4"> {/* Chart Path */}
                            <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
-                             <path d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} ${chartData.map((point: number, i: number) => `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`).join(' ')} L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100}`} className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                             {/* Fill area under the curve */}
+                             <defs>
+                               <linearGradient id={`${stock.ticker}-gradient`} x1="0%" y1="0%" x2="0%" y2="100%">
+                                 <stop offset="0%" stopColor={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} stopOpacity="0.2" />
+                                 <stop offset="100%" stopColor={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} stopOpacity="0.05" />
+                               </linearGradient>
+                             </defs>
+                             
+                             {/* Fill path */}
+                             <path 
+                               d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} 
+                                  ${chartData.map((point: number, i: number) => 
+                                    `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
+                                  ).join(' ')} 
+                                  L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100} 
+                                  L105,100 L-5,100 Z`} 
+                               fill={`url(#${stock.ticker}-gradient)`}
+                             />
+                             
+                             {/* Line path */}
+                             <path 
+                               d={`M-5,${100 - ((chartData[0] - minValue) / (maxValue - minValue)) * 100} 
+                                  ${chartData.map((point: number, i: number) => 
+                                    `L${(i / (chartData.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
+                                  ).join(' ')} 
+                                  L105,${100 - ((chartData[chartData.length-1] - minValue) / (maxValue - minValue)) * 100}`} 
+                               className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} 
+                               strokeWidth="2" 
+                               strokeLinecap="round" 
+                               strokeLinejoin="round" 
+                             />
                            </svg>
                         </div>
                     </div>
