@@ -366,12 +366,23 @@ export class PgStockService {
         const filteredPrices = prices.slice(0, Math.min(daysToInclude, prices.length));
         const filteredDates = dates.slice(0, Math.min(daysToInclude, dates.length));
         
+        // Ensure we have valid data
+        if (filteredPrices.length === 0 || filteredDates.length === 0) {
+          console.warn(`No valid price history data found for ${ticker}`);
+          return null;
+        }
+
+        // Format prices as numbers and ensure dates are strings
+        const formattedPrices = filteredPrices.map(p => typeof p === 'string' ? parseFloat(p) : p);
+        const formattedDates = filteredDates.map(d => d.toString());
+
         return {
           ticker: ticker,
           period: period,
-          prices: filteredPrices.reverse(), // Reverse to get chronological order
-          dates: filteredDates.reverse(),   // Reverse to get chronological order
-          source: 'postgresql'
+          prices: formattedPrices.reverse(), // Reverse to get chronological order
+          dates: formattedDates.reverse(),   // Reverse to get chronological order
+          source: 'postgresql',
+          lastUpdated: new Date().toISOString()
         };
       }
       
