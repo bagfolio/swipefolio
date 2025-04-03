@@ -161,9 +161,29 @@ export default function StockCard({
       ).filter(price => price > 0);
 
       console.log('Extracted close prices:', closePrices);
-      return closePrices;
+      // Only return Yahoo data if we actually have valid prices
+      if (closePrices.length > 0) {
+        console.log(`Using Yahoo close prices for ${stock.ticker} (${timeFrame}): ${closePrices.length} points`);
+
+        // For 1D and 5D timeframes, we might need to filter the data to show a smoother chart
+        if (timeFrame === "1D" || timeFrame === "5D") {
+          // For very large datasets, sample points to make chart more manageable
+          if (closePrices.length > 50) {
+            const samplingRate = Math.floor(closePrices.length / 30); // Target around 30 points
+            const sampledPrices = closePrices.filter((_, i) => i % samplingRate === 0 || i === closePrices.length - 1);
+            console.log(`Sampled intraday data from ${closePrices.length} to ${sampledPrices.length} points`);
+            return sampledPrices;
+          }
+        }
+
+        return closePrices;
+      }
+
+      // Log fallback to mock data
+      console.log(`Yahoo data invalid or empty for ${stock.ticker} (${timeFrame}), using mock data instead`);
     }
-    // Fallback to the generated mock data if Yahoo Finance data is not available
+
+    // Fallback to the generated mock data if Yahoo Finance data is not available or invalid
     return generateTimeBasedData(stock.chartData, timeFrame);
   }, [stock.chartData, timeFrame, yahooChartData, displayMode, stock.ticker]);
 
@@ -555,8 +575,7 @@ export default function StockCard({
              {/* Forecast */}
              <div className="p-5 border-b border-gray-800">
                  <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                     <TrendingUp className="w-5 h-5 mr-2 text-amber-400" /> Price Forecast <span className="text-xs bg-gradient-to-r from-amber-800 to-amber-600 text-amber-100 px-3 py-1 rounded-full ml-2 shadow-inner shadow-amber-900/20 border border-amber-700/30">Premium</span>
-                 </h3>
+                     <TrendingUp className="w-5 h-5 mr-2 text-amber-400" /> Price Forecast <span className="text-xs bg-gradient-to-r from-amber-800 to-amber-600 text-amber-100 px-3 py-1 rounded-full ml-2 shadow-inner shadow-amber-900/20 border border-amber-700/30">Premium</span></h3>
                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.3 }} className="grid grid-cols-2 gap-4">
                      <div> {/* ... 1-Year Return ... */} </div>
                      <div> {/* ... Predicted Price (Premium Lock) ... */} </div>

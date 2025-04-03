@@ -229,13 +229,20 @@ export class YahooFinanceService {
       let period1 = new Date();
       const period2 = new Date(); // end date is now
       
-      // Calculate start date based on range
+      // For intraday data, we need to use different interval formats
+      let queryInterval = interval;
+      
+      // Calculate start date based on range and adjust interval for intraday data
       switch(range) {
         case '1d':
           period1 = new Date(period2.getTime() - 24 * 60 * 60 * 1000);
+          // For 1 day, use 5-minute intervals
+          queryInterval = '5m';
           break;
         case '5d':
           period1 = new Date(period2.getTime() - 5 * 24 * 60 * 60 * 1000);
+          // For 5 days, use 15-minute or 30-minute intervals
+          queryInterval = '30m';
           break;
         case '1mo':
           period1 = new Date(period2.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -256,17 +263,14 @@ export class YahooFinanceService {
           period1 = new Date(period2.getTime() - 30 * 24 * 60 * 60 * 1000); // default to 1 month
       }
 
-      // Ensure interval is valid according to Yahoo Finance API
-      const validInterval = interval === "1d" || interval === "1wk" || interval === "1mo" ? 
-                           interval : "1d";
-
       // Query parameters for Yahoo Finance chart API
       const queryOptions = {
         period1,
         period2,
-        interval: validInterval
+        interval: queryInterval as any // Use the appropriate interval based on timeframe
       };
 
+      console.log(`Fetching chart data for ${symbol} with range: ${range}, interval: ${queryInterval}`);
       const chart = await yahooFinance.chart(symbol, queryOptions);
       
       this.saveToCache(cacheKey, chart);
