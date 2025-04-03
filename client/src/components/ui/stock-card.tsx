@@ -701,35 +701,32 @@ export default function StockCard({
                  <Calendar size={16} className="mr-2" />
                  TIME FRAME
                </h3>
-               <div className="flex flex-wrap justify-center gap-2 py-1">
+               <div className="flex flex-wrap justify-center gap-2 py-2">
                  {periodsQuery.isLoading ? (
                    // Show loading state for time periods
                    <div className="flex justify-center gap-2">
                      {["5D", "1M", "3M", "6M", "1Y"].map((period) => (
-                       <Skeleton key={period} className="w-16 h-10 rounded-md" />
+                       <Skeleton key={period} className="w-20 h-12 rounded-md" />
                      ))}
                    </div>
                  ) : (
-                   // Show available periods from API, filtering out non-timeframe keys
-                   (availablePeriods && availablePeriods.length > 0 ? availablePeriods : ["5D", "1M", "3M", "6M", "1Y"])
-                     .filter(period => 
-                       ["1D", "5D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y", "MAX"].includes(period)
-                     )
-                     .map((period) => (
+                   // Show consistent time frame options with standardized periods
+                   ["5D", "1M", "3M", "6M", "1Y"].map((period) => (
                      <button
-                         key={period}
-                         className={`px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 ${
-                             timeFrame === period
-                                 ? `${realTimeChange >= 0 
-                                     ? 'text-green-800 bg-green-100 border-2 border-green-400 shadow-md scale-105' 
-                                     : 'text-red-800 bg-red-100 border-2 border-red-400 shadow-md scale-105'}`
-                                 : 'text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300'
-                         }`}
-                         onClick={() => setTimeFrame(period as TimeFrame)}
+                       key={period}
+                       className={`px-4 py-3 text-base font-bold rounded-lg transition-all duration-200 min-w-[4.5rem] ${
+                         timeFrame === period
+                           ? `${realTimeChange >= 0 
+                               ? 'text-green-800 bg-green-100 border-2 border-green-400 shadow-md scale-105' 
+                               : 'text-red-800 bg-red-100 border-2 border-red-400 shadow-md scale-105'}`
+                           : 'text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-300 hover:scale-105'
+                       }`}
+                       onClick={() => setTimeFrame(period as TimeFrame)}
                      >
-                         {period}
+                       {period}
                      </button>
-                   )))}
+                   ))
+                 )}
                </div>
            </div>
 

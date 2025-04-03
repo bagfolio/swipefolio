@@ -293,6 +293,9 @@ export class PgStockService {
     try {
       console.log(`[PG-STOCK] Getting price history for ${ticker} (${period})`);
       
+      // Normalize period to uppercase for consistent matching
+      const normalizedPeriod = period.toUpperCase();
+      
       // Get historical price data from stock_data table - this is our primary source
       const result = await pool.query(`
         SELECT ticker, closing_history
@@ -318,49 +321,55 @@ export class PgStockService {
         }
       }
       
-      // First check if period-specific data exists
-      if (priceData && priceData[period]) {
-        console.log(`[PG-STOCK] Found period-specific data for ${ticker} (${period})`);
+      // Check if period-specific data exists
+      if (priceData && priceData[normalizedPeriod]) {
+        console.log(`[PG-STOCK] Found period-specific data for ${ticker} (${normalizedPeriod})`);
         
         // Check if it's an array (older format) or object with dates/prices (newer format)
-        if (Array.isArray(priceData[period])) {
+        if (Array.isArray(priceData[normalizedPeriod])) {
           return {
             ticker: ticker,
-            period: period,
-            prices: priceData[period],
+            period: normalizedPeriod,
+            prices: priceData[normalizedPeriod],
             lastUpdated: new Date().toISOString()
           };
-        } else if (priceData[period].prices && priceData[period].dates) {
+        } else if (priceData[normalizedPeriod].prices && priceData[normalizedPeriod].dates) {
           return {
             ticker: ticker,
-            period: period,
-            prices: priceData[period].prices,
-            dates: priceData[period].dates,
+            period: normalizedPeriod,
+            prices: priceData[normalizedPeriod].prices,
+            dates: priceData[normalizedPeriod].dates,
             lastUpdated: new Date().toISOString()
           };
         }
       }
       
-      // If no period-specific data, check for raw price data
-      if (priceData && priceData.Close && priceData.Date) {
+      // If no period-specific data, check for raw price data (columnar format described in db guide)
+      if (priceData && Array.isArray(priceData.Close) && Array.isArray(priceData.Date)) {
         console.log(`[PG-STOCK] Using raw price data for ${ticker}`);
         
         // Filter based on period
-        const dates = priceData.Date;
-        const prices = priceData.Close;
+        const dates = [...priceData.Date]; // Create copies to avoid modifying original data
+        const prices = [...priceData.Close];
         
         // Convert period to days
         let daysToInclude = 30; // Default to 1M
         
-        if (period === '1D') daysToInclude = 1;
-        else if (period === '5D') daysToInclude = 5;
-        else if (period === '1W') daysToInclude = 7;
-        else if (period === '1M') daysToInclude = 30;
-        else if (period === '3M') daysToInclude = 90;
-        else if (period === '6M') daysToInclude = 180;
-        else if (period === '1Y') daysToInclude = 365;
-        else if (period === '5Y') daysToInclude = 365 * 5;
-        else if (period === 'MAX') daysToInclude = 365 * 20; // Just use all available data
+        if (normalizedPeriod === '1D') daysToInclude = 1;
+        else if (normalizedPeriod === '5D') daysToInclude = 5;
+        else if (normalizedPeriod === '1W') daysToInclude = 7;
+        else if (normalizedPeriod === '1M') daysToInclude = 30;
+        else if (normalizedPeriod === '3M') daysToInclude = 90;
+        else if (normalizedPeriod === '6M') daysToInclude = 180;
+        else if (normalizedPeriod === 'YTD') {
+          // Calculate days from beginning of year
+          const now = new Date();
+          const startOfYear = new Date(now.getFullYear(), 0, 1);
+          daysToInclude = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+        }
+        else if (normalizedPeriod === '1Y') daysToInclude = 365;
+        else if (normalizedPeriod === '5Y') daysToInclude = 365 * 5;
+        else if (normalizedPeriod === 'MAX') daysToInclude = dates.length; // Just use all available data
         
         // Take the most recent X days worth of data
         const filteredPrices = prices.slice(0, Math.min(daysToInclude, prices.length));
@@ -373,12 +382,18 @@ export class PgStockService {
         }
 
         // Format prices as numbers and ensure dates are strings
-        const formattedPrices = filteredPrices.map((p: any) => typeof p === 'string' ? parseFloat(p) : p);
+        const formattedPrices = filteredPrices.map((p: any) => {
+          return typeof p === 'string' ? parseFloat(p) : p;
+        });
+        
         const formattedDates = filteredDates.map((d: any) => d.toString());
 
+        // Log what we're returning for debugging
+        console.log(`[PG-STOCK] Returning ${formattedPrices.length} data points for ${ticker} (${normalizedPeriod})`);
+        
         return {
           ticker: ticker,
-          period: period,
+          period: normalizedPeriod,
           prices: formattedPrices.reverse(), // Reverse to get chronological order
           dates: formattedDates.reverse(),   // Reverse to get chronological order
           source: 'postgresql',
