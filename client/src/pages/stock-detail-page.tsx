@@ -111,6 +111,12 @@ const [useRealTimeData] = useState(true); // Keep state if mode switching is pla
   // Motion value and controls (called unconditionally)
   const x = useMotionValue(0);
   const cardControls = useAnimation();
+  
+  // Initialize animation controls after component mount
+  useEffect(() => {
+    // This ensures that controls.start() is only called after the component is mounted
+    cardControls.set({ x: 0 });
+  }, [cardControls]);
 
 // Navigation Handlers
 const handleNextStock = useCallback(() => {
