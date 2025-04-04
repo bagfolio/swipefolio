@@ -392,16 +392,19 @@ export default function StockCard({
     >
       {/* --- Header/Chart Section (Robinhood Style) --- */}
       <div className="bg-white flex flex-col w-full">
-            {/* Stock Name & Ticker - Centered at top */}
-            <div className="flex items-center justify-between px-5 pt-5 pb-1">
-              <div className="flex items-center gap-1">
+            {/* Stock Name & Ticker - Styled like Robinhood */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-2">
+              <div className="flex flex-col">
                 <Link
                   to={`/stock-detail/${stock.ticker}`}
-                  className="group flex items-center gap-1"
+                  className="group"
                   onClick={(e: React.MouseEvent) => e.stopPropagation()}
                 >
-                  <span className="text-xs font-medium text-slate-500">{stock.ticker}</span>
-                  <h2 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{stock.name}</h2>
+                  <h2 className="text-2xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{stock.name}</h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="px-2.5 py-1 bg-slate-100 rounded-md text-sm font-medium text-slate-500">{stock.ticker}</span>
+                    <BarChart3 size={16} className="text-slate-400" />
+                  </div>
                 </Link>
               </div>
               <div className="flex items-center">
@@ -412,15 +415,23 @@ export default function StockCard({
             </div>
              
             {/* Price and Change - Larger, bolder, cleaner */}
-            <div className="flex items-center px-5 pb-2">
+            <div className="flex items-start px-5 pb-2">
                 <span className="text-3xl font-bold text-slate-900">${displayPrice}</span>
-                <div className="ml-2 flex items-center">
-                <span className={`flex items-center text-sm font-semibold ${realTimeChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <div className="ml-2 flex items-center mt-1.5">
+                <span className={`flex items-center text-sm px-3 py-1 rounded-full ${realTimeChange >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
                     {realTimeChange >= 0 ? <TrendingUp size={12} className="mr-1" /> : <ChevronLeft size={12} className="mr-1 rotate-90" />}
                     {realTimeChange >= 0 ? '+' : ''}{realTimeChange.toFixed(2)}%
                 </span>
                 </div>
             </div>
+            
+            {/* Day's Range - Only shown when Yahoo data is available */}
+            {dayRange.low > 0 && dayRange.high > 0 && (
+              <div className="px-5 mb-2 flex items-center text-xs text-slate-500">
+                <span className="mr-2">Day's Range:</span>
+                <span className="font-medium">${dayRange.low.toFixed(2)} - ${dayRange.high.toFixed(2)}</span>
+              </div>
+            )}
             
             {/* Chart Area - Full-screen, edge-to-edge */}
             <div className="relative h-64 w-full -mx-1"> {/* Negative margin to break out of container */}
@@ -617,9 +628,9 @@ export default function StockCard({
                                       y1="0" 
                                       x2="0" 
                                       y2="100" 
-                                      stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)'} 
+                                      stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'} 
                                       strokeDasharray="2,2" 
-                                      strokeWidth="0.8" 
+                                      strokeWidth="0.5" 
                                       opacity="0"
                                     />
                                     
@@ -628,25 +639,35 @@ export default function StockCard({
                                       id="pricePoint" 
                                       cx="0" 
                                       cy="0" 
-                                      r="3"
+                                      r="2"
                                       fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} 
                                       opacity="0"
                                       filter="url(#glow)"
                                     />
                                     
-                                    {/* Interactive price label */}
-                                    <text 
-                                      id="priceLabel" 
-                                      x="0" 
-                                      y="0" 
-                                      fill="#1F2937" 
-                                      fontSize="8" 
-                                      fontWeight="bold" 
-                                      textAnchor="start" 
-                                      opacity="0"
-                                    >
-                                      $0.00
-                                    </text>
+                                    {/* Interactive price label - with background for better readability */}
+                                    <g id="priceLabel" opacity="0">
+                                      <rect
+                                        x="0"
+                                        y="0"
+                                        width="30"
+                                        height="12"
+                                        rx="3"
+                                        fill={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'}
+                                        stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}
+                                        strokeWidth="0.5"
+                                      />
+                                      <text 
+                                        x="0" 
+                                        y="0" 
+                                        fill="#1F2937" 
+                                        fontSize="6" 
+                                        fontWeight="medium" 
+                                        textAnchor="middle" 
+                                      >
+                                        $0.00
+                                      </text>
+                                    </g>
                                   </>
                                 )}
                             </svg>
@@ -670,9 +691,9 @@ export default function StockCard({
                 {["1D", "1W", "1M", "3M", "1Y", "5Y"].map((period) => (
                     <button
                         key={period}
-                        className={`px-3 py-1 text-xs rounded-xl transition-all duration-150 ${
+                        className={`px-3 py-1 text-xs rounded-full transition-all duration-150 ${
                             timeFrame === (period === "1W" ? "5D" : period)
-                                ? `font-semibold ${realTimeChange >= 0 ? 'text-green-600' : 'text-red-600'}`
+                                ? `font-medium ${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-100' : 'text-red-600 bg-red-50 border border-red-100'}`
                                 : 'text-slate-500 hover:bg-slate-50'
                         }`}
                         onClick={() => setTimeFrame((period === "1W" ? "5D" : period) as TimeFrame)}
