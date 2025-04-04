@@ -1,4 +1,5 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+// File: client/src/components/ui/stock-card.tsx
+import { useState, useRef, useMemo, useEffect, useCallback } from "react";
 import { Link } from "wouter";
 import { StockData } from "@/lib/stock-data";
 import {
@@ -27,14 +28,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import AskAI from "./ask-ai";
 import { getIndustryAverages } from "@/lib/industry-data";
-import StockNewsSection from "@/components/stock-news/StockNewsSection";
-import { 
-  useYahooChartData, 
+import StockNewsSection from "@/components/stock-news/StockNewsSection"; // Ensure import
+import {
+  useYahooChartData,
   extractChartPrices,
   getYahooTimeScaleLabels,
-  timeFrameToRange 
+  timeFrameToRange,
+  YahooChartResponse // Import the type
 } from "@/lib/yahoo-finance-client";
-
+import { cn } from "@/lib/utils"; // Make sure cn is imported
 
 // Define Metric structure used in handleMetricClick callback
 export interface MetricClickData {
@@ -52,70 +54,47 @@ interface StockCardProps {
   onOpenCalculator?: () => void; // Callback for parent
   currentIndex: number;
   totalCount: number;
-  displayMode?: 'simple' | 'realtime';
+  displayMode?: 'simple' | 'realtime'; // Keep displayMode if needed elsewhere
   cardControls?: AnimationControls; // Optional controls from parent
   x?: ReturnType<typeof useMotionValue<number>>; // Optional motion value from parent
 }
 
+// Define TimeFrame type locally if not imported
 type TimeFrame = "1D" | "5D" | "1M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX";
 
-// Helper functions (generateTimeBasedData, getTimeScaleLabels, getIndustryAverageData)
-const generateTimeBasedData = (data: number[], timeFrame: TimeFrame) => {
-  switch(timeFrame) {
-    case "1D": return data.map((point, i) => point * (1 + Math.sin(i * 0.5) * 0.03));
-    case "5D": return data.map((point, i) => point * (1 + Math.sin(i * 0.3) * 0.05));
-    case "1M": return data;
-    case "6M": return data.map((point, i) => point * (1 + (i/data.length) * 0.1));
-    case "1Y": return data.map((point, i) => point * (1 + Math.sin(i * 0.2) * 0.08 + (i/data.length) * 0.15));
-    case "5Y": return data.map((point, i) => point * (1 + Math.sin(i * 0.1) * 0.12 + (i/data.length) * 0.3));
-    case "MAX": return data.map((point, i) => point * (1 + Math.sin(i * 0.05) * 0.15 + (i/data.length) * 0.5));
-    default: return data;
-  }
-};
-const getTimeScaleLabels = (timeFrame: TimeFrame): string[] => {
-  switch(timeFrame) {
-    case "1D": return ["9:30", "11:00", "12:30", "14:00", "15:30", "16:00"];
-    case "5D": return ["Mon", "Tue", "Wed", "Thu", "Fri"];
-    case "1M": return ["Week 1", "Week 2", "Week 3", "Week 4"];
-    case "6M": return ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-    case "YTD": return ["Jan", "Mar", "May", "Jul", "Sep", "Nov"];
-    case "1Y": return ["Jan", "Mar", "May", "Jul", "Sep", "Nov"];
-    case "5Y": return ["2020", "2021", "2022", "2023", "2024"];
-    case "MAX": return ["2015", "2017", "2019", "2021", "2023"];
-    default: return ["9:30", "11:00", "12:30", "14:00", "15:30", "16:00"];
-  }
-};
+// Helper function to get industry average data (keep if needed for metrics)
 const getIndustryAverageData = (stock: StockData, metricType: string) => {
-  const industryAvgs = getIndustryAverages(stock.industry);
-  if (!industryAvgs) return []; // Handle case where averages might not exist
+    const industryAvgs = getIndustryAverages(stock.industry);
+    if (!industryAvgs) return [];
 
-  if (metricType === 'performance') {
-    return [
-      { label: "Revenue Growth", value: `${industryAvgs.performance.revenueGrowth}` },
-      { label: "Profit Margin", value: `${industryAvgs.performance.profitMargin}` },
-      { label: "Return on Capital", value: `${industryAvgs.performance.returnOnCapital}` }
-    ];
-  } else if (metricType === 'stability') {
-    return [
-      { label: "Volatility", value: `${industryAvgs.stability.volatility}` },
-      { label: "Beta", value: `${industryAvgs.stability.beta}` },
-      { label: "Dividend Consistency", value: `${industryAvgs.stability.dividendConsistency}` }
-    ];
-  } else if (metricType === 'value') {
-    return [
-      { label: "P/E Ratio", value: `${industryAvgs.value.peRatio}` },
-      { label: "P/B Ratio", value: `${industryAvgs.value.pbRatio}` },
-      { label: "Dividend Yield", value: `${industryAvgs.value.dividendYield}` }
-    ];
-  } else if (metricType === 'momentum') {
-    return [
-      { label: "3-Month Return", value: `${industryAvgs.momentum.threeMonthReturn}` },
-      { label: "Relative Performance", value: `${industryAvgs.momentum.relativePerformance}` },
-      { label: "RSI", value: `${industryAvgs.momentum.rsi}` }
-    ];
-  }
-  return [];
+    if (metricType === 'performance') {
+        return [
+            { label: "Revenue Growth", value: `${industryAvgs.performance.revenueGrowth}` },
+            { label: "Profit Margin", value: `${industryAvgs.performance.profitMargin}` },
+            { label: "Return on Capital", value: `${industryAvgs.performance.returnOnCapital}` }
+        ];
+    } else if (metricType === 'stability') {
+        return [
+            { label: "Volatility", value: `${industryAvgs.stability.volatility}` },
+            { label: "Beta", value: `${industryAvgs.stability.beta}` },
+            { label: "Dividend Consistency", value: `${industryAvgs.stability.dividendConsistency}` }
+        ];
+    } else if (metricType === 'value') {
+        return [
+            { label: "P/E Ratio", value: `${industryAvgs.value.peRatio}` },
+            { label: "P/B Ratio", value: `${industryAvgs.value.pbRatio}` },
+            { label: "Dividend Yield", value: `${industryAvgs.value.dividendYield}` }
+        ];
+    } else if (metricType === 'momentum') {
+        return [
+            { label: "3-Month Return", value: `${industryAvgs.momentum.threeMonthReturn}` },
+            { label: "Relative Performance", value: `${industryAvgs.momentum.relativePerformance}` },
+            { label: "RSI", value: `${industryAvgs.momentum.rsi}` }
+        ];
+    }
+    return [];
 };
+
 
 export default function StockCard({
   stock,
@@ -126,7 +105,7 @@ export default function StockCard({
   onOpenCalculator,
   currentIndex,
   totalCount,
-  displayMode = 'realtime',
+  displayMode = 'realtime', // Default to realtime
   cardControls,
   x // Optional motion value from parent
 }: StockCardProps) {
@@ -145,163 +124,132 @@ export default function StockCard({
   // Internal state for UI ONLY within the card
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("1D");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  // Modal states are removed
 
-  // Fetch Yahoo Finance data if in realtime mode
-  const { data: yahooChartData, isLoading: isLoadingYahooData, refetch: refetchYahooData } = 
+  // Fetch Yahoo Finance data
+  const { data: yahooChartData, isLoading: isLoadingYahooData, error: yahooError, refetch: refetchYahooData } =
     useYahooChartData(stock.ticker, timeFrame);
 
-  // Use Yahoo Finance data if available, otherwise fallback to mock data
+  // Process Yahoo Finance chart data
   const chartPrices = useMemo(() => {
-    if (displayMode === 'realtime' && yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0) {
-      // Log the actual Yahoo Finance data for debugging/reviewing
-      console.log(`Yahoo Finance data for ${stock.ticker} with timeFrame: ${timeFrame}`);
-      console.log('Quote data:', yahooChartData.quotes);
+    if (yahooChartData?.quotes && yahooChartData.quotes.length > 0) {
+      const closePrices = yahooChartData.quotes
+        .map(quote => typeof quote.close === 'number' ? quote.close : 0)
+        .filter(price => price > 0);
 
-      // Extract close prices and make sure they're numbers
-      const closePrices = yahooChartData.quotes.map(quote => 
-        typeof quote.close === 'number' ? quote.close : 0
-      ).filter(price => price > 0);
-
-      console.log('Extracted close prices:', closePrices);
-      // Only return Yahoo data if we actually have valid prices
       if (closePrices.length > 0) {
-        console.log(`Using Yahoo close prices for ${stock.ticker} (${timeFrame}): ${closePrices.length} points`);
-
-        // For 1D and 5D timeframes, we might need to filter the data to show a smoother chart
-        if (timeFrame === "1D" || timeFrame === "5D") {
-          // For very large datasets, sample points to make chart more manageable
+        // Sampling logic for 1D/5D remains the same
+         if (timeFrame === "1D" || timeFrame === "5D") {
           if (closePrices.length > 50) {
-            const samplingRate = Math.floor(closePrices.length / 30); // Target around 30 points
-            const sampledPrices = closePrices.filter((_, i) => i % samplingRate === 0 || i === closePrices.length - 1);
-            console.log(`Sampled intraday data from ${closePrices.length} to ${sampledPrices.length} points`);
-            return sampledPrices;
+            const samplingRate = Math.floor(closePrices.length / 30);
+            return closePrices.filter((_, i) => i % samplingRate === 0 || i === closePrices.length - 1);
           }
         }
-
         return closePrices;
       }
-
-      // Log fallback to mock data
-      console.log(`Yahoo data invalid or empty for ${stock.ticker} (${timeFrame}), using mock data instead`);
     }
+    console.warn(`No valid Yahoo Finance chart data for <span class="math-inline">\{stock\.ticker\} \(</span>{timeFrame}). Displaying empty chart.`);
+    return []; // Return empty array if no valid data
+  }, [timeFrame, yahooChartData, stock.ticker]);
 
-    // Fallback to the generated mock data if Yahoo Finance data is not available or invalid
-    return generateTimeBasedData(stock.chartData, timeFrame);
-  }, [stock.chartData, timeFrame, yahooChartData, displayMode, stock.ticker]);
+  // --- Other calculations based on stock prop (displayPrice, realTimeChange, etc.) ---
+  // Ensure stock and stock.price are valid before calculations
+  const validPrice = stock && typeof stock.price === 'number' ? stock.price : 0;
+  const validChange = stock && typeof stock.change === 'number' ? stock.change : 0;
 
-  const displayPrice = stock.price.toFixed(2);
-  const realTimeChange = stock.change;
+  const displayPrice = validPrice.toFixed(2);
+  const realTimeChange = validChange; // Assuming change is already a percentage
 
-  // Calculate min/max values from the chart data
-  const minValue = Math.min(...chartPrices) - 5;
-  const maxValue = Math.max(...chartPrices) + 5;
-
-  // Get appropriate time labels based on data source
-  const timeScaleLabels = useMemo(() => {
-    if (displayMode === 'realtime' && yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0) {
-      return getYahooTimeScaleLabels(timeFrame, yahooChartData);
-    }
-    return getTimeScaleLabels(timeFrame);
-  }, [timeFrame, yahooChartData, displayMode]);
-
+  // Calculate min/max for chart axis safely
+  const minValue = chartPrices.length > 0 ? Math.min(...chartPrices) * 0.98 : validPrice * 0.95; // Add fallback
+  const maxValue = chartPrices.length > 0 ? Math.max(...chartPrices) * 1.02 : validPrice * 1.05; // Add fallback
   const priceRangeMin = Math.floor(minValue);
   const priceRangeMax = Math.ceil(maxValue);
 
+  // Get appropriate time labels based on data source
+  const timeScaleLabels = useMemo(() => {
+    return getYahooTimeScaleLabels(timeFrame, yahooChartData);
+  }, [timeFrame, yahooChartData]);
+
   // Use the latest trading day from Yahoo data if available
   const latestTradingDay = useMemo(() => {
-    if (yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0) {
+    if (yahooChartData?.quotes?.length > 0) {
       const lastQuote = yahooChartData.quotes[yahooChartData.quotes.length - 1];
       return new Date(lastQuote.date).toISOString().split('T')[0];
     }
+    // Fallback or default date if needed
     return new Date().toISOString().split('T')[0];
   }, [yahooChartData]);
 
-  // Refresh handler
+  // --- Handlers ---
   const refreshData = async () => {
     setIsRefreshing(true);
-    // Refresh Yahoo Finance data if we're in realtime mode
-    if (displayMode === 'realtime') {
-      try {
-        await refetchYahooData();
-      } catch (error) {
-        console.error(`Error refreshing data for ${stock.ticker}:`, error);
-      }
+    try {
+      await refetchYahooData();
+    } catch (error) {
+      console.error(`Error refreshing data for ${stock.ticker}:`, error);
     }
-    setTimeout(() => setIsRefreshing(false), 1000);
+    setTimeout(() => setIsRefreshing(false), 1000); // Simulate refresh delay
   };
 
-  // Handler to prepare data and call parent's onMetricClick
-  const handleMetricClickInternal = (metricName: string) => {
-    // Only trigger if the callback exists and card is interactive
-    if (!onMetricClick || !cardControls) return;
+  const handleMetricClickInternal = useCallback((metricName: string) => {
+    if (!onMetricClick || !cardControls || !stock?.metrics) return;
 
-     let color: "green" | "yellow" | "red" = "green";
-     let metricObj;
-     let metricDetails;
+    let color: "green" | "yellow" | "red" = "yellow"; // Default color
+    const metricKey = metricName.toLowerCase() as keyof StockData['metrics'];
+    const metricObj = stock.metrics[metricKey];
 
-     switch(metricName) {
-       case "Performance": metricObj = stock.metrics.performance; metricDetails = stock.metrics.performance.details; break;
-       case "Stability": metricObj = stock.metrics.stability; metricDetails = stock.metrics.stability.details; break;
-       case "Value": metricObj = stock.metrics.value; metricDetails = stock.metrics.value.details; break;
-       case "Momentum": metricObj = stock.metrics.momentum; metricDetails = stock.metrics.momentum.details; break;
-       default: return;
-     }
-     if (!metricObj || !metricDetails) return; // Guard if metrics are somehow missing
+    if (!metricObj || !metricObj.details) {
+        console.warn(`Metric details not found for ${metricName}`);
+        return; // Exit if metric details are missing
+    }
 
-     if (metricObj.color === "green") color = "green";
-     else if (metricObj.color === "yellow") color = "yellow";
-     else if (metricObj.color === "red") color = "red";
+    if (metricObj.color === "green") color = "green";
+    else if (metricObj.color === "red") color = "red";
 
-     const metricValues = [];
-     if (metricName === "Performance") {
-        const perfDetails = metricDetails as { revenueGrowth: number; profitMargin: number; returnOnCapital: number; revenueGrowthExplanation?: string; profitMarginExplanation?: string; returnOnCapitalExplanation?: string; };
-        metricValues.push( { label: "Revenue Growth", value: perfDetails.revenueGrowth, suffix: "%", explanation: perfDetails.revenueGrowthExplanation || "..." } );
-        metricValues.push( { label: "Profit Margin", value: perfDetails.profitMargin, suffix: "%", explanation: perfDetails.profitMarginExplanation || "..." } );
-        metricValues.push( { label: "Return on Capital", value: perfDetails.returnOnCapital, suffix: "%", explanation: perfDetails.returnOnCapitalExplanation || "..." } );
-     } else if (metricName === "Stability") {
-         const stabDetails = metricDetails as { volatility: number; beta: number; dividendConsistency: string; volatilityExplanation?: string; betaExplanation?: string; dividendConsistencyExplanation?: string; };
-         metricValues.push( { label: "Volatility", value: stabDetails.volatility, suffix: "", explanation: stabDetails.volatilityExplanation || "..." } );
-         metricValues.push( { label: "Beta", value: stabDetails.beta, suffix: "", explanation: stabDetails.betaExplanation || "..." } );
-         metricValues.push( { label: "Dividend Consistency", value: stabDetails.dividendConsistency, suffix: "", explanation: stabDetails.dividendConsistencyExplanation || "..." } );
-     } else if (metricName === "Value") {
-         const valDetails = metricDetails as { peRatio: number; pbRatio: number; dividendYield: number | "N/A"; peRatioExplanation?: string; pbRatioExplanation?: string; dividendYieldExplanation?: string; };
-         metricValues.push( { label: "P/E Ratio", value: valDetails.peRatio, suffix: "", explanation: valDetails.peRatioExplanation || "..." } );
-         metricValues.push( { label: "P/B Ratio", value: valDetails.pbRatio, suffix: "", explanation: valDetails.pbRatioExplanation || "..." } );
-         metricValues.push( { label: "Dividend Yield", value: valDetails.dividendYield === "N/A" ? "N/A" : valDetails.dividendYield, suffix: valDetails.dividendYield === "N/A" ? "" : "%", explanation: valDetails.dividendYieldExplanation || "..." } );
-     } else if (metricName === "Momentum") {
-         const momDetails = metricDetails as { threeMonthReturn: number; relativePerformance: number; rsi: number; threeMonthReturnExplanation?: string; relativePerformanceExplanation?: string; rsiExplanation?: string; };
-         metricValues.push( { label: "3-Month Return", value: momDetails.threeMonthReturn, suffix: "%", explanation: momDetails.threeMonthReturnExplanation || "..." } );
-         metricValues.push( { label: "Relative Performance", value: momDetails.relativePerformance, suffix: "%", explanation: momDetails.relativePerformanceExplanation || "..." } );
-         metricValues.push( { label: "RSI", value: momDetails.rsi, suffix: "", explanation: momDetails.rsiExplanation || "..." } );
-     }
+    // Prepare metric values from details
+    const metricValues = Object.entries(metricObj.details)
+        .filter(([key]) => !key.endsWith('Explanation')) // Exclude explanation keys
+        .map(([label, value]) => {
+            // Basic formatting - enhance as needed
+            let suffix = "";
+            if (label.toLowerCase().includes('growth') || label.toLowerCase().includes('margin') || label.toLowerCase().includes('yield') || label.toLowerCase().includes('return')) {
+                suffix = "%";
+            }
+             // Find the corresponding explanation
+            const explanationKey = `${label}Explanation` as keyof typeof metricObj.details;
+            const explanation = metricObj.details[explanationKey] as string || "No details available.";
 
-     const industryAverage = displayMode === 'realtime'
-       ? getIndustryAverageData(stock, metricName.toLowerCase())
-       : [];
+            return {
+                label: label.replace(/([A-Z])/g, ' $1').trim(), // Add spaces for camelCase
+                value: typeof value === 'number' ? value.toFixed(1) : String(value),
+                suffix: suffix,
+                explanation: explanation
+            };
+        });
 
-     // Call the parent's handler
-     onMetricClick({
-       name: metricName,
-       color,
-       data: {
-         values: metricValues,
-         rating: metricObj.value,
-         industryAverage,
-         industry: stock.industry,
-         explanation: metricObj.explanation || "",
-         name: stock.name
-       }
-     });
-  };
+    const industryAverage = getIndustryAverageData(stock, metricName.toLowerCase());
 
-  // Reference to track start time and position of drag
+    onMetricClick({
+      name: metricName,
+      color,
+      data: {
+        values: metricValues,
+        rating: metricObj.value,
+        industryAverage,
+        industry: stock.industry,
+        explanation: metricObj.explanation || "",
+        name: stock.name
+      }
+    });
+  }, [stock, onMetricClick, cardControls]); // Added stock dependency
+
+
+  // Drag handlers remain the same as provided previously
   const dragStartTimeRef = useRef<number>(0);
   const dragStartXRef = useRef<number>(0);
   const dragDistanceThresholdRef = useRef<number>(0);
   const isDraggingIntentionallyRef = useRef<boolean>(false);
 
-  // Track when drag starts with initial position
   const handleDragStart = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     dragStartTimeRef.current = Date.now();
     dragStartXRef.current = info.point.x;
@@ -309,88 +257,40 @@ export default function StockCard({
     dragDistanceThresholdRef.current = 0;
   };
 
-  // Handle drag during movement to determine intentional vs accidental
   const handleDrag = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (!cardControls) return;
-
-    // Calculate absolute distance moved during this drag session
     const distanceMoved = Math.abs(info.point.x - dragStartXRef.current);
     dragDistanceThresholdRef.current = Math.max(dragDistanceThresholdRef.current, distanceMoved);
-
-    // Only consider it an intentional drag if they've moved a significant distance
-    // AND they've been dragging for at least 150ms (to prevent accidental swipes)
     const dragDuration = Date.now() - dragStartTimeRef.current;
-
     if (distanceMoved > 50 && dragDuration > 150) {
       isDraggingIntentionallyRef.current = true;
     }
   };
 
-  // Drag handler with significantly reduced sensitivity and higher thresholds
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    if (!cardControls) return; // Not interactive if no controls
+    if (!cardControls) return;
 
-    // If the drag wasn't intentional, just snap back
     if (!isDraggingIntentionallyRef.current) {
-      cardControls.start({ 
-        x: 0, 
-        transition: { 
-          type: "spring", 
-          stiffness: 250,  // Reduced stiffness for slower animation
-          damping: 35,     // Increased damping for smoother return
-          duration: 0.8    // Extended duration
-        }
-      });
+      cardControls.start({ x: 0, transition: { type: "spring", stiffness: 250, damping: 35, duration: 0.8 } });
       return;
     }
 
-    // Much higher thresholds to require more deliberate movement
-    const rightThreshold = 150; 
+    const rightThreshold = 150;
     const leftThreshold = 120;
-    // Higher velocity threshold to require more deliberate swipes
     const velocityThreshold = 250;
-
     const dragVelocity = info.velocity.x;
     const dragOffset = info.offset.x;
 
-    // Determine swipe direction based on stricter combination of offset and velocity
-    if (dragOffset > rightThreshold || (dragOffset > 80 && dragVelocity > velocityThreshold)) { 
-      // Swipe Right - needs very deliberate movement
-      if (displayMode === 'realtime') {
-        if (onInvest) onInvest();
-        // More dramatic and slower animation with rotation
-        cardControls.start({ 
-          x: 0, 
-          rotate: [5, 0],
-          transition: { 
-            type: "spring", 
-            stiffness: 280,  // Slightly reduced stiffness for smoother animation
-            damping: 22,     // Slightly adjusted damping for better bounce
-            duration: 0.85,  // Even longer duration for very satisfying animation
-            ease: "easeInOut"
-          }
-        });
-      } else { // Simple mode: Right swipe = Previous
-        if (onPrevious) onPrevious();
-      }
-    } else if (dragOffset < -leftThreshold || (dragOffset < -80 && dragVelocity < -velocityThreshold)) { 
-      // Swipe Left - requires deliberate movement
-      if (onNext) onNext(); // Both modes: Left swipe = Next/Skip
-    } else { // Snap back with more dramatic animation
-      cardControls.start({ 
-        x: 0, 
-        transition: { 
-          type: "spring", 
-          stiffness: 250,  // Reduced stiffness for slower movement
-          damping: 30,     // Increased damping for smoother animation
-          duration: 0.8,   // Extended duration
-          ease: "easeOut"
-        }
-      });
+    if (dragOffset > rightThreshold || (dragOffset > 80 && dragVelocity > velocityThreshold)) {
+      if (onInvest) onInvest();
+      cardControls.start({ x: 0, rotate: [5, 0], transition: { type: "spring", stiffness: 280, damping: 22, duration: 0.85, ease: "easeInOut" } });
+    } else if (dragOffset < -leftThreshold || (dragOffset < -80 && dragVelocity < -velocityThreshold)) {
+      if (onNext) onNext();
+    } else {
+      cardControls.start({ x: 0, transition: { type: "spring", stiffness: 250, damping: 30, duration: 0.8, ease: "easeOut" } });
     }
   };
 
-  // Handler for the hidden button to call parent's open calculator callback
   const handleOpenCalculatorClick = () => {
       if(onOpenCalculator) {
           console.log("Hidden button clicked, calling onOpenCalculator");
@@ -400,472 +300,259 @@ export default function StockCard({
       }
   };
 
-
+  // --- Render Logic ---
+  // Main render uses realtime mode structure
  return (
-  // Outer wrapper - No overflow-hidden, add dragPropagation
   <motion.div
     ref={cardRef}
-    className="h-full w-full rounded-2xl shadow-xl" // Added larger rounded corners for better appearance
-    drag={cardControls ? "x" : false} // Only draggable if interactive
+    className="h-full w-full rounded-2xl shadow-xl"
+    drag={cardControls ? "x" : false}
     dragConstraints={{ left: 0, right: 0 }}
     dragElastic={0.5}
-    dragPropagation // Allow scroll events to propagate
+    dragPropagation
     onDragStart={handleDragStart}
     onDrag={handleDrag}
     onDragEnd={handleDragEnd}
-    animate={cardControls} // Use controls from parent (can be undefined)
+    animate={cardControls}
     style={{
-      x: xToUse, // Use our safe motion value
+      x: xToUse,
       opacity: cardOpacity,
       rotate: cardRotate,
       scale: cardScale,
-      backgroundColor: displayMode === 'simple' ? '#111827' : '#FFFFFF',
-      color: displayMode === 'simple' ? 'white' : '#1F2937',
+      backgroundColor: '#FFFFFF', // Force light mode background
+      color: '#1F2937',         // Force light mode text
       cursor: cardControls ? 'grab' : 'default'
     }}
     whileTap={cardControls ? { cursor: 'grabbing' } : {}}
   >
-    {/* Inner scroll container - Absolutely positioned */}
+    {/* Inner scroll container */}
     <div
-        className={`absolute inset-0 overflow-y-auto overflow-x-hidden pb-16 stock-card-scroll-content rounded-2xl ${displayMode === 'simple' ? 'bg-gradient-to-b from-gray-900 to-black text-white' : 'bg-white text-slate-900'}`}
-        style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }} 
+        className="absolute inset-0 overflow-y-auto overflow-x-hidden pb-20 stock-card-scroll-content rounded-2xl bg-white text-slate-900" // Increased bottom padding
+        style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
     >
+      {/* --- Time frame selector --- */}
+      <div className="sticky top-0 z-20 flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">
+          {["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"].map((period) => (
+              <button
+                  key={period}
+                  className={`px-3 py-1 text-xs rounded-full transition-all duration-200 ${
+                      timeFrame === period
+                          ? `${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm' : 'text-red-600 bg-red-50 border border-red-200 shadow-sm'} font-medium`
+                          : 'text-slate-600 hover:bg-slate-50 border border-transparent'
+                  }`}
+                  onClick={() => setTimeFrame(period as TimeFrame)}
+              >
+                  {period}
+              </button>
+          ))}
+      </div>
 
-      {/* --- Time frame selector (realtime mode only) --- */}
-      {displayMode === 'realtime' && (
-          <>
-            <div className="sticky top-0 z-20 flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">
-                {["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"].map((period) => (
-                    <button
-                        key={period}
-                        className={`px-3 py-1 text-xs rounded-full transition-all duration-200 ${
-                            timeFrame === period
-                                ? `${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm' : 'text-red-600 bg-red-50 border border-red-200 shadow-sm'} font-medium`
-                                : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                        }`}
-                        onClick={() => setTimeFrame(period as TimeFrame)}
-                    >
-                        {period}
-                    </button>
-                ))}
-            </div>
-
-            {/* Yahoo Finance Data Points Table for Review */}
-            {yahooChartData && yahooChartData.quotes && yahooChartData.quotes.length > 0 && (
-              <div className="p-4 bg-white text-xs border-b border-slate-100">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-slate-900">Yahoo Finance Data Points ({yahooChartData.quotes.length})</h3>
-                  <span className="text-slate-500">{timeFrame} Range</span>
-                </div>
-                <div className="overflow-x-auto max-h-48 overflow-y-auto">
-                  <table className="min-w-full border-collapse text-left text-xs">
-                    <thead className="bg-slate-50 sticky top-0">
-                      <tr>
-                        <th className="p-2 border border-slate-200 font-medium">Date</th>
-                        <th className="p-2 border border-slate-200 font-medium">Open</th>
-                        <th className="p-2 border border-slate-200 font-medium">High</th>
-                        <th className="p-2 border border-slate-200 font-medium">Low</th>
-                        <th className="p-2 border border-slate-200 font-medium">Close</th>
-                        <th className="p-2 border border-slate-200 font-medium">Volume</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {yahooChartData.quotes.map((quote, index) => (
-                        <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                          <td className="p-2 border border-slate-200">{new Date(quote.date).toLocaleDateString()}</td>
-                          <td className="p-2 border border-slate-200">${quote.open?.toFixed(2) || 'N/A'}</td>
-                          <td className="p-2 border border-slate-200">${quote.high?.toFixed(2) || 'N/A'}</td>
-                          <td className="p-2 border border-slate-200">${quote.low?.toFixed(2) || 'N/A'}</td>
-                          <td className="p-2 border border-slate-200 font-medium">${quote.close?.toFixed(2) || 'N/A'}</td>
-                          <td className="p-2 border border-slate-200">{quote.volume?.toLocaleString() || 'N/A'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-2 text-slate-500 text-[10px] italic">
-                  Data source: Yahoo Finance - {stock.ticker}
-                </div>
+      {/* --- Header/Chart --- */}
+      <div className="bg-white p-4 flex flex-col border-b border-slate-100 shadow-sm">
+            {/* Stock Name & Ticker */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Link
+                  to={`/stock-detail/${stock.ticker}`} // Link to detailed view
+                  className="group flex items-center gap-1.5"
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()} // Prevent card drag/swipe
+                >
+                  <h2 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{stock.name}</h2>
+                  <span className="text-slate-500 font-medium bg-slate-50 px-2 py-0.5 rounded-md group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">{stock.ticker}</span>
+                  <BarChart3 size={18} className="text-slate-400 group-hover:text-blue-500 ml-1 transition-colors" />
+                </Link>
               </div>
-            )}
-          </>
-      )}
-      {displayMode === 'simple' && <div className="pt-4"></div>}
-
-      {/* --- Content Specific to Mode --- */}
-      {displayMode === 'simple' ? (
-        <>
-          {/* Paste the *content* blocks for simple mode here */}
-             {/* Enhanced Header */}
-             <div className="p-5 border-b border-gray-800">
-                 {/* ... Simple Header JSX ... */}
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <a
-                        href={`/stock-detail/${stock.ticker}`}
-                        className="group inline-flex items-center gap-1.5"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <h2 className="text-xl md:text-2xl font-bold text-white mb-1 group-hover:text-blue-300 transition-colors">{stock.name} <span className="text-gray-400 group-hover:text-blue-400 transition-colors">({stock.ticker})</span></h2>
-                        <BarChart3 size={20} className="text-gray-400 group-hover:text-blue-300 transition-colors" />
-                      </a>
-                      <div className="flex items-center text-xs text-gray-400 mt-1 mb-2">
-                        <span className="mr-2">Day's Range:</span>
-                        <span className="font-medium">${(parseFloat(stock.price.toFixed(2)) * 0.98).toFixed(2)} - ${(parseFloat(stock.price.toFixed(2)) * 1.02).toFixed(2)}</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <div className={`flex items-center py-1.5 px-4 rounded-full ${stock.change >= 0 ? 'bg-green-900/30 text-green-300 border border-green-700/30' : 'bg-red-900/30 text-red-300 border border-red-700/30'} shadow-lg`}>
-                        <span className="font-bold text-2xl">${stock.price.toFixed(2)}</span>
-                        <span className="ml-2 text-sm font-medium">{stock.change >= 0 ? '+' : ''}{stock.change}%</span>
-                      </div>
-                      <span className="text-xs text-gray-500 mt-2">Updated: {new Date().toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-sm text-gray-300 leading-relaxed">
-                    {stock.description}
-                  </p>
-             </div>
-             {/* Metrics */}
-             <div className="grid grid-cols-2 gap-5 p-5 border-b border-gray-800">
-                 <h3 className="text-white text-lg font-bold col-span-2 mb-1 flex items-center">
-                     <TrendingUp className="w-5 h-5 mr-2 text-blue-400" /> Stock Metrics
-                 </h3>
-                 {Object.entries(stock.metrics).map(([key, metricObj]) => {
-                    const metricName = key.charAt(0).toUpperCase() + key.slice(1);
-                    return (
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.4, delay: Math.random() * 0.3 }}
-                            key={key}
-                            className={`p-4 rounded-xl relative ${
-                              metricObj.color === 'green' ? 'bg-gradient-to-br from-green-900/40 to-black border border-green-500/30' :
-                              metricObj.color === 'yellow' ? 'bg-gradient-to-br from-yellow-900/40 to-black border border-yellow-500/30' :
-                              'bg-gradient-to-br from-red-900/40 to-black border border-red-500/30'
-                            } active:scale-98 transition-all duration-150 cursor-pointer shadow-lg hover:shadow-xl`}
-                            onClick={() => handleMetricClickInternal(metricName)} // Use internal handler
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                        >
-                           <div className="absolute top-3 right-3 rounded-full bg-black/30 p-1">
-                              <Info size={16} className={`${ metricObj.color === 'green' ? 'text-green-400' : metricObj.color === 'yellow' ? 'text-yellow-400' : 'text-red-400' }`} />
-                           </div>
-                           <div className={`text-2xl font-bold ${ metricObj.color === 'green' ? 'text-green-300' : metricObj.color === 'yellow' ? 'text-yellow-300' : 'text-red-300' }`}>
-                               {metricObj.value}
-                           </div>
-                           <div className="text-white text-sm font-medium capitalize mt-1 mb-3">
-                               {metricName}
-                           </div>
-                           <div className={`absolute bottom-1 left-1 w-12 h-12 rounded-full opacity-20 blur-xl -z-10 ${ metricObj.color === 'green' ? 'bg-green-400' : metricObj.color === 'yellow' ? 'bg-yellow-400' : 'bg-red-400' }`} />
-                        </motion.div>
-                    );
-                 })}
-             </div>
-             {/* News Section */}
-             <div className="p-5 border-b border-gray-800">
-                 <h3 className="text-lg font-bold text-white mb-3 flex items-center">
-                     <Calendar className="w-5 h-5 mr-2 text-blue-400" /> Latest News
-                 </h3>
-                 <motion.div
-                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}
-                     className="rounded-xl border border-gray-700/50 overflow-hidden shadow-lg relative"
-                 >
-                     <div className="absolute -inset-1 bg-blue-500/5 blur-xl rounded-xl z-0"></div>
-                     <div className="relative z-10 bg-gray-800/70 backdrop-blur-sm"> 
-                         {/* Directly render StockNewsSection component */}
-                         <StockNewsSection stock={stock} />
-                     </div>
-                 </motion.div>
-             </div>
-
-             {/* Ask AI */}
-             <div className="p-5 border-b border-gray-800">
-                 <h3 className="text-lg font-bold text-white mb-3 flex items-center">
-                     <MessageCircle className="w-5 h-5 mr-2 text-purple-400" /> Ask AI About {stock.ticker}
-                 </h3>
-                 <motion.div
-                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}
-                     className="rounded-xl border border-gray-700/50 overflow-hidden shadow-lg relative"
-                 >
-                     <div className="absolute -inset-1 bg-purple-500/5 blur-xl rounded-xl z-0"></div>
-                     <div className="relative z-10"> <AskAI stock={stock} /> </div>
-                 </motion.div>
-             </div>
-             {/* Forecast */}
-             <div className="p-5 border-b border-gray-800">
-                 <h3 className="text-lg font-bold text-white mb-4 flex items-center">
-                     <TrendingUp className="w-5 h-5 mr-2 text-amber-400" /> Price Forecast <span className="text-xs bg-gradient-to-r from-amber-800 to-amber-600 text-amber-100 px-3 py-1 rounded-full ml-2 shadow-inner shadow-amber-900/20 border border-amber-700/30">Premium</span></h3>
-                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.3 }} className="grid grid-cols-2 gap-4">
-                     <div> {/* ... 1-Year Return ... */} </div>
-                     <div> {/* ... Predicted Price (Premium Lock) ... */} </div>
-                 </motion.div>
-             </div>
-             {/* Analysis */}
-
-             {/* News Section */}
-             <div className="bg-white border-t border-slate-100 mb-4">
-                <div className="p-4">
-                    <h3 className="font-semibold text-slate-900 mb-3 flex items-center">
-                        <Calendar size={16} className="text-blue-500 mr-2" />
-                        Latest News
-                    </h3>
-                    <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                        <StockNewsSection stock={stock} />
-                    </div>
+              <div className="flex items-center">
+                  <button onClick={refreshData} className="p-1.5 rounded-full hover:bg-slate-100 transition-colors" disabled={isRefreshing}>
+                      <RefreshCw size={17} className={`text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  </button>
+              </div>
+            </div>
+             {/* Price and Change */}
+            <div className="mt-2 flex items-center">
+                <span className="text-3xl font-bold text-slate-900 drop-shadow-sm">${displayPrice}</span>
+                <div className="ml-2 flex items-center">
+                <span className={`flex items-center text-sm font-semibold px-2 py-0.5 rounded-full ${realTimeChange >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
+                    {realTimeChange >= 0 ? <TrendingUp size={14} className="mr-1" /> : <ChevronLeft size={14} className="mr-1 rotate-90" />} {/* Assuming TrendingDown isn't available */}
+                    {realTimeChange >= 0 ? '+' : ''}{realTimeChange.toFixed(2)}%
+                </span>
                 </div>
-             </div>
-
-             <div className="p-5">
-                 <h3 className="text-lg font-bold text-white mb-4 flex items-center"> <BarChart3 className="w-5 h-5 mr-2 text-blue-400" /> Stock Analysis </h3>
-                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.4 }}>
-                     <OverallAnalysisCard stock={stock} />
-                 </motion.div>
-                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.5 }} className="mt-4">
-                     <h3 className="text-lg font-bold text-white mb-4 flex items-center"> <Layers className="w-5 h-5 mr-2 text-indigo-400" /> Industry Comparison </h3>
-                     <ComparativeAnalysis currentStock={stock} />
-                 </motion.div>
-                 <div className="mt-8 mb-2 flex justify-center">
-                     <div className="text-gray-500 text-sm flex items-center"> <ChevronLeft className="w-4 h-4 mr-1" /> <span>Swipe to navigate</span> <ChevronRight className="w-4 h-4 ml-1" /> </div>
-                 </div>
-             </div>
-        </>
-      ) : ( // Realtime Mode
-          <>
-            {/* Paste the *content* blocks for realtime mode here */}
-             {/* Header/Chart */}
-             <div className="bg-white p-4 flex flex-col border-b border-slate-100 shadow-sm">
-                 {/* ... Realtime Header/Chart JSX ... */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Link
-                        to={`/stock-detail/${stock.ticker}`}
-                        className="group flex items-center gap-1.5"
-                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                      >
-                        <h2 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{stock.name}</h2>
-                        <span className="text-slate-500 font-medium bg-slate-50 px-2 py-0.5 rounded-md group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">{stock.ticker}</span>
-                        <BarChart3 size={18} className="text-slate-400 group-hover:text-blue-500 ml-1 transition-colors" />
-                      </Link>
+            </div>
+            {/* Day's Range */}
+            <div className="mt-1 flex items-center text-xs text-slate-500">
+                <span className="mr-2">Day's Range:</span>
+                {/* Safely calculate range */}
+                <span className="font-medium">${(validPrice * 0.98).toFixed(2)} - ${(validPrice * 1.02).toFixed(2)}</span>
+            </div>
+             {/* Chart Area */}
+            <div className="relative mt-3 h-44 py-2">
+                {isLoadingYahooData && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/50">
+                        <Skeleton className="h-full w-full" />
                     </div>
-                    <div className="flex items-center">
-                      <button onClick={refreshData} className="p-1.5 rounded-full hover:bg-slate-100 transition-colors" disabled={isRefreshing}>
-                        <RefreshCw size={17} className={`text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
-                      </button>
+                )}
+                {!isLoadingYahooData && yahooError && (
+                     <div className="absolute inset-0 flex items-center justify-center text-xs text-red-500 p-2 bg-red-50 rounded">
+                        Error loading chart data.
                     </div>
-                  </div>
-                  <div className="mt-2 flex items-center">
-                    <span className="text-3xl font-bold text-slate-900 drop-shadow-sm">${displayPrice}</span>
-                    <div className="ml-2 flex items-center">
-                      <span className={`flex items-center text-sm font-semibold px-2 py-0.5 rounded-full ${realTimeChange >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
-                        {realTimeChange >= 0 ? <TrendingUp size={14} className="mr-1" /> : <ChevronLeft size={14} className="mr-1 rotate-90" />}
-                        {realTimeChange >= 0 ? '+' : ''}{realTimeChange}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-1 flex items-center text-xs text-slate-500">
-                    <span className="mr-2">Day's Range:</span>
-                    <span className="font-medium">${(parseFloat(displayPrice) * 0.98).toFixed(2)} - ${(parseFloat(displayPrice) * 1.02).toFixed(2)}</span>
-                  </div>
-                  <div className="relative mt-3 h-44 py-2"> {/* Chart Area */}
-                    <div className="absolute inset-0 px-4"> {/* Chart Visual */}
-                        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-slate-900 font-medium pointer-events-none py-3 z-10 w-12"> {/* Y Axis */}
-                            <span>${Math.round(priceRangeMax)}</span> <span>${Math.round((priceRangeMax + priceRangeMin) / 2)}</span> <span>${Math.round(priceRangeMin)}</span>
+                )}
+                {!isLoadingYahooData && !yahooError && chartPrices.length > 0 && (
+                    <>
+                        {/* Y Axis Labels */}
+                        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-slate-900 font-medium pointer-events-none py-3 z-10 w-12">
+                            <span>${priceRangeMax.toFixed(0)}</span>
+                            <span>${((priceRangeMax + priceRangeMin) / 2).toFixed(0)}</span>
+                            <span>${priceRangeMin.toFixed(0)}</span>
                         </div>
-                        <div className="absolute inset-0 pl-12 pr-4"> {/* Chart Path */}
-                           {displayMode === 'realtime' && chartPrices.length > 0 ? (
-                             // Realtime chart with Yahoo Finance data
-                             <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
-                               {/* Area under the line */}
-                               <defs>
-                                 <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                                   <stop offset="0%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'} />
-                                   <stop offset="100%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.01)' : 'rgba(239, 68, 68, 0.01)'} />
-                                 </linearGradient>
-                               </defs>
-
-                               {/* Chart line */}
-                               <path 
-                                 d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue)) * 100} ${
-                                   chartPrices.map((point: number, i: number) => 
-                                     `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
-                                   ).join(' ')
-                                 } L105,${100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue)) * 100}`} 
-                                 className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} 
-                                 strokeWidth="2.5" 
-                                 strokeLinecap="round" 
-                                 strokeLinejoin="round" 
-                               />
-
-                               {/* Area fill */}
-                               <path 
-                                 d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue)) * 100} ${
-                                   chartPrices.map((point: number, i: number) => 
-                                     `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue)) * 100}`
-                                   ).join(' ')
-                                 } L105,${100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue)) * 100} L105,100 L-5,100 Z`} 
-                                 fill="url(#chartGradient)" 
-                                 fillOpacity="0.5"
-                               />
-
-                               {/* Data points */}
-                               {chartPrices.map((point: number, i: number) => (
-                                 <circle 
-                                   key={i}
-                                   cx={`${(i / (chartPrices.length - 1)) * 110 - 5}`}
-                                   cy={`${100 - ((point - minValue) / (maxValue - minValue)) * 100}`}
-                                   r="3"
-                                   className={`${realTimeChange >= 0 ? 'fill-green-600 stroke-white' : 'fill-red-600 stroke-white'}`}
-                                   strokeWidth="1.5"
-                                 />
-                               ))}
-                             </svg>
-                           ) : (
-                             // Fallback to mock data chart
-                             <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
-                               {/* Chart path with better data normalization */}
-                               <path 
-                                 d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} 
-                                    ${chartPrices.map((point: number, i: number) => 
-                                      `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
-                                    ).join(' ')} 
-                                    L105,${100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue || 1)) * 100}`} 
-                                 className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`} 
-                                 strokeWidth="2.5" 
-                                 strokeLinecap="round" 
-                                 strokeLinejoin="round" 
-                               />
-
-                               {/* Data points at key positions for visual reference */}
-                               {chartPrices
-                                 .filter((_, i) => i % Math.max(1, Math.floor(chartPrices.length / 5)) === 0 || i === chartPrices.length - 1)
-                                 .map((point: number, i: number) => {
-                                   const index = i * Math.max(1, Math.floor(chartPrices.length / 5));
-                                   return (
-                                     <circle 
-                                       key={i}
-                                       cx={`${(index / (chartPrices.length - 1)) * 110 - 5}`}
-                                       cy={`${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`}
-                                       r="2"
-                                       className={`${realTimeChange >= 0 ? 'fill-green-600' : 'fill-red-600'}`}
-                                     />
-                                   );
-                               })}
-                             </svg>
-                           )}
+                        {/* Chart SVG */}
+                        <div className="absolute inset-0 pl-12 pr-4">
+                            <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
+                                {/* Gradient Definition */}
+                                <defs>
+                                <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'} />
+                                    <stop offset="100%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.01)' : 'rgba(239, 68, 68, 0.01)'} />
+                                </linearGradient>
+                                </defs>
+                                {/* Chart Line */}
+                                <path
+                                d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} ${
+                                    chartPrices.map((point: number, i: number) =>
+                                    `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
+                                    ).join(' ')
+                                } L105,${100 - ((chartPrices[chartPrices.length - 1] - minValue) / (maxValue - minValue || 1)) * 100}`}
+                                className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`}
+                                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                                />
+                                {/* Area Fill */}
+                                <path
+                                d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} ${
+                                    chartPrices.map((point: number, i: number) =>
+                                    `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
+                                    ).join(' ')
+                                } L105,${100 - ((chartPrices[chartPrices.length - 1] - minValue) / (maxValue - minValue || 1)) * 100} L105,100 L-5,100 Z`}
+                                fill="url(#chartGradient)" fillOpacity="0.5"
+                                />
+                            </svg>
                         </div>
-                    </div>
-                    <div className="absolute left-0 right-0 bottom-1 pl-12 pr-4 flex justify-between text-[10px] text-slate-900 font-medium pointer-events-none"> {/* X Axis */}
-                        {timeScaleLabels.map((label, index) => (<span key={index}>{label}</span>))}
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center justify-between text-xs h-6">
-                    <span className="text-slate-900 font-medium">Last updated: {latestTradingDay}</span>
-                    <span className="text-slate-700 italic">Swipe <span className="text-red-600 font-medium">left to skip</span> • Swipe <span className="text-green-600 font-medium">right to invest</span></span>
-                  </div>
-             </div>
-             {/* Metrics */}
-             <div className="grid grid-cols-2 gap-4 p-4 bg-white border-b border-slate-100">
-                 {Object.entries(stock.metrics).map(([key, metricObj]) => {
-                    const metricName = key.charAt(0).toUpperCase() + key.slice(1);
-                     return (
-                        <div key={key} className="group relative" onClick={() => handleMetricClickInternal(metricName)} >
-                            <div className={`absolute inset-0 rounded-xl blur-sm transform scale-[0.98] translate-y-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ${ metricObj.color === 'green' ? 'bg-gradient-to-r from-green-100/30 to-emerald-100/30' : metricObj.color === 'yellow' ? 'bg-gradient-to-r from-amber-100/30 to-yellow-100/30' : 'bg-gradient-to-r from-red-100/30 to-rose-100/30'}`}></div>
-                            <div className={`p-4 rounded-xl border relative z-10 overflow-hidden active:scale-95 transition-all duration-150 cursor-pointer shadow-md hover:shadow-lg group-hover:translate-y-[-2px] ${ metricObj.color === 'green' ? 'bg-white border-green-200 group-hover:border-green-300' : metricObj.color === 'yellow' ? 'bg-white border-amber-200 group-hover:border-amber-300' : 'bg-white border-red-200 group-hover:border-red-300'}`}>
-                               <div className={`absolute top-0 left-0 w-full h-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${ metricObj.color === 'green' ? 'bg-gradient-to-r from-green-400 to-emerald-500' : metricObj.color === 'yellow' ? 'bg-gradient-to-r from-amber-400 to-yellow-500' : 'bg-gradient-to-r from-red-400 to-rose-500'}`}></div>
-                               <div className="flex items-center justify-between mb-2">
-                                 <div className={`flex items-center justify-center rounded-full w-8 h-8 ${ metricObj.color === 'green' ? 'bg-green-100 text-green-600' : metricObj.color === 'yellow' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'}`}>
-                                    {key === 'performance' && <TrendingUp size={16} />} {key === 'stability' && <Shield size={16} />} {key === 'value' && <DollarSign size={16} />} {key === 'momentum' && <Zap size={16} />}
-                                 </div>
-                                 <Info size={15} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
-                               </div>
-                               <div className={`text-lg font-semibold text-slate-900`}>{metricObj.value}</div>
-                               <div className="text-slate-500 text-sm font-medium mt-0.5 capitalize">{metricName}</div>
-                            </div>
+                        {/* X Axis Labels */}
+                         <div className="absolute left-0 right-0 bottom-1 pl-12 pr-4 flex justify-between text-[10px] text-slate-900 font-medium pointer-events-none">
+                            {timeScaleLabels.map((label, index) => (<span key={index}>{label}</span>))}
                         </div>
-                     );
-                 })}
-             </div>
-             {/* Synopsis */}
-             <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden mb-4">
-                 <div className="absolute inset-0 bg-gradient-to-br from-blue-50/30 to-indigo-50/30 rounded-xl opacity-30"></div>
+                    </>
+                )}
+                 {!isLoadingYahooData && !yahooError && chartPrices.length === 0 && (
+                     <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-400 p-2 bg-slate-50 rounded">
+                        No chart data available for this period.
+                    </div>
+                 )}
+            </div>
+             {/* Last Updated Info */}
+             <div className="mt-4 flex items-center justify-between text-xs h-6">
+                <span className="text-slate-900 font-medium">Last updated: {latestTradingDay}</span>
+                <span className="text-slate-700 italic">Swipe <span className="text-red-600 font-medium">left to skip</span> • Swipe <span className="text-green-600 font-medium">right to invest</span></span>
+            </div>
+      </div>
 
-                 {/* Price Trend */}
-                 <div className="p-4 border-b border-slate-100 relative">
-                     <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
-                         <TrendingUp size={16} className="text-blue-500 mr-2" />
-                         Price Trend
-                     </h3>
-                     <p className="text-sm text-slate-600 leading-relaxed">
-                         {stock.change >= 0 
-                            ? `${stock.name} has shown positive momentum, rising ${stock.change}% recently.` 
-                            : `${stock.name} has been under pressure, falling ${Math.abs(stock.change)}% recently.`} 
-                         The current price of ${stock.price.toFixed(2)} places it 
-                         {stock.metrics.value.color === "green" 
-                            ? " at an attractive valuation compared to peers."
-                            : " above average valuation metrics for its sector."}
-                     </p>
-                 </div>
+      {/* --- Metrics --- */}
+      <div className="grid grid-cols-2 gap-4 p-4 bg-white border-b border-slate-100">
+          {Object.entries(stock.metrics).filter(([key]) => ['performance', 'stability', 'value', 'momentum'].includes(key)).map(([key, metricObj]) => {
+          const metricName = key.charAt(0).toUpperCase() + key.slice(1);
+          return (
+              <div key={key} className="group relative" onClick={() => handleMetricClickInternal(metricName)} >
+                  {/* Hover Glow Effect */}
+                  <div className={`absolute inset-0 rounded-xl blur-sm transform scale-[0.98] translate-y-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ${ metricObj.color === 'green' ? 'bg-gradient-to-r from-green-100/30 to-emerald-100/30' : metricObj.color === 'yellow' ? 'bg-gradient-to-r from-amber-100/30 to-yellow-100/30' : 'bg-gradient-to-r from-red-100/30 to-rose-100/30'}`}></div>
+                  {/* Main Metric Box */}
+                  <div className={`p-4 rounded-xl border relative z-10 overflow-hidden active:scale-95 transition-all duration-150 cursor-pointer shadow-md hover:shadow-lg group-hover:translate-y-[-2px] ${ metricObj.color === 'green' ? 'bg-white border-green-200 group-hover:border-green-300' : metricObj.color === 'yellow' ? 'bg-white border-amber-200 group-hover:border-amber-300' : 'bg-white border-red-200 group-hover:border-red-300'}`}>
+                      {/* Top Color Bar */}
+                      <div className={`absolute top-0 left-0 w-full h-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${ metricObj.color === 'green' ? 'bg-gradient-to-r from-green-400 to-emerald-500' : metricObj.color === 'yellow' ? 'bg-gradient-to-r from-amber-400 to-yellow-500' : 'bg-gradient-to-r from-red-400 to-rose-500'}`}></div>
+                      {/* Icon and Info */}
+                      <div className="flex items-center justify-between mb-2">
+                      <div className={`flex items-center justify-center rounded-full w-8 h-8 ${ metricObj.color === 'green' ? 'bg-green-100 text-green-600' : metricObj.color === 'yellow' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'}`}>
+                          {key === 'performance' && <TrendingUp size={16} />} {key === 'stability' && <Shield size={16} />} {key === 'value' && <DollarSign size={16} />} {key === 'momentum' && <Zap size={16} />}
+                      </div>
+                      <Info size={15} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+                      </div>
+                      {/* Value and Name */}
+                      <div className={`text-lg font-semibold text-slate-900`}>{metricObj.value}</div>
+                      <div className="text-slate-500 text-sm font-medium mt-0.5 capitalize">{metricName}</div>
+                  </div>
+              </div>
+          );
+          })}
+      </div>
 
-                 {/* Company Overview */}
-                 <div className="p-4 border-b border-slate-100 relative">
-                     <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
-                         <Building size={16} className="text-indigo-500 mr-2" />
-                         Company Overview
-                     </h3>
-                     <p className="text-sm text-slate-600 leading-relaxed">
-                         {stock.description.length > 200 
-                            ? stock.description.substring(0, 200) + "..." 
-                            : stock.description}
-                     </p>
-                 </div>
+      {/* --- Synopsis Section --- */}
+       <div className="bg-white rounded-xl border border-slate-200 shadow-md overflow-hidden my-4 mx-4"> {/* Added mx-4 for horizontal margin */}
+             {/* Price Trend */}
+            <div className="p-4 border-b border-slate-100 relative">
+                <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
+                    <TrendingUp size={16} className="text-blue-500 mr-2" /> Price Trend
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                    {stock.synopsis?.price || "Price movement analysis is currently unavailable."}
+                </p>
+            </div>
+            {/* Company Overview */}
+            <div className="p-4 border-b border-slate-100 relative">
+                <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
+                    <Building size={16} className="text-indigo-500 mr-2" /> Company Overview
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                    {stock.synopsis?.company || stock.description || "Company overview is currently unavailable."}
+                </p>
+            </div>
+            {/* Portfolio Role */}
+            <div className="p-4 relative">
+                <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
+                    <BarChart3 size={16} className="text-amber-500 mr-2" /> Portfolio Role
+                </h3>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                    {stock.synopsis?.role || "Analysis of this stock's role in a portfolio is currently unavailable."}
+                </p>
+            </div>
+        </div>
 
-                 {/* Portfolio Role */}
-                 <div className="p-4 relative">
-                     <h3 className="font-semibold text-slate-900 mb-2 flex items-center">
-                         <BarChart3 size={16} className="text-amber-500 mr-2" />
-                         Portfolio Role
-                     </h3>
-                     <p className="text-sm text-slate-600 leading-relaxed">
-                         This {stock.industry} stock 
-                         {stock.metrics.stability.color === "green" 
-                            ? " offers strong stability and could serve as a defensive holding."
-                            : stock.metrics.performance.color === "green"
-                                ? " provides growth potential and could boost portfolio returns."
-                                : " has balanced metrics and fits well in a diversified portfolio."}
-                         {stock.metrics.stability.value === "Excellent" || stock.metrics.performance.value === "Excellent" 
-                            ? " Rated high quality by our analysis."
-                            : stock.metrics.stability.value === "Good" || stock.metrics.performance.value === "Good"
-                                ? " Considered medium quality in our assessment."
-                                : " Currently rated lower in our quality metrics."}
-                     </p>
-                 </div>
-             </div>
-             {/* Comparison */}
-             <div className="bg-white border-t border-b border-slate-100 comparative-analysis-container" onClick={(e) => { /* Stop propagation for inner clicks */ }}>
-               <ComparativeAnalysis currentStock={stock} />
-             </div>
-             {/* Bottom Buttons */}
-             <div className="p-4 bg-white border-t border-b border-slate-100 mb-4">
-                 <Link to={`/stock-detail/${stock.ticker}`} className="..." onClick={(e) => e.stopPropagation()}> View Detailed Chart </Link>
-                 <div className="text-center text-sm font-medium text-slate-600 my-2"> Swipe <span className="text-red-600 font-medium">left to skip</span> • Swipe <span className="text-green-600 font-medium">right to invest</span> </div>
-             </div>
-             {/* Analysis */}
-             {stock.overallAnalysis && ( <div className="p-5 bg-gradient-to-b from-white to-slate-50"> <div className="mb-1"> <OverallAnalysisCard stock={stock} /> </div> </div> )}
-          </>
-      )}
+        {/* --- Comparative Analysis --- */}
+         <div className="bg-white border-t border-b border-slate-100 comparative-analysis-container mx-4 mb-4 rounded-xl shadow-md" onClick={(e) => e.stopPropagation()}> {/* Added margin and rounded corners */}
+            <ComparativeAnalysis currentStock={stock} />
+        </div>
 
-      {/* Action Buttons - Render only for interactive card */}
-      {cardControls && (
-        <div className="fixed bottom-0 left-0 right-0 px-2 pb-2 z-30 flex justify-center space-x-2">
-            {/* Card shadow/gradient edge - only at the very bottom of screen */}
-            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black to-transparent opacity-25 -z-10 pointer-events-none"></div>
+       {/* --- News Section --- */}
+        <div className="bg-white border-t border-slate-100 mb-4 mx-4 rounded-xl shadow-md"> {/* Added margin and rounded corners */}
+            <div className="p-4">
+                <h3 className="font-semibold text-slate-900 mb-3 flex items-center">
+                    <Calendar size={16} className="text-blue-500 mr-2" /> Latest News
+                </h3>
+                <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                    <StockNewsSection stock={stock} />
+                </div>
+            </div>
+        </div>
+
+        {/* --- Ask AI --- */}
+        <div className="bg-white border-t border-slate-100 mx-4 mb-4 rounded-xl shadow-md"> {/* Added margin and rounded corners */}
+             <AskAI stock={stock} />
+        </div>
+
+
+      {/* Spacer at the bottom to ensure content doesn't hide behind fixed buttons */}
+      <div className="h-4"></div>
+
+    </div> {/* End scrollable inner container */}
+
+     {/* --- Action Buttons (Fixed at Bottom) --- */}
+     {cardControls && (
+        <div className="fixed bottom-0 left-0 right-0 px-4 pb-4 pt-3 z-30 flex justify-center space-x-3 bg-gradient-to-t from-white via-white/95 to-white/0">
+             {/* Shadow/gradient edge */}
+            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent -z-10 pointer-events-none"></div>
 
             <button
                 className="px-6 py-3.5 rounded-xl bg-gradient-to-br from-red-500 to-red-600 text-white font-semibold shadow-lg flex items-center justify-center w-1/2 hover:from-red-600 hover:to-red-700 active:scale-95 transition-all duration-300 border border-red-400"
                 onClick={() => onNext && onNext()}
+                aria-label="Skip Stock"
             >
-                <ChevronLeft className="mr-2" size={18} />
+                <X className="mr-2" size={18} /> {/* Using X instead of ChevronLeft for skip */}
                 Skip
             </button>
 
@@ -873,16 +560,367 @@ export default function StockCard({
                 className="px-6 py-3.5 rounded-xl bg-gradient-to-br from-green-500 to-green-600 text-white font-semibold shadow-lg flex items-center justify-center w-1/2 hover:from-green-600 hover:to-green-700 active:scale-95 transition-all duration-300 border border-green-400"
                 data-testid="buy-button"
                 onClick={() => onInvest && onInvest()}
+                 aria-label="Buy Stock"
             >
-                <DollarSign className="mr-2" size={18} />
+                <Check className="mr-2" size={18} /> {/* Using Check instead of DollarSign for buy */}
                 Buy
             </button>
         </div>
       )}
 
-      {/* MODALS ARE RENDERED IN PARENT */}
-
-    </div> {/* End scrollable inner container */}
   </motion.div> // End main motion wrapper
+ );
+}
+
+Stock-Detail page:
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useParams, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { Stack } from "@shared/schema";
+import { ArrowLeft, Loader2 } from "lucide-react"; // Import Loader2
+import { getQueryFn } from "@/lib/queryClient";
+import { StockData, getIndustryStocks } from "@/lib/stock-data";
+// Import StockCard and the data type for its callback
+import StockCard, { MetricClickData } from "@/components/ui/stock-card"; // Ensure path is correct
+import StackCompletedModal from "@/components/stack-completed-modal"; // Ensure path is correct
+import AIAssistant from "@/components/ui/ai-assistant"; // Ensure path is correct
+// Import Modals to render here
+import MetricPopup from "@/components/ui/metric-popup-fixed"; // Ensure path is correct
+import PortfolioImpactCalculator from "@/components/ui/portfolio-impact-calculator"; // Ensure path is correct
+import PurchaseSuccessModal from "@/components/ui/purchase-success-modal"; // Ensure path is correct
+// Import Analyst Sentiment component
+// import { AnalystSentiment } from "@/components/stock-recommendations/AnalystSentiment"; // Assuming path
+// Import motion and hooks
+import { motion, useAnimation, useMotionValue, AnimatePresence } from "framer-motion";
+
+// --- Card Animation Variants ---
+const cardVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 300 : -300,
+    opacity: 0,
+    scale: 0.85,
+    rotate: direction > 0 ? -3 : 3,
+  }),
+  center: {
+    zIndex: 1,
+    x: 0,
+    opacity: 1,
+    scale: 1,
+    rotate: 0,
+    y: 0,
+    transition: {
+      duration: 0.5,
+      ease: [0.16, 1, 0.3, 1],
+      type: "spring",
+      stiffness: 350,
+      damping: 30
+    }
+  },
+  exit: (direction: number) => ({
+    zIndex: 0,
+    x: direction < 0 ? 300 : -300,
+    opacity: 0,
+    scale: 0.85,
+    rotate: direction < 0 ? 3 : -3,
+    transition: {
+      duration: 0.5,
+      ease: [0.7, 0, 0.84, 0],
+      type: "spring",
+      stiffness: 400,
+      damping: 40
+    }
+  }),
+  background: {
+    zIndex: 0,
+    opacity: 0.7,
+    scale: 0.90,
+    y: 25, // Reduced y-offset for better visibility
+    transition: {
+      duration: 0.5,
+      ease: "easeOut"
+    }
+  }
+};
+
+// --- Purchase Data Interface ---
+interface PurchaseData {
+    shares: number;
+    amount: number;
+    projectedReturn: number;
+}
+
+// --- Stock Detail Page Component ---
+export default function StockDetailPage() {
+  const { stackId } = useParams<{ stackId: string }>();
+  const [, setLocation] = useLocation(); // Keep setLocation
+
+  // --- State Management ---
+  const [currentStockIndex, setCurrentStockIndex] = useState(0);
+  const [completedModalOpen, setCompletedModalOpen] = useState(false);
+  const [useRealTimeData] = useState(true); // Keep using realtime data
+  const [swipeDirection, setSwipeDirection] = useState(0);
+
+  // States for Modals (lifted from StockCard)
+  const [isMetricPopupOpen, setIsMetricPopupOpen] = useState(false);
+  const [selectedMetric, setSelectedMetric] = useState<MetricClickData | null>(null);
+  const [modalState, setModalState] = useState<'closed' | 'calculator' | 'success'>('closed');
+  const [purchaseData, setPurchaseData] = useState<PurchaseData | null>(null);
+
+  // --- Data Fetching ---
+  const { data: stack, isLoading: isLoadingStack, error: stackError } = useQuery<Stack>({
+    queryKey: [`/api/stacks/${stackId}`],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    enabled: !!stackId,
+  });
+
+  const stocks = useMemo(() => {
+    if (!stack?.industry) return [];
+    try {
+      // Attempt to get stocks, default to empty array if it fails
+      const industryStocks = getIndustryStocks(stack.industry) || [];
+      return Array.isArray(industryStocks) ? industryStocks : [];
+    } catch (err) {
+      console.error("Error getting industry stocks:", err);
+      return [];
+    }
+  }, [stack]);
+
+  // --- Animation Hooks ---
+  const x = useMotionValue(0);
+  const cardControls = useAnimation();
+
+  // --- Handlers ---
+  const handleNextStock = useCallback(() => {
+    const safeTotalCount = stocks?.length ?? 0;
+    if (safeTotalCount === 0) return;
+
+    if (currentStockIndex >= safeTotalCount - 1) {
+      setCompletedModalOpen(true);
+      return;
+    }
+    setSwipeDirection(1);
+    // Use a timeout to ensure state update happens before animation reset
+    setTimeout(() => setCurrentStockIndex((prevIndex) => prevIndex + 1), 50); // Small delay
+    x.set(0); // Reset motion value immediately
+    cardControls.start("center"); // Animate to center AFTER index updates
+  }, [currentStockIndex, stocks.length, x, cardControls]); // Correct dependencies
+
+
+  const handlePreviousStock = useCallback(() => {
+    if (currentStockIndex <= 0) return;
+    setSwipeDirection(-1);
+     // Use a timeout to ensure state update happens before animation reset
+    setTimeout(() => setCurrentStockIndex((prevIndex) => prevIndex - 1), 50); // Small delay
+    x.set(0); // Reset motion value immediately
+    cardControls.start("center"); // Animate to center AFTER index updates
+  }, [currentStockIndex, x, cardControls]);
+
+  const handleOpenCalculator = useCallback(() => {
+    setModalState('calculator');
+  }, []);
+
+  const handleMetricClick = useCallback((metricData: MetricClickData) => {
+    setSelectedMetric(metricData);
+    setIsMetricPopupOpen(true);
+  }, []);
+
+  const handlePurchaseComplete = useCallback((data: PurchaseData) => {
+    setPurchaseData(data);
+    setModalState('success');
+  }, []);
+
+ const handleSuccessModalClose = useCallback(() => {
+    setModalState('closed');
+    setPurchaseData(null);
+    // Delay the next stock slightly for smoother transition
+    setTimeout(() => {
+        handleNextStock();
+    }, 200); // Delay of 200ms
+ }, [handleNextStock]);
+
+
+  const handleResetStack = useCallback(() => {
+    setCompletedModalOpen(false);
+    setSwipeDirection(0);
+    setCurrentStockIndex(0);
+    x.set(0);
+    cardControls.start("center"); // Animate back to center
+  }, [x, cardControls]);
+
+  const handleBack = useCallback(() => {
+    setLocation("/");
+  }, [setLocation]);
+
+  // --- Loading / Error / Empty States ---
+   if (isLoadingStack) { // Changed variable name
+     return (
+       <div className="flex items-center justify-center min-h-screen bg-black">
+         <Loader2 className="animate-spin w-10 h-10 text-cyan-400"/>
+       </div>
+     );
+   }
+
+   if (stackError || !stack) {
+     const errorMessage = stackError instanceof Error ? stackError.message : "Error loading stack data.";
+     return (
+       <div className="flex items-center justify-center flex-col min-h-screen bg-black text-white p-4">
+         <p className="mb-4 text-center text-red-400">{errorMessage}</p>
+         <button onClick={handleBack} className="text-cyan-400 hover:bg-gray-800 px-4 py-2 rounded-full transition-colors border border-cyan-400">
+           Go Back
+         </button>
+       </div>
+     );
+   }
+
+   if (stocks.length === 0) { // Simplified check now that stocks is guaranteed to be an array
+      return (
+       <div className="flex items-center justify-center flex-col min-h-screen bg-black text-white p-4">
+         <p className="text-white mb-4 text-center">No stocks available for the '{stack.industry}' industry.</p>
+          <button onClick={handleBack} className="text-cyan-400 hover:bg-gray-800 px-4 py-2 rounded-full transition-colors border border-cyan-400">
+           Go Back
+         </button>
+       </div>
+     );
+   }
+   // --- End Loading / Error / Empty States ---
+
+ // Safely get current and next stock
+ const currentStockData = stocks[currentStockIndex];
+ const nextStockData = currentStockIndex < stocks.length - 1 ? stocks[currentStockIndex + 1] : null;
+
+ // Ensure currentStockData is available before rendering dependent components
+ if (!currentStockData) {
+      return (
+       <div className="flex items-center justify-center flex-col min-h-screen bg-black text-white p-4">
+         <p className="text-white mb-4 text-center">Error: Could not load current stock data.</p>
+          <button onClick={handleBack} className="text-cyan-400 hover:bg-gray-800 px-4 py-2 rounded-full transition-colors border border-cyan-400">
+           Go Back
+         </button>
+       </div>
+     );
+ }
+
+ return (
+    <div className="flex flex-col h-screen overflow-hidden bg-black text-white relative">
+      {/* --- Header --- */}
+       <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-30 pointer-events-none">
+         <button onClick={handleBack} className="text-cyan-400 hover:bg-gray-800/50 p-2 rounded-full transition-colors bg-black/60 backdrop-blur-sm pointer-events-auto">
+           <ArrowLeft size={20} />
+         </button>
+         <div className="text-center text-sm font-medium text-gray-400 bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">
+             {stack.title} ({currentStockIndex + 1}/{stocks.length})
+         </div>
+         <div className="w-8"></div> {/* Placeholder for balance */}
+      </div>
+
+      {/* --- Main Card Stack Area --- */}
+      <div className="flex-1 flex items-center justify-center p-0 relative perspective-1000 mt-8 mb-16"> {/* Added mt/mb for spacing */}
+          <div className="relative w-[95%] sm:w-[400px] h-[650px] max-h-[85vh]"> {/* Fixed size container */}
+           <AnimatePresence initial={false} custom={swipeDirection}>
+
+             {/* Background Card - Render only if next stock exists */}
+             {nextStockData && (
+                <motion.div
+                    key={`bg-${currentStockIndex + 1}`} // Ensure unique key for background
+                    className="absolute inset-0"
+                    variants={cardVariants}
+                    initial="background" // Start slightly behind
+                    animate="background" // Stay in background position
+                    style={{ pointerEvents: 'none' }} // Disable interaction
+                >
+                  <StockCard
+                    stock={nextStockData}
+                    currentIndex={currentStockIndex + 1}
+                    totalCount={stocks.length}
+                    displayMode={useRealTimeData ? 'realtime' : 'simple'}
+                    x={useMotionValue(0)} // Use a dummy motion value
+                  />
+                </motion.div>
+              )}
+
+              {/* Foreground Card */}
+             {currentStockData && (
+                 <motion.div
+                    key={`fg-${currentStockIndex}`} // Ensure unique key for foreground
+                    className="absolute inset-0"
+                    data-stock-key={currentStockIndex}
+                    variants={cardVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    custom={swipeDirection}
+                 >
+                   <StockCard
+                     stock={currentStockData}
+                     onNext={handleNextStock}
+                     onPrevious={handlePreviousStock}
+                     onInvest={handleOpenCalculator}
+                     onMetricClick={handleMetricClick}
+                     onOpenCalculator={handleOpenCalculator}
+                     currentIndex={currentStockIndex}
+                     totalCount={stocks.length}
+                     displayMode={useRealTimeData ? 'realtime' : 'simple'}
+                     cardControls={cardControls}
+                     x={x} // Pass the real motion value for dragging
+                   />
+                 </motion.div>
+              )}
+
+           </AnimatePresence>
+         </div>
+      </div>
+
+       {/* --- Modals and Overlays --- */}
+       {isMetricPopupOpen && selectedMetric && currentStockData && (
+         <div className="absolute inset-0 z-40 flex items-center justify-center p-4">
+            <MetricPopup
+                isOpen={isMetricPopupOpen}
+                onClose={() => setIsMetricPopupOpen(false)}
+                metricName={selectedMetric.name}
+                metricColor={selectedMetric.color}
+                metricData={selectedMetric.data}
+             />
+         </div>
+       )}
+
+       {modalState === 'calculator' && currentStockData && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center p-4">
+             <PortfolioImpactCalculator
+                 isOpen={true}
+                 onClose={() => setModalState('closed')}
+                 onPurchaseComplete={handlePurchaseComplete}
+                 stock={currentStockData}
+             />
+          </div>
+       )}
+
+       {modalState === 'success' && purchaseData && currentStockData && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center p-4">
+             <PurchaseSuccessModal
+                 isOpen={true}
+                 onClose={handleSuccessModalClose}
+                 stock={currentStockData}
+                 shares={purchaseData.shares}
+                 amount={purchaseData.amount}
+                 projectedReturn={purchaseData.projectedReturn}
+             />
+         </div>
+       )}
+
+      <div className="absolute inset-0 z-40 pointer-events-none">
+           <StackCompletedModal
+                isOpen={completedModalOpen}
+                onClose={() => setCompletedModalOpen(false)}
+                onReset={handleResetStack}
+                stackName={stack?.title || ""}
+                stocksCount={stocks.length}
+            />
+       </div>
+
+       {/* AI Assistant */}
+       <div className="fixed bottom-4 right-4 z-30">
+         <AIAssistant />
+       </div>
+    </div>
  );
 }
