@@ -7,6 +7,7 @@ import StockChart from "@/components/stock-detail/stock-chart";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import OverallAnalysisCard from "@/components/overall-analysis-card";
 import AnalystRatings from "@/components/stock-detail/analyst-ratings";
+import HistoricalPerformanceChart from "@/components/stock-detail/historical-performance-chart";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StockDetailView() {
@@ -132,6 +133,9 @@ export default function StockDetailView() {
           
           {/* Analyst Ratings */}
           <AnalystRatings symbol={stock.ticker} companyName={stock.name} />
+          
+          {/* Historical Performance Chart */}
+          <HistoricalPerformanceChart symbol={stock.ticker} companyName={stock.name} />
           
           {/* Company overview */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
