@@ -324,29 +324,49 @@ export default function StockCard({
     const distanceMoved = Math.abs(info.point.x - dragStartXRef.current);
     dragDistanceThresholdRef.current = Math.max(dragDistanceThresholdRef.current, distanceMoved);
     const dragDuration = Date.now() - dragStartTimeRef.current;
-    if (distanceMoved > 50 && dragDuration > 150) {
-      isDraggingIntentionallyRef.current = true;
+    
+    // Increase drag threshold to require more intentional horizontal movement
+    if (distanceMoved > 75 && dragDuration > 150) {
+      // Also check if horizontal drag is more dominant than vertical
+      const verticalDistance = Math.abs(info.offset.y);
+      if (distanceMoved > verticalDistance * 1.25) {
+        isDraggingIntentionallyRef.current = true;
+      }
     }
   };
 
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (!cardControls) return;
 
+    // Check if this was primarily a vertical drag (scrolling)
+    const verticalDragDistance = Math.abs(info.offset.y);
+    const horizontalDragDistance = Math.abs(info.offset.x);
+
+    // If vertical drag is much larger than horizontal, treat as scroll and ignore swipe
+    if (verticalDragDistance > horizontalDragDistance * 1.5) {
+      cardControls.start({ 
+        x: 0, 
+        transition: { type: "spring", stiffness: 400, damping: 40, duration: 0.4 } 
+      });
+      isDraggingIntentionallyRef.current = false; // Reset intention flag
+      return; // Stop further processing
+    }
+    
     if (!isDraggingIntentionallyRef.current) {
       cardControls.start({ x: 0, transition: { type: "spring", stiffness: 250, damping: 35, duration: 0.8 } });
       return;
     }
 
-    const rightThreshold = 150;
-    const leftThreshold = 120;
-    const velocityThreshold = 250;
+    const rightThreshold = 300; // Increased from 150
+    const leftThreshold = 240;  // Increased from 120
+    const velocityThreshold = 500; // Increased from 250
     const dragVelocity = info.velocity.x;
     const dragOffset = info.offset.x;
 
-    if (dragOffset > rightThreshold || (dragOffset > 80 && dragVelocity > velocityThreshold)) {
+    if (dragOffset > rightThreshold || (dragOffset > 120 && dragVelocity > velocityThreshold)) {
       if (onInvest) onInvest();
       cardControls.start({ x: 0, rotate: [5, 0], transition: { type: "spring", stiffness: 280, damping: 22, duration: 0.85, ease: "easeInOut" } });
-    } else if (dragOffset < -leftThreshold || (dragOffset < -80 && dragVelocity < -velocityThreshold)) {
+    } else if (dragOffset < -leftThreshold || (dragOffset < -120 && dragVelocity < -velocityThreshold)) {
       if (onNext) onNext();
     } else {
       cardControls.start({ x: 0, transition: { type: "spring", stiffness: 250, damping: 30, duration: 0.8, ease: "easeOut" } });
@@ -370,8 +390,14 @@ export default function StockCard({
     className="h-full w-full rounded-2xl shadow-xl"
     drag={cardControls ? "x" : false}
     dragConstraints={{ left: 0, right: 0 }}
-    dragElastic={0.5}
-    dragPropagation
+    dragElastic={0.3} // Reduced from 0.5 to make dragging feel more direct
+    dragTransition={{ 
+      power: 0.3, // Reduced power for smoother drag feel
+      timeConstant: 250, // Slightly faster response time
+      modifyTarget: (target) => Math.round(target / 50) * 50 // Snaps to 50px increments for cleaner action
+    }}
+    dragPropagation={false} // Prevent drag propagation to parent elements
+    dragMomentum={false} // Disable momentum for more precise control
     onDragStart={handleDragStart}
     onDrag={handleDrag}
     onDragEnd={handleDragEnd}
@@ -383,14 +409,18 @@ export default function StockCard({
       scale: cardScale,
       backgroundColor: '#FFFFFF', // Force light mode background
       color: '#1F2937',         // Force light mode text
-      cursor: cardControls ? 'grab' : 'default'
+      cursor: cardControls ? 'grab' : 'default',
+      willChange: 'transform' // Optimize for animation performance
     }}
-    whileTap={cardControls ? { cursor: 'grabbing' } : {}}
+    whileTap={cardControls ? { cursor: 'grabbing', scale: 0.995 } : {}}
   >
-    {/* Inner scroll container */}
+    {/* Inner scroll container - improved for iOS */}
     <div
-        className="absolute inset-0 overflow-y-auto overflow-x-hidden pb-20 stock-card-scroll-content rounded-2xl bg-white text-slate-900" // Increased bottom padding
-        style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
+        className="absolute inset-0 overflow-y-auto overflow-x-hidden pb-20 stock-card-scroll-content touch-optimized rounded-2xl bg-white text-slate-900" // Added touch-optimized class
+        style={{ 
+          overflowAnchor: 'none',  // Prevent scroll anchoring
+          scrollBehavior: 'smooth' // Enable smooth scrolling
+        }}
     >
       {/* --- Header/Chart Section (Robinhood Style) --- */}
       <div className="bg-white flex flex-col w-full">

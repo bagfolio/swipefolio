@@ -75,6 +75,20 @@
 /* Edge-to-edge styling */
 .stock-card-scroll-content {
   scroll-padding-bottom: 5rem; /* Add padding at bottom for fixed buttons */
+  overscroll-behavior: contain; /* Prevent iOS Safari overscroll bounce */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.stock-card-scroll-content::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Better touch scrolling behavior */
+.touch-optimized {
+  touch-action: pan-y; /* Allow vertical scrolling but capture horizontal */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  user-select: none; /* Prevent text selection while scrolling */
 }
 
 /* Remove dotted outline on chart elements */
