@@ -278,22 +278,51 @@ export default function PortfolioImpactCalculator({
                   <div className="relative h-48 mb-4 bg-white rounded-xl overflow-hidden border border-slate-100 shadow-sm">
                     <div className="absolute inset-0 flex items-center justify-center">
                       <svg viewBox="0 0 100 100" width="160" height="160">
-                        {/* Background circle - lighter when empty */}
+                        {/* Define gradients for segments */}
+                        <defs>
+                          {/* Blue gradient */}
+                          <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#4285F4" />
+                            <stop offset="100%" stopColor="#3b7df8" />
+                          </linearGradient>
+                          {/* Peach/orange gradient */}
+                          <linearGradient id="peachGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#f6ad85" />
+                            <stop offset="100%" stopColor="#f4995e" />
+                          </linearGradient>
+                          {/* Green gradient */}
+                          <linearGradient id="greenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#34D399" />
+                            <stop offset="100%" stopColor="#10B981" />
+                          </linearGradient>
+                          {/* Purple gradient */}
+                          <linearGradient id="purpleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#8B5CF6" />
+                            <stop offset="100%" stopColor="#7C3AED" />
+                          </linearGradient>
+                          {/* Yellow gradient */}
+                          <linearGradient id="yellowGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#FBBF24" />
+                            <stop offset="100%" stopColor="#F59E0B" />
+                          </linearGradient>
+                        </defs>
+
+                        {/* Background circle with subtle shadow */}
                         <circle 
                           cx="50" 
                           cy="50" 
                           r="40" 
                           fill="none" 
-                          stroke={Object.keys(impact.industryAllocation).length === 0 ? "#f3f4f6" : "#e5e7eb"} 
+                          stroke={Object.keys(impact.industryAllocation).length === 0 ? "#f0f3f9" : "#e0e5f2"} 
                           strokeWidth="20" 
                         />
                         
-                        {/* Dynamic segments - only rendered when data exists */}
+                        {/* Dynamic segments - enhanced with gradient fills and smoother edges */}
                         {Object.entries(impact.industryAllocation).length > 0 && 
                           Object.entries(impact.industryAllocation).map(([industry, allocation], index) => {
                             // Calculate segment parameters
-                            const colors = ["#06b6d4", "#8b5cf6", "#fbbf24", "#34d399", "#f87171"];
-                            const color = colors[index % colors.length];
+                            const gradients = ["url(#blueGradient)", "url(#peachGradient)", "url(#greenGradient)", "url(#purpleGradient)", "url(#yellowGradient)"];
+                            const gradient = gradients[index % gradients.length];
                             const segmentPct = allocation.new;
                             const circumference = 2 * Math.PI * 40;
                             const previousSegments = Object.entries(impact.industryAllocation)
@@ -303,43 +332,81 @@ export default function PortfolioImpactCalculator({
                             
                             // Only render segments with actual percentage values
                             return segmentPct > 0 ? (
-                              <circle 
-                                key={industry}
-                                cx="50" 
-                                cy="50" 
-                                r="40" 
-                                fill="none" 
-                                stroke={color} 
-                                strokeWidth="20"
-                                strokeDasharray={`${circumference * (segmentPct / 100)} ${circumference}`}
-                                transform={`rotate(${rotation} 50 50)`}
-                                strokeLinecap="butt"
-                              />
+                              <g key={industry}>
+                                {/* Segment with gradient */}
+                                <circle 
+                                  cx="50" 
+                                  cy="50" 
+                                  r="40" 
+                                  fill="none" 
+                                  stroke={gradient} 
+                                  strokeWidth="20"
+                                  strokeDasharray={`${circumference * (segmentPct / 100)} ${circumference}`}
+                                  transform={`rotate(${rotation} 50 50)`}
+                                  strokeLinecap="butt"
+                                />
+                                
+                                {/* Add percentage label inside the segment if it's large enough */}
+                                {segmentPct >= 10 && (
+                                  <text
+                                    x="50"
+                                    y="50"
+                                    textAnchor="middle"
+                                    fill="white"
+                                    fontSize="10"
+                                    fontWeight="bold"
+                                    transform={`rotate(${rotation + (segmentPct * 1.8)} 50 50) translate(0, -40)`}
+                                  >
+                                    {Math.round(segmentPct)}%
+                                  </text>
+                                )}
+                              </g>
                             ) : null;
                           })
                         }
                         
-                        {/* Central circle - clean white center */}
-                        <circle cx="50" cy="50" r="30" fill="white" />
+                        {/* Inner circle with subtle shadow for depth */}
+                        <circle cx="50" cy="50" r="30" fill="white" filter="url(#shadow)" />
+                        
+                        {/* Add subtle inner shadow */}
+                        <defs>
+                          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur in="SourceAlpha" stdDeviation="2" />
+                            <feOffset dx="0" dy="1" result="offsetblur" />
+                            <feComponentTransfer>
+                              <feFuncA type="linear" slope="0.1" />
+                            </feComponentTransfer>
+                            <feMerge>
+                              <feMergeNode />
+                              <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                          </filter>
+                        </defs>
                       </svg>
                     </div>
                     
-                    {/* Simple industry indicators in the top left */}
+                    {/* Enhanced industry indicators in the top left with percentage values */}
                     <div className="absolute top-3 left-3">
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         {Object.entries(impact.industryAllocation)
                           .filter(([_, allocation]) => allocation.new > 0)
                           .map(([industry, allocation], index) => {
-                            const colors = ["#06b6d4", "#8b5cf6", "#fbbf24", "#34d399", "#f87171"];
+                            // Match these colors with the gradient colors defined above
+                            const colors = ["#4285F4", "#f4995e", "#10B981", "#7C3AED", "#F59E0B"];
                             const color = colors[index % colors.length];
                             
                             return (
-                              <div key={industry} className="flex items-center">
-                                <div 
-                                  className="w-2.5 h-2.5 rounded-full mr-1.5" 
-                                  style={{ backgroundColor: color }}
-                                ></div>
-                                <span className="text-xs text-slate-900 font-medium">{industry}</span>
+                              <div key={industry} className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <div 
+                                    className="w-3 h-3 rounded-full mr-2 shadow-sm" 
+                                    style={{ backgroundColor: color }}
+                                  ></div>
+                                  <span className="text-xs text-slate-800 font-medium">{industry}</span>
+                                </div>
+                                <span className="text-xs font-bold text-slate-700 ml-2">
+                                  {Math.round(allocation.new)}%
+                                </span>
                               </div>
                             );
                           })
