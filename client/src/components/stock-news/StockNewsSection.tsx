@@ -43,7 +43,7 @@ const formatNewsDate = (timestamp: number): string => {
   if (!timestamp) return 'N/A';
   
   // Yahoo Finance API returns Unix timestamps in seconds, convert to milliseconds
-  const date = new Date(timestamp * 1000); 
+  const date = new Date(timestamp); 
   const now = new Date();
   
   // Check if the date is valid by making sure it's not in the future and not too far in the past
