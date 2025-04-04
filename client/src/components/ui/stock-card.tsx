@@ -29,6 +29,7 @@ import ComparativeAnalysis from "@/components/comparative-analysis";
 import AskAI from "./ask-ai";
 import { getIndustryAverages } from "@/lib/industry-data";
 import StockNewsSection from "@/components/stock-news/StockNewsSection"; // Ensure import
+import AnalystRatings from "@/components/stock-detail/analyst-ratings"; // Import AnalystRatings
 import {
   useYahooChartData,
   extractChartPrices,
@@ -827,6 +828,11 @@ export default function StockCard({
         {/* --- Comparative Analysis --- */}
          <div className="bg-white border-t border-b border-slate-100 comparative-analysis-container mx-4 mb-4 rounded-xl shadow-md" onClick={(e) => e.stopPropagation()}> {/* Added margin and rounded corners */}
             <ComparativeAnalysis currentStock={stock} />
+        </div>
+
+       {/* --- Analyst Ratings Section --- */}
+        <div className="bg-white border-t border-slate-100 mb-4 mx-4 rounded-xl shadow-md overflow-hidden">
+            <AnalystRatings symbol={stock.ticker} companyName={stock.name} />
         </div>
 
        {/* --- News Section --- */}
