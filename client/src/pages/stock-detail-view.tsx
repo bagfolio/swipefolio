@@ -6,6 +6,7 @@ import { StockData, getIndustryStocks } from "@/lib/stock-data";
 import StockChart from "@/components/stock-detail/stock-chart";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import OverallAnalysisCard from "@/components/overall-analysis-card";
+import AnalystRatings from "@/components/stock-detail/analyst-ratings";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StockDetailView() {
@@ -54,13 +55,15 @@ export default function StockDetailView() {
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Skeleton className="h-80 w-full mb-6" />
-            <Skeleton className="h-64 w-full" />
+          <div className="lg:col-span-2 space-y-6">
+            <Skeleton className="h-80 w-full" /> {/* Chart */}
+            <Skeleton className="h-64 w-full" /> {/* Analyst Ratings */}
+            <Skeleton className="h-64 w-full" /> {/* Company Overview */}
           </div>
-          <div>
-            <Skeleton className="h-40 w-full mb-6" />
-            <Skeleton className="h-64 w-full" />
+          <div className="space-y-6">
+            <Skeleton className="h-40 w-full" /> {/* Key Metrics */}
+            <Skeleton className="h-64 w-full" /> {/* Industry Comparison */}
+            <Skeleton className="h-12 w-full" /> {/* Add to Portfolio button */}
           </div>
         </div>
       </div>
@@ -126,6 +129,9 @@ export default function StockDetailView() {
         <div className="lg:col-span-2 space-y-6">
           {/* Stock price chart */}
           <StockChart symbol={stock.ticker} />
+          
+          {/* Analyst Ratings */}
+          <AnalystRatings symbol={stock.ticker} companyName={stock.name} />
           
           {/* Company overview */}
           <div className="bg-white rounded-lg shadow overflow-hidden">

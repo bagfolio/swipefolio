@@ -41,6 +41,16 @@ interface AnalystRecommendation extends YahooRecommendation {
   averageRating: number; // 1-5 scale (1=Strong Sell, 5=Strong Buy)
 }
 
+// Analyst upgrade/downgrade history item
+interface UpgradeHistoryItem {
+  firm: string;
+  toGrade: string;
+  fromGrade: string;
+  action: 'upgrade' | 'downgrade' | 'maintain' | 'init' | 'reiterated';
+  date: string;
+  epochGradeDate: number;
+}
+
 class YahooFinanceService {
   /**
    * Initialize the Yahoo Finance service
@@ -260,7 +270,7 @@ class YahooFinanceService {
               title: `Leadership Team at ${quote.shortName || symbol}`,
               publisher: "Yahoo Finance",
               link: `https://finance.yahoo.com/quote/${symbol}/profile`,
-              providerPublishTime: Date.now(),
+              providerPublishTime: Date.now() / 1000,
               type: "article",
               relatedTickers: [symbol]
             });
@@ -277,7 +287,7 @@ class YahooFinanceService {
           title: `Market data for ${quote.shortName || symbol}`,
           publisher: "Yahoo Finance",
           link: `https://finance.yahoo.com/quote/${symbol}`,
-          providerPublishTime: Date.now(),
+          providerPublishTime: Date.now() / 1000,
           type: "article",
           relatedTickers: [symbol]
         });
@@ -294,6 +304,89 @@ class YahooFinanceService {
     } catch (error) {
       console.error(`Error fetching news for ${symbol}:`, error);
       throw error;
+    }
+  }
+  
+  /**
+   * Fetch analyst upgrade/downgrade history for a stock symbol
+   * Uses the quoteSummary endpoint with upgradeDowngradeHistory module
+   */
+  async getUpgradeHistory(symbol: string): Promise<UpgradeHistoryItem[] | null> {
+    try {
+      console.log(`Fetching upgrade/downgrade history for ${symbol}`);
+      
+      // Get the upgrade/downgrade history from quoteSummary
+      const quoteSummary = await yahooFinance.quoteSummary(symbol, {
+        modules: ['upgradeDowngradeHistory']
+      });
+      
+      if (!quoteSummary?.upgradeDowngradeHistory?.history || 
+          !Array.isArray(quoteSummary.upgradeDowngradeHistory.history) || 
+          quoteSummary.upgradeDowngradeHistory.history.length === 0) {
+        console.warn(`No upgrade/downgrade history found for ${symbol}`);
+        return null;
+      }
+      
+      // Map and process the history items
+      const historyItems = quoteSummary.upgradeDowngradeHistory.history.map(item => {
+        // Determine action type based on from/to grades
+        let action: 'upgrade' | 'downgrade' | 'maintain' | 'init' | 'reiterated' = 'maintain';
+        
+        if (!item.fromGrade) {
+          action = 'init'; // Initial coverage
+        } else if (item.toGrade === item.fromGrade) {
+          action = 'reiterated'; // Same rating
+        } else {
+          // Map common analyst ratings to a numeric scale
+          const ratingMap: Record<string, number> = {
+            'strong buy': 5,
+            'buy': 4,
+            'overweight': 4,
+            'outperform': 4,
+            'neutral': 3,
+            'hold': 3,
+            'equal-weight': 3,
+            'market perform': 3,
+            'underperform': 2,
+            'underweight': 2,
+            'sell': 1,
+            'strong sell': 0
+          };
+          
+          // Get numeric values for the from/to grades
+          const fromValue = ratingMap[(item.fromGrade || '').toLowerCase()] || 3;
+          const toValue = ratingMap[(item.toGrade || '').toLowerCase()] || 3;
+          
+          if (toValue > fromValue) {
+            action = 'upgrade';
+          } else if (toValue < fromValue) {
+            action = 'downgrade';
+          }
+        }
+        
+        // Format the grade date
+        const date = item.epochGradeDate ? 
+          new Date(item.epochGradeDate * 1000).toLocaleDateString(undefined, { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+          }) : 'Unknown';
+        
+        return {
+          firm: item.firm || 'Unknown Firm',
+          toGrade: item.toGrade || 'Not Specified',
+          fromGrade: item.fromGrade || 'New Coverage',
+          action,
+          date,
+          epochGradeDate: item.epochGradeDate || 0
+        };
+      });
+      
+      // Sort by date (newest first)
+      return historyItems.sort((a, b) => b.epochGradeDate - a.epochGradeDate);
+    } catch (error) {
+      console.error(`Error fetching upgrade/downgrade history for ${symbol}:`, error);
+      return null;
     }
   }
 
@@ -369,6 +462,32 @@ class YahooFinanceService {
       });
     }
   }
+  
+  /**
+   * Handle upgrade/downgrade history request
+   */
+  async handleUpgradeHistoryRequest(req: Request, res: Response) {
+    const { symbol } = req.params;
+    
+    try {
+      const data = await this.getUpgradeHistory(symbol);
+      
+      if (!data) {
+        return res.status(404).json({
+          error: 'No upgrade/downgrade history found',
+          message: `No analyst upgrade/downgrade history available for ${symbol}`
+        });
+      }
+      
+      res.json(data);
+    } catch (error) {
+      console.error(`Failed to fetch upgrade/downgrade history for ${symbol}:`, error);
+      res.status(500).json({
+        error: 'Failed to fetch upgrade/downgrade history',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
 
   /**
    * Helper to convert range string to Date object
@@ -406,4 +525,4 @@ class YahooFinanceService {
 }
 
 export const yahooFinanceService = new YahooFinanceService();
-export type { YahooNewsItem, AnalystRecommendation };
+export type { YahooNewsItem, AnalystRecommendation, UpgradeHistoryItem };

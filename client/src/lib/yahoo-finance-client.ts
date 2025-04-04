@@ -42,6 +42,16 @@ export interface AnalystRecommendation {
   averageRating: number; // 1-5 scale (1=Strong Sell, 5=Strong Buy)
 }
 
+// Analyst upgrade/downgrade history item
+export interface UpgradeHistoryItem {
+  firm: string;
+  toGrade: string;
+  fromGrade: string;
+  action: 'upgrade' | 'downgrade' | 'maintain' | 'init' | 'reiterated';
+  date: string;
+  epochGradeDate: number;
+}
+
 // Map TimeFrame to Yahoo Finance range parameter
 export const timeFrameToRange: Record<string, string> = {
   "1D": "1d",
@@ -189,6 +199,39 @@ export function useAnalystRecommendations(symbol: string) {
   return useQuery<AnalystRecommendation>({
     queryKey: ['/api/yahoo-finance/recommendations', symbol],
     queryFn: async () => fetchAnalystRecommendations(symbol),
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours since analyst ratings don't change frequently
+    enabled: !!symbol,
+  });
+}
+
+/**
+ * Fetch analyst upgrade/downgrade history for a stock symbol
+ */
+export async function fetchUpgradeHistory(symbol: string): Promise<UpgradeHistoryItem[]> {
+  try {
+    const response = await fetch(`/api/yahoo-finance/upgrade-history/${symbol}`);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData.message || `Failed to fetch upgrade/downgrade history for ${symbol}`
+      );
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching upgrade history for ${symbol}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Hook to query Yahoo Finance analyst upgrade/downgrade history
+ */
+export function useUpgradeHistory(symbol: string) {
+  return useQuery<UpgradeHistoryItem[]>({
+    queryKey: ['/api/yahoo-finance/upgrade-history', symbol],
+    queryFn: async () => fetchUpgradeHistory(symbol),
     staleTime: 24 * 60 * 60 * 1000, // 24 hours since analyst ratings don't change frequently
     enabled: !!symbol,
   });

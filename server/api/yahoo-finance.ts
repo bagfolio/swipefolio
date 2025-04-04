@@ -27,4 +27,12 @@ router.get('/recommendations/:symbol', (req, res) => {
   yahooFinanceService.handleRecommendationsRequest(req, res);
 });
 
+/**
+ * GET /api/yahoo-finance/upgrade-history/:symbol
+ * Get analyst upgrade/downgrade history for a stock symbol
+ */
+router.get('/upgrade-history/:symbol', (req, res) => {
+  yahooFinanceService.handleUpgradeHistoryRequest(req, res);
+});
+
 export default router;
