@@ -230,9 +230,9 @@ class YahooFinanceService {
           if (typeof item.providerPublishTime === 'number') {
             publishTime = item.providerPublishTime;
           } else if (typeof item.providerPublishTime === 'string') {
-            publishTime = new Date(item.providerPublishTime).getTime();
+            publishTime = new Date(item.providerPublishTime).getTime() / 1000; // Convert to seconds to match Yahoo API format
           } else {
-            publishTime = Date.now();
+            publishTime = Math.floor(Date.now() / 1000); // Convert to seconds to match Yahoo API format
           }
           
           return {

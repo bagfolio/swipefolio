@@ -43,7 +43,7 @@ const formatNewsDate = (timestamp: number): string => {
   if (!timestamp) return 'N/A';
   
   // Yahoo Finance API returns Unix timestamps in seconds, convert to milliseconds
-  const date = new Date(timestamp); 
+  const date = new Date(timestamp * 1000); 
   const now = new Date();
   
   // Check if the date is valid by making sure it's not in the future and not too far in the past
@@ -230,7 +230,13 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
   // Log timestamp information for debugging
   if (newsData?.items && newsData.items.length > 0) {
     debugNewsTimestamps(newsData.items);
+    console.log(`Found ${newsData.items.length} news items for ${stock.ticker}`);
+  } else {
+    console.log(`No news items found for ${stock.ticker}`, newsData);
   }
+  
+  // Log processed news for debugging
+  console.log(`Processed news items: ${processedNews.length}`);
 
   // Define light theme styles
   const styles = {
