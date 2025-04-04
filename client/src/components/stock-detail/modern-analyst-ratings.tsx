@@ -490,12 +490,34 @@ export const ModernAnalystRatings: React.FC<ModernAnalystRatingsProps> = ({
     strongSell: 0
   };
   
+  // Log the analyst data for debugging
+  console.log(`[DEBUG][Analyst Ratings] Full data for ${symbol}:`, analystData);
+  console.log(`[DEBUG][Analyst Ratings] Available periods:`, availablePeriods);
+  console.log(`[DEBUG][Analyst Ratings] Selected period:`, selectedPeriod);
+  console.log(`[DEBUG][Analyst Ratings] Distribution over time:`, analystData.distributionOverTime);
+  
   // Safely access the distribution data for the selected period
   const currentDistribution = analystData.distributionOverTime?.[selectedPeriod] || 
                               analystData.distributionOverTime?.['0m'] || 
                               defaultDistribution;
   
+  // Log the selected distribution
+  console.log(`[DEBUG][Analyst Ratings] Using distribution for period ${selectedPeriod}:`, currentDistribution);
+  
   const totalAnalysts = analystData.numberOfAnalysts;
+  // Calculate sum from current distribution for comparison
+  const distributionSum = Object.values(currentDistribution).reduce((sum, count) => sum + (count || 0), 0);
+  
+  console.log(`[DEBUG][Analyst Ratings] Total analysts reported: ${totalAnalysts}`);
+  console.log(`[DEBUG][Analyst Ratings] Sum of distribution values: ${distributionSum}`);
+  console.log(`[DEBUG][Analyst Ratings] Breakdown:`, {
+    strongBuy: currentDistribution.strongBuy || 0,
+    buy: currentDistribution.buy || 0,
+    hold: currentDistribution.hold || 0,
+    sell: currentDistribution.sell || 0,
+    strongSell: currentDistribution.strongSell || 0
+  });
+  
   const consensusScore = analystData.gaugeScore || 3; // Default to neutral if missing
   
   // --- Update Distribution Data to Show All Categories ---
