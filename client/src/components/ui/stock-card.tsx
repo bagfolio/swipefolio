@@ -832,7 +832,10 @@ export default function StockCard({
 
        {/* --- Analyst Ratings Section --- */}
         <div className="bg-white border-t border-slate-100 mb-4 mx-4 rounded-xl shadow-md overflow-hidden">
-            <AnalystRatings symbol={stock.ticker} companyName={stock.name} />
+            <AnalystRatings 
+              symbol={stock.ticker} 
+              companyName={stock.name} 
+            />
         </div>
 
        {/* --- News Section --- */}
