@@ -125,9 +125,12 @@ export default function StockCard({
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("1D");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch Yahoo Finance data
+  // Fetch Yahoo Finance data with stable arguments to fix React Hook dependency issue
+  const stockTicker = useMemo(() => stock.ticker, [stock.ticker]);
+  const selectedTimeFrame = useMemo(() => timeFrame, [timeFrame]);
+  
   const { data: yahooChartData, isLoading: isLoadingYahooData, error: yahooError, refetch: refetchYahooData } =
-    useYahooChartData(stock.ticker, timeFrame);
+    useYahooChartData(stockTicker, selectedTimeFrame);
 
   // Process Yahoo Finance chart data
   const chartPrices = useMemo(() => {
@@ -459,19 +462,12 @@ export default function StockCard({
                         {/* Chart SVG with enhanced styling - Edge to edge */}
                         <div className="absolute inset-0 px-0"> {/* Removed padding for edge-to-edge */}
                             <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
-                                {/* Enhanced Gradient Definitions - More subtle */}
+                                {/* Minimal defs - removed gradient fill as requested */}
                                 <defs>
-                                    {/* Main area gradient with subtle colors */}
-                                    <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                                        <stop offset="0%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)'} />
-                                        <stop offset="90%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.02)' : 'rgba(239, 68, 68, 0.02)'} />
-                                        <stop offset="100%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.0)' : 'rgba(239, 68, 68, 0.0)'} />
-                                    </linearGradient>
-                                    
                                     {/* Subtle glow effect for the line */}
                                     <filter id="glow" x="-5%" y="-5%" width="110%" height="110%">
-                                        <feGaussianBlur in="SourceGraphic" stdDeviation="0.8" result="blur" />
-                                        <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 15 -7" result="glow" />
+                                        <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
+                                        <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 12 -7" result="glow" />
                                         <feComposite in="SourceGraphic" in2="glow" operator="over" />
                                     </filter>
                                 </defs>
@@ -481,99 +477,115 @@ export default function StockCard({
                                 <line x1="0" y1="50" x2="100" y2="50" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.07)' : 'rgba(239, 68, 68, 0.07)'} strokeWidth="0.3" strokeDasharray="1,2" />
                                 <line x1="0" y1="75" x2="100" y2="75" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.07)' : 'rgba(239, 68, 68, 0.07)'} strokeWidth="0.3" strokeDasharray="1,2" />
                                 
-                                {/* Enhanced Area Fill with subtle gradient */}
-                                <path
-                                d={`M0,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} ${
-                                    chartPrices.map((point: number, i: number) =>
-                                    `L${(i / (chartPrices.length - 1)) * 100},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
-                                    ).join(' ')
-                                } L100,${100 - ((chartPrices[chartPrices.length - 1] - minValue) / (maxValue - minValue || 1)) * 100} L100,100 L0,100 Z`}
-                                fill="url(#chartGradient)" 
-                                />
+                                {/* Chart Line - THINNER with subtle glow effect - only displays after animation */}
+                                {chartPrices.length > 1 && (
+                                  <path
+                                  d={`M0,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} ${
+                                      chartPrices.map((point: number, i: number) =>
+                                      `L${(i / (chartPrices.length - 1)) * 100},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
+                                      ).join(' ')
+                                  }`}
+                                  className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`}
+                                  strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
+                                  filter="url(#glow)"
+                                  style={{
+                                    strokeDasharray: "1000",
+                                    strokeDashoffset: "1000",
+                                    animation: "draw-line 1.5s ease-in-out forwards"
+                                  }}
+                                  />
+                                )}
                                 
-                                {/* Enhanced Chart Line - THINNER with subtle glow effect */}
-                                <path
-                                d={`M0,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} ${
-                                    chartPrices.map((point: number, i: number) =>
-                                    `L${(i / (chartPrices.length - 1)) * 100},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
-                                    ).join(' ')
-                                } L100,${100 - ((chartPrices[chartPrices.length - 1] - minValue) / (maxValue - minValue || 1)) * 100}`}
-                                className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none animate-draw-line`}
-                                strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
-                                filter="url(#glow)"
-                                style={{
-                                  strokeDasharray: "1000",
-                                  strokeDashoffset: "1000",
-                                  animation: "draw-line 1.5s ease-in-out forwards"
-                                }}
-                                />
-                                
-                                {/* Key Price Points with labels */}
-                                {/* Start price dot and label */}
-                                <circle 
-                                  cx="0" 
-                                  cy={100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} 
-                                  r="1.2" 
-                                  fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} 
-                                />
-                                <text 
-                                  x="2" 
-                                  y={100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100 - 5} 
-                                  className="text-[7px] font-medium" 
-                                  fill="#4B5563"
-                                >
-                                  ${chartPrices[0].toFixed(2)}
-                                </text>
-                                
-                                {/* End price dot and label */}
-                                <circle 
-                                  cx="100" 
-                                  cy={100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue || 1)) * 100} 
-                                  r="1.2" 
-                                  fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} 
-                                />
-                                <text 
-                                  x="92" 
-                                  y={100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue || 1)) * 100 - 5} 
-                                  className="text-[7px] font-medium" 
-                                  fill="#4B5563"
-                                >
-                                  ${chartPrices[chartPrices.length-1].toFixed(2)}
-                                </text>
-                                
-                                {/* Max price point */}
-                                {(() => {
-                                  const maxPrice = Math.max(...chartPrices);
-                                  const maxIndex = chartPrices.indexOf(maxPrice);
-                                  const maxX = (maxIndex / (chartPrices.length - 1)) * 100;
-                                  const maxY = 100 - ((maxPrice - minValue) / (maxValue - minValue || 1)) * 100;
-                                  
-                                  return (
-                                    <>
-                                      <circle cx={maxX} cy={maxY} r="1.2" fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} />
-                                      <text x={maxX > 80 ? maxX - 15 : maxX + 2} y={maxY - 5} className="text-[7px] font-medium" fill="#4B5563">
-                                        ${maxPrice.toFixed(2)}
-                                      </text>
-                                    </>
-                                  );
-                                })()}
-                                
-                                {/* Min price point */}
-                                {(() => {
-                                  const minPrice = Math.min(...chartPrices);
-                                  const minIndex = chartPrices.indexOf(minPrice);
-                                  const minX = (minIndex / (chartPrices.length - 1)) * 100;
-                                  const minY = 100 - ((minPrice - minValue) / (maxValue - minValue || 1)) * 100;
-                                  
-                                  return (
-                                    <>
-                                      <circle cx={minX} cy={minY} r="1.2" fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} />
-                                      <text x={minX > 80 ? minX - 15 : minX + 2} y={minY + 10} className="text-[7px] font-medium" fill="#4B5563">
-                                        ${minPrice.toFixed(2)}
-                                      </text>
-                                    </>
-                                  );
-                                })()}
+                                {/* Key Price Points with labels - Only display if we have valid chart data */}
+                                {chartPrices.length > 1 && (
+                                  <>
+                                    {/* Start price dot and label */}
+                                    <circle 
+                                      cx="0" 
+                                      cy={100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} 
+                                      r="1.2" 
+                                      fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} 
+                                    />
+                                    <text 
+                                      x="2" 
+                                      y={100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100 - 5} 
+                                      className="text-[7px] font-medium" 
+                                      fill="#4B5563"
+                                    >
+                                      ${chartPrices[0].toFixed(2)}
+                                    </text>
+                                    
+                                    {/* End price dot and label */}
+                                    <circle 
+                                      cx="100" 
+                                      cy={100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue || 1)) * 100} 
+                                      r="1.2" 
+                                      fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} 
+                                    />
+                                    <text 
+                                      x="92" 
+                                      y={100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue || 1)) * 100 - 5} 
+                                      className="text-[7px] font-medium" 
+                                      fill="#4B5563"
+                                    >
+                                      ${chartPrices[chartPrices.length-1].toFixed(2)}
+                                    </text>
+                                    
+                                    {/* Max price point - only if it's not the first or last point */}
+                                    {(() => {
+                                      try {
+                                        const maxPrice = Math.max(...chartPrices);
+                                        const maxIndex = chartPrices.indexOf(maxPrice);
+                                        
+                                        // Skip rendering if max is at the start or end (already labeled)
+                                        if (maxIndex === 0 || maxIndex === chartPrices.length - 1) {
+                                          return null;
+                                        }
+                                        
+                                        const maxX = (maxIndex / (chartPrices.length - 1)) * 100;
+                                        const maxY = 100 - ((maxPrice - minValue) / (maxValue - minValue || 1)) * 100;
+                                        
+                                        return (
+                                          <>
+                                            <circle cx={maxX} cy={maxY} r="1.2" fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} />
+                                            <text x={maxX > 80 ? maxX - 15 : maxX + 2} y={maxY - 5} className="text-[7px] font-medium" fill="#4B5563">
+                                              ${maxPrice.toFixed(2)}
+                                            </text>
+                                          </>
+                                        );
+                                      } catch (e) {
+                                        return null;
+                                      }
+                                    })()}
+                                    
+                                    {/* Min price point - only if it's not the first or last point */}
+                                    {(() => {
+                                      try {
+                                        const minPrice = Math.min(...chartPrices);
+                                        const minIndex = chartPrices.indexOf(minPrice);
+                                        
+                                        // Skip rendering if min is at the start or end (already labeled)
+                                        if (minIndex === 0 || minIndex === chartPrices.length - 1) {
+                                          return null;
+                                        }
+                                        
+                                        const minX = (minIndex / (chartPrices.length - 1)) * 100;
+                                        const minY = 100 - ((minPrice - minValue) / (maxValue - minValue || 1)) * 100;
+                                        
+                                        return (
+                                          <>
+                                            <circle cx={minX} cy={minY} r="1.2" fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} />
+                                            <text x={minX > 80 ? minX - 15 : minX + 2} y={minY + 10} className="text-[7px] font-medium" fill="#4B5563">
+                                              ${minPrice.toFixed(2)}
+                                            </text>
+                                          </>
+                                        );
+                                      } catch (e) {
+                                        return null;
+                                      }
+                                    })()}
+                                  </>
+                                )}
                             </svg>
                         </div>
                         
