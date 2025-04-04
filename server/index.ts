@@ -2,7 +2,6 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { postgresStockService } from "./services/postgres-stock-service";
-import { jsonStockService } from "./services/json-stock-service";
 import cron from 'node-cron';
 
 // Common stock symbols to preload
@@ -18,7 +17,7 @@ const COMMON_SYMBOLS = [
 // Initialize stock data
 async function initializeStockCache() {
   try {
-    // Try to initialize PostgreSQL stock service
+    // Initialize PostgreSQL stock service
     log('Initializing PostgreSQL stock service...');
     const pgInitResult = await postgresStockService.loadStockData().catch(error => {
       log(`Error initializing PostgreSQL stock service: ${error}`);
@@ -28,32 +27,7 @@ async function initializeStockCache() {
     if (pgInitResult) {
       log('Successfully connected to PostgreSQL database for stock data');
     } else {
-      log('Failed to connect to PostgreSQL. Falling back to JSON files...');
-      
-      // Fallback to JSON data if PostgreSQL fails
-      const availableSymbols = jsonStockService.getAvailableSymbols();
-      const successSymbols = [];
-      const failedSymbols = [];
-      
-      for (const symbol of COMMON_SYMBOLS) {
-        if (availableSymbols.includes(symbol)) {
-          try {
-            // Load data from JSON file to verify it's available
-            jsonStockService.getStockData(symbol);
-            successSymbols.push(symbol);
-          } catch (err) {
-            failedSymbols.push(symbol);
-          }
-        } else {
-          failedSymbols.push(symbol);
-        }
-      }
-      
-      log(`JSON stock data initialization complete: ${successSymbols.length} available, ${failedSymbols.length} not available`);
-      
-      if (failedSymbols.length > 0) {
-        log(`Stocks not available as JSON: ${failedSymbols.join(', ')}`);
-      }
+      log('Failed to connect to PostgreSQL database for stock data');
     }
   } catch (error) {
     log(`Error initializing stock data: ${error}`);
