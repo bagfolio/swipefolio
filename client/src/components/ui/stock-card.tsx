@@ -151,52 +151,45 @@ export default function StockCard({
     return []; // Return empty array if no valid data
   }, [timeFrame, yahooChartData, stock.ticker]);
 
-  // --- Get current/closing price and calculate day's range from Yahoo Finance data ---
+  // --- Get current/closing price exclusively from Yahoo Finance data ---
   const yahooCurrentPrice = useMemo(() => {
     if (yahooChartData?.quotes && yahooChartData.quotes.length > 0) {
-      // For 1D timeframe, get the latest price
-      if (timeFrame === "1D") {
-        const lastQuote = yahooChartData.quotes[yahooChartData.quotes.length - 1];
-        return lastQuote.close || lastQuote.open || 0;
-      }
+      // Get the latest price from Yahoo Finance data
+      const lastQuote = yahooChartData.quotes[yahooChartData.quotes.length - 1];
+      return lastQuote.close || lastQuote.open || lastQuote.high || lastQuote.low || 0;
     }
-    // Fallback to stock.price if Yahoo data not available
-    return stock && typeof stock.price === 'number' ? stock.price : 0;
-  }, [yahooChartData, timeFrame, stock]);
+    return 0; // Will only show if Yahoo data is not loaded yet
+  }, [yahooChartData]);
   
-  // Calculate day's price range
+  // Calculate day's price range strictly from Yahoo data
   const dayRange = useMemo(() => {
     if (yahooChartData?.quotes && yahooChartData.quotes.length > 0) {
-      // For current day (1D timeframe)
-      if (timeFrame === "1D") {
-        let low = Number.MAX_VALUE;
-        let high = 0;
-        
-        // Find min/max for the day
-        yahooChartData.quotes.forEach(quote => {
-          if (quote.low && quote.low < low) low = quote.low;
-          if (quote.high && quote.high > high) high = quote.high;
-        });
-        
-        if (low !== Number.MAX_VALUE && high !== 0) {
-          return { low, high };
-        }
+      let low = Number.MAX_VALUE;
+      let high = 0;
+      
+      // Find min/max across all quotes
+      yahooChartData.quotes.forEach(quote => {
+        if (quote.low && quote.low < low) low = quote.low;
+        if (quote.high && quote.high > high) high = quote.high;
+      });
+      
+      if (low !== Number.MAX_VALUE && high !== 0) {
+        return { low, high };
       }
     }
-    // Fallback
+    // Return zeros which will hide the range display if not available
     return { low: 0, high: 0 };
-  }, [yahooChartData, timeFrame]);
+  }, [yahooChartData]);
   
-  // Calculate price change for the day
+  // Calculate price change strictly from Yahoo data
   const priceChange = useMemo(() => {
     if (yahooChartData?.quotes && yahooChartData.quotes.length > 0) {
-      // For current day or any timeframe
       const firstQuote = yahooChartData.quotes[0];
       const lastQuote = yahooChartData.quotes[yahooChartData.quotes.length - 1];
       
-      // Get open and close prices
-      const openPrice = firstQuote.open || firstQuote.close || 0;
-      const closePrice = lastQuote.close || lastQuote.open || 0;
+      // Get accurate open and close prices
+      const openPrice = firstQuote.open || firstQuote.close || firstQuote.high || firstQuote.low || 0;
+      const closePrice = lastQuote.close || lastQuote.open || lastQuote.high || lastQuote.low || 0;
       
       if (openPrice > 0 && closePrice > 0) {
         // Calculate change amount
@@ -211,21 +204,20 @@ export default function StockCard({
       }
     }
     
-    // Fallback to stock.change if Yahoo data not available
-    const validChange = stock && typeof stock.change === 'number' ? stock.change : 0;
+    // Return zeros which will hide the change indicator if not available
     return {
       value: 0,
-      percent: validChange
+      percent: 0
     };
-  }, [yahooChartData, stock]);
+  }, [yahooChartData]);
   
-  // Format for display
-  const displayPrice = yahooCurrentPrice.toFixed(2);
+  // Format for display - will only show valid data when Yahoo data is available
+  const displayPrice = yahooCurrentPrice > 0 ? yahooCurrentPrice.toFixed(2) : "--";
   const realTimeChange = priceChange.percent;
 
-  // Calculate min/max for chart axis safely
-  const minValue = chartPrices.length > 0 ? Math.min(...chartPrices) * 0.98 : yahooCurrentPrice * 0.95; // Add fallback
-  const maxValue = chartPrices.length > 0 ? Math.max(...chartPrices) * 1.02 : yahooCurrentPrice * 1.05; // Add fallback
+  // Calculate min/max for chart axis exclusively from chart data
+  const minValue = chartPrices.length > 0 ? Math.min(...chartPrices) * 0.98 : 0; 
+  const maxValue = chartPrices.length > 0 ? Math.max(...chartPrices) * 1.02 : 0;
   const priceRangeMin = Math.floor(minValue);
   const priceRangeMax = Math.ceil(maxValue);
 
@@ -234,14 +226,15 @@ export default function StockCard({
     return getYahooTimeScaleLabels(timeFrame, yahooChartData);
   }, [timeFrame, yahooChartData]);
 
-  // Use the latest trading day from Yahoo data if available
+  // Use the latest trading day exclusively from Yahoo data
   const latestTradingDay = useMemo(() => {
     if (yahooChartData?.quotes && yahooChartData.quotes.length > 0) {
       const lastQuote = yahooChartData.quotes[yahooChartData.quotes.length - 1];
-      return new Date(lastQuote.date).toISOString().split('T')[0];
+      if (lastQuote.date) {
+        return new Date(lastQuote.date).toISOString().split('T')[0];
+      }
     }
-    // Fallback or default date if needed
-    return new Date().toISOString().split('T')[0];
+    return null; // No fallback - will hide the last updated text if not available
   }, [yahooChartData]);
 
   // --- Handlers ---
@@ -442,16 +435,13 @@ export default function StockCard({
                 </span>
                 </div>
             </div>
-            {/* Day's Range */}
-            <div className="mt-1 flex items-center text-xs text-slate-500">
+            {/* Day's Range - Only shown when Yahoo data is available */}
+            {dayRange.low > 0 && dayRange.high > 0 && (
+              <div className="mt-1 flex items-center text-xs text-slate-500">
                 <span className="mr-2">Day's Range:</span>
-                {/* Use actual day's range from Yahoo data if available */}
-                {dayRange.low > 0 && dayRange.high > 0 ? (
-                  <span className="font-medium">${dayRange.low.toFixed(2)} - ${dayRange.high.toFixed(2)}</span>
-                ) : (
-                  <span className="font-medium">${(yahooCurrentPrice * 0.98).toFixed(2)} - ${(yahooCurrentPrice * 1.02).toFixed(2)}</span>
-                )}
-            </div>
+                <span className="font-medium">${dayRange.low.toFixed(2)} - ${dayRange.high.toFixed(2)}</span>
+              </div>
+            )}
              {/* Chart Area */}
             <div className="relative mt-3 h-44 py-2">
                 {isLoadingYahooData && (
@@ -515,9 +505,14 @@ export default function StockCard({
                     </div>
                  )}
             </div>
-             {/* Last Updated Info */}
+             {/* Last Updated Info - Only shown when Yahoo data provides a trading date */}
              <div className="mt-4 flex items-center justify-between text-xs h-6">
-                <span className="text-slate-900 font-medium">Last updated: {latestTradingDay}</span>
+                {latestTradingDay && (
+                  <span className="text-slate-900 font-medium">Last updated: {latestTradingDay}</span>
+                )}
+                {!latestTradingDay && (
+                  <span></span> /* Empty span to maintain flex layout */
+                )}
                 <span className="text-slate-700 italic">Swipe <span className="text-red-600 font-medium">left to skip</span> • Swipe <span className="text-green-600 font-medium">right to invest</span></span>
             </div>
       </div>
