@@ -128,7 +128,7 @@ export default function StockCard({
   // Fetch Yahoo Finance data with stable arguments to fix React Hook dependency issue
   const stockTicker = useMemo(() => stock.ticker, [stock.ticker]);
   const selectedTimeFrame = useMemo(() => timeFrame, [timeFrame]);
-
+  
   const { data: yahooChartData, isLoading: isLoadingYahooData, error: yahooError, refetch: refetchYahooData } =
     useYahooChartData(stockTicker, selectedTimeFrame);
 
@@ -163,19 +163,19 @@ export default function StockCard({
     }
     return 0; // Will only show if Yahoo data is not loaded yet
   }, [yahooChartData]);
-
+  
   // Calculate day's price range strictly from Yahoo data
   const dayRange = useMemo(() => {
     if (yahooChartData?.quotes && yahooChartData.quotes.length > 0) {
       let low = Number.MAX_VALUE;
       let high = 0;
-
+      
       // Find min/max across all quotes
       yahooChartData.quotes.forEach(quote => {
         if (quote.low && quote.low < low) low = quote.low;
         if (quote.high && quote.high > high) high = quote.high;
       });
-
+      
       if (low !== Number.MAX_VALUE && high !== 0) {
         return { low, high };
       }
@@ -183,37 +183,37 @@ export default function StockCard({
     // Return zeros which will hide the range display if not available
     return { low: 0, high: 0 };
   }, [yahooChartData]);
-
+  
   // Calculate price change strictly from Yahoo data
   const priceChange = useMemo(() => {
     if (yahooChartData?.quotes && yahooChartData.quotes.length > 0) {
       const firstQuote = yahooChartData.quotes[0];
       const lastQuote = yahooChartData.quotes[yahooChartData.quotes.length - 1];
-
+      
       // Get accurate open and close prices
       const openPrice = firstQuote.open || firstQuote.close || firstQuote.high || firstQuote.low || 0;
       const closePrice = lastQuote.close || lastQuote.open || lastQuote.high || lastQuote.low || 0;
-
+      
       if (openPrice > 0 && closePrice > 0) {
         // Calculate change amount
         const change = closePrice - openPrice;
         // Calculate percentage change
         const percentChange = (change / openPrice) * 100;
-
+        
         return {
           value: change,
           percent: percentChange
         };
       }
     }
-
+    
     // Return zeros which will hide the change indicator if not available
     return {
       value: 0,
       percent: 0
     };
   }, [yahooChartData]);
-
+  
   // Format for display - will only show valid data when Yahoo data is available
   const displayPrice = yahooCurrentPrice > 0 ? yahooCurrentPrice.toFixed(2) : "--";
   const realTimeChange = priceChange.percent;
@@ -424,7 +424,7 @@ export default function StockCard({
                 </button>
               </div>
             </div>
-
+             
             {/* Price and Change - Larger, bolder, cleaner - with fixed height */}
             <div className="flex items-start px-5 pb-2 h-14"> {/* Added fixed height */}
                 <span className="text-3xl font-bold text-slate-900">${displayPrice}</span>
@@ -435,7 +435,7 @@ export default function StockCard({
                 </span>
                 </div>
             </div>
-
+            
             {/* Day's Range - Only shown when Yahoo data is available - with fixed height */}
             <div className="h-6"> {/* Fixed height container */}
               {dayRange.low > 0 && dayRange.high > 0 && (
@@ -445,7 +445,7 @@ export default function StockCard({
                 </div>
               )}
             </div>
-
+            
             {/* Chart Area - Full-screen, edge-to-edge */}
             <div className="relative h-64 w-full -mx-1 mt-3"> {/* Added margin-top and negative x-margin */}
                 {isLoadingYahooData && (
@@ -472,12 +472,12 @@ export default function StockCard({
                                         <feComposite in="SourceGraphic" in2="glow" operator="over" />
                                     </filter>
                                 </defs>
-
+                                
                                 {/* Horizontal dotted grid lines - more subtle */}
                                 <line x1="0" y1="25" x2="100" y2="25" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.07)' : 'rgba(239, 68, 68, 0.07)'} strokeWidth="0.3" strokeDasharray="1,2" />
                                 <line x1="0" y1="50" x2="100" y2="50" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.07)' : 'rgba(239, 68, 68, 0.07)'} strokeWidth="0.3" strokeDasharray="1,2" />
                                 <line x1="0" y1="75" x2="100" y2="75" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.07)' : 'rgba(239, 68, 68, 0.07)'} strokeWidth="0.3" strokeDasharray="1,2" />
-
+                                
                                 {/* Chart Line - THINNER with subtle glow effect - always starts from far left edge */}
                                 {chartPrices.length > 1 && (
                                   <path
@@ -496,7 +496,7 @@ export default function StockCard({
                                   }}
                                   />
                                 )}
-
+                                
                                 {/* Interactive Price Tracker - Robinhood Style */}
                                 {chartPrices.length > 1 && (
                                   <>
@@ -512,41 +512,41 @@ export default function StockCard({
                                         // Get SVG element
                                         const svg = e.currentTarget.ownerSVGElement;
                                         if (!svg) return;
-
+                                        
                                         // Get SVG dimensions and position
                                         const svgRect = svg.getBoundingClientRect();
-
+                                        
                                         // Calculate position as percentage
                                         const xPercent = (e.clientX - svgRect.left) / svgRect.width * 100;
-
+                                        
                                         // Find nearest data point from chart
                                         const pointIndex = Math.min(
                                           Math.round(xPercent / 100 * (chartPrices.length - 1)),
                                           chartPrices.length - 1
                                         );
-
+                                        
                                         // Set dynamic cursor elements - Display at touch position
                                         const cursorLine = svg.querySelector('#cursorLine');
                                         const pricePoint = svg.querySelector('#pricePoint');
                                         const priceLabel = svg.querySelector('#priceLabel');
-
+                                        
                                         if (cursorLine && pricePoint && priceLabel) {
                                           // Clamp position within chart boundaries
                                           const clampedX = Math.max(0, Math.min(100, xPercent));
-
+                                          
                                           // Calculate Y position for the selected price
                                           const price = chartPrices[pointIndex];
                                           const yPos = 100 - ((price - minValue) / (maxValue - minValue || 1)) * 100;
-
+                                          
                                           // Update elements
                                           cursorLine.setAttribute('x1', clampedX.toString());
                                           cursorLine.setAttribute('x2', clampedX.toString());
                                           cursorLine.setAttribute('opacity', '1');
-
+                                          
                                           pricePoint.setAttribute('cx', clampedX.toString());
                                           pricePoint.setAttribute('cy', yPos.toString());
                                           pricePoint.setAttribute('opacity', '1');
-
+                                          
                                           priceLabel.setAttribute('x', clampedX < 50 ? (clampedX + 5).toString() : (clampedX - 25).toString());
                                           priceLabel.setAttribute('y', (yPos - 8).toString());
                                           priceLabel.textContent = `$${price.toFixed(2)}`;
@@ -557,11 +557,11 @@ export default function StockCard({
                                         // Hide cursor elements on mouse leave
                                         const svg = e.currentTarget.ownerSVGElement;
                                         if (!svg) return;
-
+                                        
                                         const cursorLine = svg.querySelector('#cursorLine');
                                         const pricePoint = svg.querySelector('#pricePoint');
                                         const priceLabel = svg.querySelector('#priceLabel');
-
+                                        
                                         if (cursorLine && pricePoint && priceLabel) {
                                           cursorLine.setAttribute('opacity', '0');
                                           pricePoint.setAttribute('opacity', '0');
@@ -572,45 +572,45 @@ export default function StockCard({
                                       onTouchMove={(e) => {
                                         // Prevent scrolling
                                         e.preventDefault();
-
+                                        
                                         // Get SVG element
                                         const svg = e.currentTarget.ownerSVGElement;
                                         if (!svg || !e.touches[0]) return;
-
+                                        
                                         // Get SVG dimensions and position
                                         const svgRect = svg.getBoundingClientRect();
-
+                                        
                                         // Calculate position as percentage
                                         const xPercent = (e.touches[0].clientX - svgRect.left) / svgRect.width * 100;
-
+                                        
                                         // Find nearest data point from chart
                                         const pointIndex = Math.min(
                                           Math.round(xPercent / 100 * (chartPrices.length - 1)),
                                           chartPrices.length - 1
                                         );
-
+                                        
                                         // Set dynamic cursor elements - Display at touch position
                                         const cursorLine = svg.querySelector('#cursorLine');
                                         const pricePoint = svg.querySelector('#pricePoint');
                                         const priceLabel = svg.querySelector('#priceLabel');
-
+                                        
                                         if (cursorLine && pricePoint && priceLabel) {
                                           // Clamp position within chart boundaries
                                           const clampedX = Math.max(0, Math.min(100, xPercent));
-
+                                          
                                           // Calculate Y position for the selected price
                                           const price = chartPrices[pointIndex];
                                           const yPos = 100 - ((price - minValue) / (maxValue - minValue || 1)) * 100;
-
+                                          
                                           // Update elements
                                           cursorLine.setAttribute('x1', clampedX.toString());
                                           cursorLine.setAttribute('x2', clampedX.toString());
                                           cursorLine.setAttribute('opacity', '1');
-
+                                          
                                           pricePoint.setAttribute('cx', clampedX.toString());
                                           pricePoint.setAttribute('cy', yPos.toString());
                                           pricePoint.setAttribute('opacity', '1');
-
+                                          
                                           priceLabel.setAttribute('x', clampedX < 50 ? (clampedX + 5).toString() : (clampedX - 25).toString());
                                           priceLabel.setAttribute('y', (yPos - 8).toString());
                                           priceLabel.textContent = `$${price.toFixed(2)}`;
@@ -621,11 +621,11 @@ export default function StockCard({
                                         // Hide cursor elements on touch end
                                         const svg = e.currentTarget.ownerSVGElement;
                                         if (!svg) return;
-
+                                        
                                         const cursorLine = svg.querySelector('#cursorLine');
                                         const pricePoint = svg.querySelector('#pricePoint');
                                         const priceLabel = svg.querySelector('#priceLabel');
-
+                                        
                                         if (cursorLine && pricePoint && priceLabel) {
                                           cursorLine.setAttribute('opacity', '0');
                                           pricePoint.setAttribute('opacity', '0');
@@ -633,7 +633,7 @@ export default function StockCard({
                                         }
                                       }}
                                     />
-
+                                    
                                     {/* Interactive vertical cursor line */}
                                     <line 
                                       id="cursorLine" 
@@ -646,7 +646,7 @@ export default function StockCard({
                                       strokeWidth="0.5" 
                                       opacity="0"
                                     />
-
+                                    
                                     {/* Interactive price point bubble */}
                                     <circle 
                                       id="pricePoint" 
@@ -657,7 +657,7 @@ export default function StockCard({
                                       opacity="0"
                                       filter="url(#glow)"
                                     />
-
+                                    
                                     {/* Interactive price label - Robinhood Style */}
                                     <g id="priceLabel" opacity="0">
                                       <rect
@@ -687,7 +687,7 @@ export default function StockCard({
                                 )}
                             </svg>
                         </div>
-
+                        
                         {/* X Axis Labels - Edge to edge */}
                         <div className="absolute left-0 right-0 bottom-1 px-2 flex justify-between text-[9px] text-slate-500 font-medium pointer-events-none">
                             {timeScaleLabels.map((label, index) => (<span key={index}>{label}</span>))}
@@ -700,7 +700,7 @@ export default function StockCard({
                     </div>
                 )}
             </div>
-
+            
             {/* --- Time frame selector (Robinhood style below chart) - Moved up slightly --- */}
             <div className="flex justify-around px-3 pt-2 pb-1 -mt-1">
                 {["1D", "1W", "1M", "3M", "1Y", "5Y"].map((period) => (
@@ -717,7 +717,7 @@ export default function StockCard({
                     </button>
                 ))}
             </div>
-
+            
             {/* Last Updated Info - Only shown when Yahoo data provides a trading date */}
             <div className="mt-1 flex items-center justify-between px-5 text-xs h-6">
                 {latestTradingDay && (
@@ -742,7 +742,7 @@ export default function StockCard({
                     metricObj.color === 'yellow' ? 'bg-gradient-to-r from-amber-200/60 to-yellow-200/60 shadow-lg shadow-amber-50' : 
                     'bg-gradient-to-r from-red-200/60 to-rose-200/60 shadow-lg shadow-red-50'
                   }`}></div>
-
+                  
                   {/* Main Metric Box with enhanced styling */}
                   <div className={`p-4 rounded-xl border-2 relative z-10 overflow-hidden active:scale-95 transition-all duration-150 cursor-pointer 
                     ${metricObj.color === 'green' 
@@ -750,7 +750,7 @@ export default function StockCard({
                     : metricObj.color === 'yellow' 
                     ? 'bg-gradient-to-br from-white to-amber-50 border-amber-300 group-hover:border-amber-400 shadow-md shadow-amber-100/50'
                     : 'bg-gradient-to-br from-white to-red-50 border-red-300 group-hover:border-red-400 shadow-md shadow-red-100/50'}`}>
-
+                      
                       {/* Enhanced Top Color Bar */}
                       <div className={`absolute top-0 left-0 w-full h-[3px] ${
                         metricObj.color === 'green' 
@@ -759,7 +759,7 @@ export default function StockCard({
                         ? 'bg-gradient-to-r from-amber-500 to-yellow-600' 
                         : 'bg-gradient-to-r from-red-500 to-rose-600'}`}>
                       </div>
-
+                      
                       {/* Icon and Info with enhanced styling */}
                       <div className="flex items-center justify-between mb-2.5">
                         <div className={`flex items-center justify-center rounded-full w-9 h-9 shadow-sm ${
@@ -775,7 +775,7 @@ export default function StockCard({
                         </div>
                         <Info size={16} className="text-slate-500 group-hover:text-slate-700 transition-colors mr-1" />
                       </div>
-
+                      
                       {/* Value and Name with enhanced styling */}
                       <div className={`text-xl font-bold ${
                         metricObj.color === 'green' 
@@ -785,7 +785,7 @@ export default function StockCard({
                         : 'text-red-700'}`}>
                         {metricObj.value}
                       </div>
-
+                      
                       <div className="text-slate-600 text-sm font-semibold mt-1 capitalize">{metricName}</div>
                   </div>
               </div>
