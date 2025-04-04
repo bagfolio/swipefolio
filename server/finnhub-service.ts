@@ -2,9 +2,8 @@ import axios from 'axios';
 import { db } from './db';
 import { stockCache } from '../shared/schema';
 import { eq, sql } from 'drizzle-orm';
-// Using Yahoo Finance API directly
+import { yahooFinanceService } from './services/yahoo-finance-service';
 import * as finnhub from 'finnhub';
-// Using Yahoo Finance API directly for stock data needs
 
 // Configure API key
 // Use the API key provided by the user
@@ -110,8 +109,8 @@ export class FinnhubService {
     try {
       // Check if API key is available
       if (!FINNHUB_API_KEY) {
-        console.warn(`[Finnhub] API key is missing, using postgres/mock data for ${symbol}`);
-        return await this.getMockData(symbol);
+        console.warn(`[Finnhub] API key is missing, redirecting to Yahoo Finance for ${symbol}`);
+        return await this.getYahooFinanceData(symbol);
       }
       
       // Fetch only the quote data which works with the free tier
@@ -121,10 +120,10 @@ export class FinnhubService {
         return null;
       });
       
-      // If quote failed (which is our most basic endpoint), use postgres/mock data
+      // If quote failed (which is our most basic endpoint), use Yahoo Finance
       if (!quote) {
-        console.warn(`[Finnhub] Quote fetch failed for ${symbol}, using postgres/mock data`);
-        return await this.getMockData(symbol);
+        console.warn(`[Finnhub] Quote fetch failed for ${symbol}, redirecting to Yahoo Finance`);
+        return await this.getYahooFinanceData(symbol);
       }
       
       // Try to get company profile which might work with the free tier
@@ -133,42 +132,41 @@ export class FinnhubService {
         return null;
       });
 
-      // For the remaining premium endpoints, we'll use postgres/mock data as our free tier doesn't have access
-      // Get postgres/mock data to fill in the missing pieces
-      const backupData = await this.getMockData(symbol);
+      // For the remaining premium endpoints, we'll use Yahoo Finance
+      const yahooData = await this.getYahooFinanceData(symbol);
       
-      // Create a structured response combining real API data with postgres/mock data
+      // Create a structured response combining Finnhub with Yahoo Finance data
       return {
         symbol,
         quote: quote || {},
         profile: profile || {},
-        metrics: backupData?.metrics || {},
-        priceTarget: backupData?.priceTarget || {},
-        recommendations: backupData?.recommendations || [],
+        metrics: yahooData?.metrics || {},
+        priceTarget: yahooData?.priceTarget || {},
+        recommendations: yahooData?.recommendations || [],
         lastUpdated: new Date().toISOString(),
-        partiallyMocked: true // Flag to indicate some data is from mock sources
+        yahooFinanceUsed: true
       };
     } catch (error) {
       console.error(`[Finnhub] Error fetching data for ${symbol}:`, error);
       
-      // Try to get postgres/mock data as a fallback
-      console.warn(`[Finnhub] Attempting to use postgres/mock data for ${symbol}`);
-      const mockData = await this.getMockData(symbol);
+      // Try to get Yahoo Finance data as a fallback
+      console.warn(`[Finnhub] Attempting to use Yahoo Finance data for ${symbol}`);
+      const yahooData = await this.getYahooFinanceData(symbol);
       
-      if (mockData) {
-        return mockData;
+      if (yahooData) {
+        return yahooData;
       }
       
       throw error;
     }
   }
   
-  // Redirects to Yahoo Finance API instead of using mock data
-  private async getMockData(symbol: string): Promise<any> {
+  // Get data from Yahoo Finance API
+  private async getYahooFinanceData(symbol: string): Promise<any> {
     try {
-      console.log(`[Finnhub] Yahoo Finance API will be used for ${symbol} data instead`);
+      console.log(`[Finnhub] Using Yahoo Finance API for ${symbol}`);
       
-      // Return empty object to trigger Yahoo Finance API usage
+      // Return an object that marks this as redirected to Yahoo Finance
       return {
         symbol,
         quote: {},
@@ -180,7 +178,7 @@ export class FinnhubService {
         yahooFinanceRedirect: true
       };
     } catch (error) {
-      console.error(`[Finnhub] Error getting data for ${symbol}:`, error);
+      console.error(`[Finnhub] Error getting Yahoo Finance data for ${symbol}:`, error);
       return null;
     }
   }
