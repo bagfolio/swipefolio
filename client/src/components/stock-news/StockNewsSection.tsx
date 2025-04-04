@@ -38,27 +38,29 @@ interface StockNewsSectionProps {
   // Remove theme prop - we'll use light theme only
 }
 
-// Helper function to format date from timestamp - correctly shows publication date
-const formatNewsDate = (timestamp: number): string => {
-  if (!timestamp) return 'N/A';
+// Helper function to format date from timestamp or ISO string
+const formatNewsDate = (dateValue: number | string): string => {
+  if (!dateValue) return 'N/A';
   
   let date: Date;
   
-  // Based on server code in yahoo-finance-service.ts, the API is returning Unix timestamps in seconds
-  // But the server uses Date.now() (milliseconds) for fallbacks, so we need to handle both
-  
-  // If timestamp is in seconds (Unix timestamp, typically 10 digits), convert to milliseconds
-  if (timestamp < 10000000000) {
-    // This is a Unix timestamp in seconds (like 1609459200 for Dec 31, 2020)
-    date = new Date(timestamp * 1000);
+  // Handle different types of date input from Yahoo Finance API
+  if (typeof dateValue === 'string') {
+    // If it's a string, it's likely an ISO date string like "2025-04-03T12:55:01.000Z"
+    date = new Date(dateValue);
+  } else if (typeof dateValue === 'number') {
+    // If it's a large number, it's likely milliseconds (JavaScript timestamp)
+    // If it's a smaller number, it's likely seconds (Unix timestamp)
+    date = dateValue < 10000000000 ? new Date(dateValue * 1000) : new Date(dateValue);
   } else {
-    // This is already in milliseconds (JavaScript timestamp, 13 digits)
-    date = new Date(timestamp);
+    console.warn('Unexpected date format:', dateValue);
+    return 'Unknown date';
   }
   
+  // Check if the date is valid
   const isValidDate = !isNaN(date.getTime());
   if (!isValidDate) {
-    console.warn(`Invalid date for timestamp: ${timestamp}`);
+    console.warn(`Invalid date from value: ${dateValue}`);
     return 'Unknown date';
   }
   
