@@ -24,7 +24,6 @@ export interface YahooChartResponse {
   quotes: YahooChartQuote[];
 }
 
-// Analyst recommendation types
 export interface AnalystRecommendation {
   buy: number;
   hold: number;
@@ -42,7 +41,6 @@ export interface AnalystRecommendation {
   averageRating: number; // 1-5 scale (1=Strong Sell, 5=Strong Buy)
 }
 
-// Analyst upgrade/downgrade history item
 export interface UpgradeHistoryItem {
   firm: string;
   toGrade: string;
@@ -52,7 +50,6 @@ export interface UpgradeHistoryItem {
   epochGradeDate: number;
 }
 
-// Map TimeFrame to Yahoo Finance range parameter
 export const timeFrameToRange: Record<string, string> = {
   "1D": "1d",
   "5D": "5d",
@@ -70,14 +67,14 @@ export const timeFrameToRange: Record<string, string> = {
 export async function fetchStockChartData(symbol: string, range: string = "1mo", interval: string = "1d"): Promise<YahooChartResponse> {
   try {
     const response = await fetch(`/api/yahoo-finance/chart/${symbol}?interval=${interval}&range=${range}`);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
         errorData.message || `Failed to fetch chart data for ${symbol}`
       );
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error(`Error fetching chart data for ${symbol}:`, error);
@@ -91,7 +88,7 @@ export async function fetchStockChartData(symbol: string, range: string = "1mo",
 export function useYahooChartData(symbol: string, timeFrame: string) {
   // Map timeFrame to corresponding Yahoo Finance range
   const range = timeFrameToRange[timeFrame] || "1mo";
-  
+
   // Get primary chart data
   return useQuery<YahooChartResponse>({
     queryKey: ['/api/yahoo-finance/chart', symbol, range],
@@ -109,7 +106,7 @@ export function extractChartPrices(chartData?: YahooChartResponse): number[] {
   if (!chartData?.quotes || chartData.quotes.length === 0) {
     return [];
   }
-  
+
   // Extract close prices
   return chartData.quotes.map(quote => quote.close);
 }
@@ -122,26 +119,26 @@ export function getYahooTimeScaleLabels(timeFrame: string, chartData?: YahooChar
     // Fallback labels if no data
     return ["", "", "", "", ""];
   }
-  
+
   // Determine how many labels to show (avoid overcrowding)
   const maxLabels = 5;
   const quotes = chartData.quotes;
   const labelCount = Math.min(maxLabels, quotes.length);
-  
+
   if (labelCount <= 1) return [formatDateByTimeFrame(quotes[0].date, timeFrame)];
-  
+
   // Create evenly spaced labels
   const result: string[] = [];
   const step = Math.floor(quotes.length / (labelCount - 1));
-  
+
   for (let i = 0; i < labelCount - 1; i++) {
     const index = i * step;
     result.push(formatDateByTimeFrame(quotes[index].date, timeFrame));
   }
-  
+
   // Always add the most recent date as the last label
   result.push(formatDateByTimeFrame(quotes[quotes.length - 1].date, timeFrame));
-  
+
   return result;
 }
 
@@ -150,7 +147,7 @@ export function getYahooTimeScaleLabels(timeFrame: string, chartData?: YahooChar
  */
 function formatDateByTimeFrame(dateStr: string, timeFrame: string): string {
   const date = new Date(dateStr);
-  
+
   switch (timeFrame) {
     case "1D":
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -177,14 +174,14 @@ function formatDateByTimeFrame(dateStr: string, timeFrame: string): string {
 export async function fetchAnalystRecommendations(symbol: string): Promise<AnalystRecommendation> {
   try {
     const response = await fetch(`/api/yahoo-finance/recommendations/${symbol}`);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
         errorData.message || `Failed to fetch recommendations for ${symbol}`
       );
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error(`Error fetching recommendations for ${symbol}:`, error);
@@ -210,14 +207,14 @@ export function useAnalystRecommendations(symbol: string) {
 export async function fetchUpgradeHistory(symbol: string): Promise<UpgradeHistoryItem[]> {
   try {
     const response = await fetch(`/api/yahoo-finance/upgrade-history/${symbol}`);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
         errorData.message || `Failed to fetch upgrade/downgrade history for ${symbol}`
       );
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error(`Error fetching upgrade history for ${symbol}:`, error);
@@ -236,3 +233,34 @@ export function useUpgradeHistory(symbol: string) {
     enabled: !!symbol,
   });
 }
+
+export const timeFrameToRange = (timeFrame: string): string => {
+  const mapping: Record<string, string> = {
+    '1D': '1d',
+    '1W': '5d',
+    '1M': '1mo',
+    '3M': '3mo',
+    '6M': '6mo',
+    '1Y': '1y',
+    '5Y': '5y',
+    'MAX': 'max'
+  };
+  return mapping[timeFrame] || '1mo'; // Default to 1 month if not found
+};
+
+export const useYahooChartData = (symbol: string, timeFrame: string) => {
+  const range = timeFrameToRange(timeFrame);
+
+  return useQuery({
+    queryKey: ['/api/yahoo-finance/chart', symbol, range],
+    queryFn: async () => {
+      const response = await fetch(`/api/yahoo-finance/chart/${symbol}?range=${range}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch chart data for ${symbol}`);
+      }
+      return await response.json();
+    },
+    enabled: !!symbol && !!range,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+};

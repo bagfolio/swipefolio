@@ -6,19 +6,19 @@ import { StockData, getIndustryStocks } from "@/lib/stock-data";
 import StockChart from "@/components/stock-detail/stock-chart";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import OverallAnalysisCard from "@/components/overall-analysis-card";
-import AnalystRatings from "@/components/stock-detail/analyst-ratings";
-import SimplePerformanceChart from "@/components/stock-detail/simple-performance-chart";
+import { AnalystRatings } from '@/components/stock-detail/analyst-ratings';
+import HistoricalPerformanceChart from "@/components/stock-detail/historical-performance-chart";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StockDetailView() {
   const { symbol } = useParams<{ symbol: string }>();
   const [_, setLocation] = useLocation();
-  
+
   // Handle back button click
   const handleBack = () => {
     setLocation("/");
   };
-  
+
   // Fetch the stock data using the symbol from the URL parameters
   const { data: stock, isLoading, error } = useQuery<StockData>({
     queryKey: ['/api/stock', symbol],
@@ -27,7 +27,7 @@ export default function StockDetailView() {
       if (!symbol) {
         throw new Error("Stock symbol not provided");
       }
-      
+
       const response = await fetch(`/api/stock/${symbol}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -35,13 +35,13 @@ export default function StockDetailView() {
           errorData.message || `Failed to fetch stock data for ${symbol}`
         );
       }
-      
+
       return response.json();
     },
     enabled: !!symbol, // Only run the query if we have a symbol
     staleTime: 60 * 1000, // 1 minute
   });
-  
+
   if (isLoading) {
     return (
       <div className="p-4 md:p-8 max-w-6xl mx-auto">
@@ -54,7 +54,7 @@ export default function StockDetailView() {
           </button>
           <Skeleton className="h-8 w-48" />
         </div>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
             <Skeleton className="h-80 w-full" /> {/* Chart */}
@@ -70,7 +70,7 @@ export default function StockDetailView() {
       </div>
     );
   }
-  
+
   if (error || !stock) {
     return (
       <div className="p-4 md:p-8 max-w-6xl mx-auto">
@@ -83,7 +83,7 @@ export default function StockDetailView() {
           </button>
           <h1 className="text-2xl font-bold">Stock Not Found</h1>
         </div>
-        
+
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-600">
             {error instanceof Error ? error.message : "Unable to load stock data"}
@@ -98,7 +98,7 @@ export default function StockDetailView() {
       </div>
     );
   }
-  
+
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto">
       {/* Header with back button */}
@@ -123,20 +123,24 @@ export default function StockDetailView() {
           </div>
         </div>
       </div>
-      
+
       {/* Main content layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column with chart and analysis */}
         <div className="lg:col-span-2 space-y-6">
           {/* Stock price chart */}
           <StockChart symbol={stock.ticker} />
-          
-          {/* Analyst Ratings */}
-          <AnalystRatings symbol={stock.ticker} companyName={stock.name} />
-          
+
           {/* Historical Performance Chart */}
-          <SimplePerformanceChart symbol={stock.ticker} companyName={stock.name} />
-          
+          <div className="mb-6">
+            <HistoricalPerformanceChart symbol={stock.ticker} companyName={stock.name} />
+          </div>
+
+          {/* Analyst Ratings */}
+          <div className="mb-6">
+            <AnalystRatings symbol={stock.ticker} companyName={stock.name} />
+          </div>
+
           {/* Company overview */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="p-4 border-b">
@@ -153,7 +157,7 @@ export default function StockDetailView() {
             </div>
           </div>
         </div>
-        
+
         {/* Right column with metrics and related info */}
         <div className="space-y-6">
           {/* Metrics card */}
@@ -200,7 +204,7 @@ export default function StockDetailView() {
               </div>
             </div>
           </div>
-          
+
           {/* Comparative analysis card */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="p-4 border-b">
@@ -210,7 +214,7 @@ export default function StockDetailView() {
               <ComparativeAnalysis currentStock={stock} />
             </div>
           </div>
-          
+
           {/* Add to portfolio button */}
           <button 
             className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow transition-colors"
