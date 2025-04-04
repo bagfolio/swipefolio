@@ -175,7 +175,7 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
 
   // Define light theme styles
   const styles = {
-    container: "p-4 bg-white border-t border-b border-slate-100",
+    container: "p-4 bg-white",
     title: "font-semibold text-slate-900 mb-3 flex items-center",
     iconColor: "text-blue-500",
     emptyText: "text-slate-500",
@@ -221,11 +221,33 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
     );
   }
 
-  // Component is ready for production
+  // Function to get publisher logo
+  const getPublisherLogo = (publisher: string) => {
+    // Map of common publishers to their logo URLs
+    const publisherLogos: Record<string, string> = {
+      'CNBC': 'https://www.cnbc.com/favicon.ico',
+      'Yahoo Finance': 'https://s.yimg.com/cv/apiv2/default/20220929/logo-yahoo-finance.png',
+      'Seeking Alpha': 'https://seekingalpha.com/samw/static/images/favicon-32x32.png',
+      'Benzinga': 'https://www.benzinga.com/images/icons/favicon-32x32.png',
+      'MarketWatch': 'https://www.marketwatch.com/favicon.ico',
+      'Bloomberg': 'https://www.bloomberg.com/favicon.ico',
+      'Reuters': 'https://www.reuters.com/apple-touch-icon.png',
+      'Financial Times': 'https://www.ft.com/__origami/service/image/v2/images/raw/ftlogo-v1:brand-ft-logo-square-coloured?source=update-logos&format=png&width=60',
+      'The Wall Street Journal': 'https://www.wsj.com/favicon.ico',
+      'Motley Fool': 'https://www.fool.com/favicon.ico',
+      'Nasdaq': 'https://www.nasdaq.com/favicon.ico',
+      'Forbes': 'https://www.forbes.com/favicon.ico',
+      'Business Insider': 'https://www.businessinsider.com/favicon.ico',
+      'CNBC Video': 'https://www.cnbc.com/favicon.ico'
+    };
+    
+    return publisherLogos[publisher] || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(publisher.toLowerCase() + '.com')}`;
+  };
   
+  // Component is ready for production  
   return (
     <div className={styles.container}>
-      <h3 className={styles.title}>
+      <h3 className="font-semibold text-slate-900 mb-3 flex items-center">
         <Calendar className={`w-5 h-5 mr-2 ${styles.iconColor}`} /> Latest News
       </h3>
       
@@ -234,48 +256,87 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
           <p>No recent news available for {stock.ticker}</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {processedNews.map((newsItem, index) => {
-            // Get the first metric for this news item
-            const metrics = Object.entries(newsItem.metrics);
-            const primaryMetric = metrics.length > 0 ? metrics[0] : null;
-            
-            return (
-              <a 
-                key={index} 
-                href={newsItem.link} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className={styles.newsItem}
-              >
-                <div className="flex justify-between items-start">
-                  <h4 className={styles.newsTitle}>
-                    {newsItem.title}
-                  </h4>
-                  <ExternalLink className={styles.icon} />
-                </div>
-                
-                <div className="mt-2 flex items-center justify-between">
-                  <div className="flex items-center text-xs">
-                    <div className={styles.publisherBadge}>
-                      {newsItem.publisher}
+        <div className="overflow-x-auto pb-2 -mx-4 px-4">
+          <div className="flex space-x-4" style={{ minWidth: 'max-content' }}>
+            {processedNews.map((newsItem, index) => {
+              // Get the first metric for this news item
+              const metrics = Object.entries(newsItem.metrics);
+              const primaryMetric = metrics.length > 0 ? metrics[0] : null;
+              
+              // Get a suitable thumbnail URL if available
+              const thumbnailUrl = newsItem.thumbnail?.resolutions 
+                ? newsItem.thumbnail.resolutions.find(res => res.width >= 100 && res.width <= 200)?.url || newsItem.thumbnail.resolutions[0]?.url
+                : null;
+              
+              return (
+                <a 
+                  key={index} 
+                  href={newsItem.link} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 w-64 bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-all duration-200 hover:border-blue-400"
+                >
+                  {/* Card Content */}
+                  <div className="p-3">
+                    {/* Publisher Logo and Date */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        <img 
+                          src={getPublisherLogo(newsItem.publisher)} 
+                          alt={newsItem.publisher}
+                          className="w-5 h-5 mr-2 rounded-full"
+                          onError={(e) => {
+                            // Fallback if logo fails to load
+                            (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cline x1='3' y1='9' x2='21' y2='9'%3E%3C/line%3E%3Cline x1='9' y1='21' x2='9' y2='9'%3E%3C/line%3E%3C/svg%3E";
+                          }}
+                        />
+                        <span className="text-xs font-semibold text-slate-800">{newsItem.publisher}</span>
+                      </div>
+                      <div className="flex items-center text-xs text-slate-500">
+                        <Clock className="w-3 h-3 mr-1" />
+                        {formatNewsDate(newsItem.providerPublishTime)}
+                      </div>
                     </div>
-                    <Clock className="w-3 h-3 mr-1 text-slate-500" />
-                    {formatNewsDate(newsItem.providerPublishTime)}
-                  </div>
-                  
-                  {primaryMetric && (
-                    <div className="flex items-center">
-                      <span className={styles.metricTag}>
-                        {primaryMetric[0]}
+                    
+                    {/* News Thumbnail if available */}
+                    {thumbnailUrl && (
+                      <div className="mb-2 rounded-lg overflow-hidden">
+                        <img 
+                          src={thumbnailUrl} 
+                          alt="News thumbnail" 
+                          className="w-full h-24 object-cover"
+                          onError={(e) => {
+                            // Remove the image if it fails to load
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* News Title */}
+                    <h4 className="text-sm font-medium text-slate-800 line-clamp-3 h-[4.5rem]">
+                      {newsItem.title}
+                    </h4>
+                    
+                    {/* Metrics and Read More */}
+                    <div className="mt-2 flex items-center justify-between">
+                      {primaryMetric && (
+                        <div className="flex items-center">
+                          <span className="text-xs capitalize bg-slate-100 px-2 py-1 rounded-full text-slate-600 mr-1">
+                            {primaryMetric[0]}
+                          </span>
+                          {getMetricIcon(primaryMetric[0], primaryMetric[1])}
+                        </div>
+                      )}
+                      <span className="text-xs font-medium text-blue-600 flex items-center">
+                        Read more <ExternalLink className="w-3 h-3 ml-1" />
                       </span>
-                      {getMetricIcon(primaryMetric[0], primaryMetric[1])}
                     </div>
-                  )}
-                </div>
-              </a>
-            );
-          })}
+                  </div>
+                </a>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

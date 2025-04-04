@@ -582,15 +582,8 @@ export default function StockCard({
         </div>
 
        {/* --- News Section --- */}
-        <div className="bg-white border-t border-slate-100 mb-4 mx-4 rounded-xl shadow-md"> {/* Added margin and rounded corners */}
-            <div className="p-4">
-                <h3 className="font-semibold text-slate-900 mb-3 flex items-center">
-                    <Calendar size={16} className="text-blue-500 mr-2" /> Latest News
-                </h3>
-                <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                    <StockNewsSection stock={stock} />
-                </div>
-            </div>
+        <div className="bg-white border-t border-slate-100 mb-4 mx-4 rounded-xl shadow-md overflow-hidden"> {/* Added margin and rounded corners */}
+            <StockNewsSection stock={stock} />
         </div>
 
         {/* --- Ask AI --- */}
