@@ -66,21 +66,27 @@ function processAnalystData(result: any, symbol: string) {
       // Attempt to create a valid Date object
       if (item.epochGradeDate) {
         try {
-          // epochGradeDate is in seconds, convert to milliseconds
-          const timestamp = item.epochGradeDate * 1000;
-          const potentialDate = new Date(timestamp);
+          // Yahoo provides epochGradeDate in seconds - CONVERT TO MILLISECONDS 
+          const timestampInMillis = item.epochGradeDate * 1000;
+          const potentialDate = new Date(timestampInMillis);
           
           if (isValid(potentialDate)) {
             dateObject = potentialDate;
-            displayDate = format(dateObject, 'MMM dd, yyyy');
-            
-            // Log for debugging
-            console.log(`Processed date for ${item.firm}: ${displayDate} (raw=${item.epochGradeDate})`);
+            const year = dateObject.getFullYear();
+            // Check for realistic year range to catch bad dates
+            if (year < 1980 || year > new Date().getFullYear() + 5) {
+              console.warn(`[${symbol}] Parsed date has unlikely year (${year}) from epoch:`, item.epochGradeDate);
+              displayDate = "Unlikely Date";
+              dateObject = null; // Invalidate if year is out of range
+            } else {
+              displayDate = format(dateObject, 'MMM dd, yyyy');
+              console.log(`Processed date for ${item.firm}: ${displayDate} (raw=${item.epochGradeDate})`);
+            }
           } else {
-            console.warn(`[${symbol}] Invalid date object created from raw value:`, item.epochGradeDate);
+            console.warn(`[${symbol}] Invalid date object created from epoch:`, item.epochGradeDate);
           }
         } catch (parseError) {
-          console.error(`[${symbol}] Error parsing date:`, item.epochGradeDate, parseError);
+          console.error(`[${symbol}] Error parsing date from epoch:`, item.epochGradeDate, parseError);
         }
       } else {
         console.warn(`[${symbol}] Missing epochGradeDate in history item:`, item);

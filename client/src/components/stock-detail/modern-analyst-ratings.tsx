@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BarChart2, TrendingUp, TrendingDown, ArrowUpRight, 
@@ -13,12 +13,6 @@ import {
   CardContent 
 } from '@/components/ui/card';
 import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger 
-} from '@/components/ui/tabs';
-import { 
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -30,6 +24,116 @@ import { Button } from '@/components/ui/button';
 
 // Helper functions
 import { cn } from '@/lib/utils';
+
+// Custom function to fetch analyst data (without importing the service)
+function standardizeRating(rating: string): string {
+  const lowerCaseRating = rating?.toLowerCase() || '';
+  if (['strong buy', 'star performer'].includes(lowerCaseRating)) return 'Strong Buy';
+  if (['buy', 'outperform', 'accumulate', 'overweight', 'positive'].includes(lowerCaseRating)) return 'Buy';
+  if (['hold', 'neutral', 'market perform', 'equal-weight'].includes(lowerCaseRating)) return 'Hold';
+  if (['sell', 'underperform', 'reduce', 'underweight', 'negative'].includes(lowerCaseRating)) return 'Sell';
+  if (['strong sell'].includes(lowerCaseRating)) return 'Strong Sell';
+  return 'N/A';
+}
+
+// Calculate a gauge score from analyst distributions (1-5 scale)
+function calculateGaugeScore(distribution: any): number | null {
+  if (!distribution) return null;
+  
+  const weights = { strongBuy: 5, buy: 4, hold: 3, sell: 2, strongSell: 1 };
+  let weightedSum = 0;
+  let totalAnalysts = 0;
+  
+  for (const key in weights) {
+    const count = typeof distribution[key] === 'number' ? distribution[key] : 0;
+    weightedSum += count * weights[key as keyof typeof weights];
+    totalAnalysts += count;
+  }
+  
+  if (totalAnalysts === 0) return null;
+  return weightedSum / totalAnalysts;
+}
+
+// Function to fetch analyst data from our API endpoints
+async function getAnalystData(symbol: string): Promise<AnalystData | null> {
+  try {
+    // Get recommendations data
+    const recommendationsResponse = await fetch(`/api/yahoo-finance/recommendations/${symbol}`);
+    if (!recommendationsResponse.ok) {
+      throw new Error(`Failed to fetch recommendations for ${symbol}`);
+    }
+    const recommendationsData = await recommendationsResponse.json();
+
+    // Get upgrade history data
+    const upgradeHistoryResponse = await fetch(`/api/yahoo-finance/upgrade-history/${symbol}`);
+    if (!upgradeHistoryResponse.ok) {
+      throw new Error(`Failed to fetch upgrade history for ${symbol}`);
+    }
+    const upgradeHistoryData = await upgradeHistoryResponse.json();
+
+    // Create distribution data for current period
+    const currentDistribution: DistributionData = {
+      strongBuy: recommendationsData.strongBuy || 0,
+      buy: recommendationsData.buy || 0,
+      hold: recommendationsData.hold || 0,
+      sell: recommendationsData.sell || 0,
+      strongSell: recommendationsData.strongSell || 0,
+    };
+
+    // Calculate gauge score
+    const gaugeScore = calculateGaugeScore(currentDistribution);
+
+    // Process history data
+    const processedHistory = upgradeHistoryData.map((item: any) => {
+      // Parse date with validation
+      let dateObject: Date | null = null;
+      try {
+        if (item.date) {
+          const potentialDate = new Date(item.date);
+          if (isValid(potentialDate)) {
+            dateObject = potentialDate;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse date:', item.date);
+      }
+
+      // Determine action type
+      const actionType = !item.fromGrade ? 'init' : 
+                   item.toGrade === item.fromGrade ? 'maintain' :
+                   standardizeRating(item.toGrade) > standardizeRating(item.fromGrade) ? 'upgrade' : 'downgrade';
+
+      return {
+        date: dateObject,
+        firm: item.firm,
+        displayDate: item.date, // Use the display date string directly
+        actionType: actionType,
+        standardizedToGrade: standardizeRating(item.toGrade),
+        standardizedFromGrade: standardizeRating(item.fromGrade || ''),
+      };
+    });
+
+    // Create the final data structure
+    const result: AnalystData = {
+      consensusKey: recommendationsData.consensus || 'N/A',
+      consensusMean: recommendationsData.averageRating || null,
+      numberOfAnalysts: recommendationsData.total || 0,
+      gaugeScore: gaugeScore,
+      distributionOverTime: {
+        '0m': currentDistribution,
+        // Add past periods as a demonstration
+        '-1m': { ...currentDistribution }, // Clone current as example
+        '-2m': { ...currentDistribution }, // In a real implementation, these would be different
+      },
+      ratingHistoryForChart: processedHistory,
+    };
+
+    return result;
+  } catch (error) {
+    console.error(`Error fetching analyst data for ${symbol}:`, error);
+    throw error;
+  }
+}
 
 // Types
 interface ModernAnalystRatingsProps {
@@ -56,6 +160,7 @@ interface AnalystData {
   gaugeScore: number | null;
   distributionOverTime: Record<string, DistributionData>;
   ratingHistoryForChart: Array<{
+    date: Date | null; // Now uses actual Date object
     firm: string;
     displayDate: string;
     actionType: string;
@@ -104,60 +209,6 @@ const periodMap: Record<string, string> = {
   '-2m': '2 Mo Ago',
   '-3m': '3 Mo Ago',
 };
-
-// Custom hook to fetch analyst data
-function useAnalystData(symbol: string) {
-  return useQuery({
-    queryKey: ['analystData', symbol],
-    queryFn: async () => {
-      try {
-        // First try to get data from our recommendations endpoint
-        const recommendationsResponse = await fetch(`/api/yahoo-finance/recommendations/${symbol}`);
-        if (!recommendationsResponse.ok) {
-          throw new Error(`Failed to fetch recommendations for ${symbol}`);
-        }
-        const recommendationsData = await recommendationsResponse.json();
-
-        // Then get upgrade history data
-        const upgradeHistoryResponse = await fetch(`/api/yahoo-finance/upgrade-history/${symbol}`);
-        if (!upgradeHistoryResponse.ok) {
-          throw new Error(`Failed to fetch upgrade history for ${symbol}`);
-        }
-        const upgradeHistoryData = await upgradeHistoryResponse.json();
-
-        // Process and combine the data to match our expected format
-        const processedData = {
-          consensusKey: recommendationsData.consensus || 'N/A',
-          consensusMean: recommendationsData.averageRating || null,
-          numberOfAnalysts: recommendationsData.total || 0,
-          gaugeScore: recommendationsData.averageRating || null,
-          distributionOverTime: {
-            '0m': {
-              strongBuy: recommendationsData.strongBuy || 0,
-              buy: recommendationsData.buy || 0,
-              hold: recommendationsData.hold || 0,
-              sell: recommendationsData.sell || 0,
-              strongSell: recommendationsData.strongSell || 0,
-            }
-          },
-          ratingHistoryForChart: upgradeHistoryData.map((item: any) => ({
-            firm: item.firm,
-            displayDate: item.date,
-            actionType: item.action,
-            standardizedToGrade: item.toGrade,
-            standardizedFromGrade: item.fromGrade || 'New Coverage',
-          }))
-        };
-        
-        return processedData;
-      } catch (error) {
-        console.error(`Error fetching analyst data for ${symbol}:`, error);
-        throw error;
-      }
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-}
 
 // Gauge Component
 const AnalystGauge: React.FC<{score: number; consensus: string; className?: string}> = ({ 
@@ -221,44 +272,38 @@ const AnalystGauge: React.FC<{score: number; consensus: string; className?: stri
   );
 };
 
-// Donut Chart Component
+// Donut Chart Component (modified to remove center text and include all segments)
 const DistributionDonut: React.FC<{
-  distribution: {
-    strongBuy: number;
-    buy: number;
-    hold: number;
-    sell: number;
-    strongSell: number;
-  };
-  totalAnalysts: number;
-}> = ({ distribution, totalAnalysts }) => {
+  distribution: DistributionData; // Use the defined type
+  // Removed totalAnalysts from props
+}> = ({ distribution }) => {
+  // Define ALL segments, regardless of count
   const segments = [
-    { label: 'Strong Buy', count: distribution.strongBuy, color: 'emerald' },
-    { label: 'Buy', count: distribution.buy, color: 'green' },
-    { label: 'Hold', count: distribution.hold, color: 'amber' },
-    { label: 'Sell', count: distribution.sell, color: 'red' },
-    { label: 'Strong Sell', count: distribution.strongSell, color: 'red-700' },
+    { label: 'Strong Buy', count: distribution?.strongBuy || 0, color: 'emerald-500' },
+    { label: 'Buy', count: distribution?.buy || 0, color: 'green-500' },
+    { label: 'Hold', count: distribution?.hold || 0, color: 'amber-400' },
+    { label: 'Sell', count: distribution?.sell || 0, color: 'red-500' },
+    { label: 'Strong Sell', count: distribution?.strongSell || 0, color: 'red-700' },
   ];
-  
-  // Filter out zero-count segments
-  const filteredSegments = segments.filter(segment => segment.count > 0);
-  
-  // Calculate percentages and stroke-dasharray values
-  const total = totalAnalysts || filteredSegments.reduce((sum: number, segment) => sum + segment.count, 0);
+
+  // Calculate total based on ALL segments provided
+  const total = Object.values(distribution || {}).reduce(
+    (sum, count) => sum + (typeof count === 'number' ? count : 0), 
+    0
+  );
+
   let cumulativePercentage = 0;
-  
-  const segmentsWithData = filteredSegments.map(segment => {
+
+  const segmentsWithData = segments.map(segment => {
     const percentage = total > 0 ? (segment.count / total) * 100 : 0;
     const startPercentage = cumulativePercentage;
     cumulativePercentage += percentage;
-    
+
     return {
       ...segment,
       percentage,
       startPercentage,
       endPercentage: cumulativePercentage,
-      strokeDasharray: `${percentage} ${100 - percentage}`,
-      strokeDashoffset: `${-startPercentage}`,
     };
   });
 
@@ -268,44 +313,39 @@ const DistributionDonut: React.FC<{
   return (
     <div className="relative w-48 h-48 mx-auto">
       <svg className="w-full h-full" viewBox="0 0 100 100">
-        <circle 
-          className="fill-none stroke-gray-200" 
-          cx="50" 
-          cy="50" 
-          r={radius} 
-          strokeWidth="12"
+        {/* Background circle */}
+        <circle
+          className="fill-none stroke-gray-200"
+          cx="50" cy="50" r={radius} strokeWidth="12"
         />
-        
+
+        {/* Data Segments - only render if percentage > 0 */}
         {segmentsWithData.map((segment, i) => (
-          <motion.circle
-            key={i}
-            className={`fill-none stroke-${segment.color} transition-all`}
-            cx="50"
-            cy="50"
-            r={radius}
-            strokeWidth="12"
-            strokeDasharray={`${(segment.percentage * circumference) / 100} ${circumference}`}
-            strokeDashoffset={`${(-segment.startPercentage * circumference) / 100}`}
-            transform="rotate(-90 50 50)"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.4, delay: i * 0.1 }}
-          />
+          segment.percentage > 0 && (
+            <motion.circle
+              key={i}
+              className={`fill-none stroke-${segment.color} transition-all`}
+              cx="50" cy="50" r={radius} strokeWidth="12"
+              strokeDasharray={`${(segment.percentage * circumference) / 100} ${circumference}`}
+              strokeDashoffset={`${(-segment.startPercentage * circumference) / 100}`}
+              transform="rotate(-90 50 50)"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: i * 0.1, ease: "easeOut" }}
+            />
+          )
         ))}
       </svg>
       
-      {/* Center text */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold">{totalAnalysts}</span>
-        <span className="text-xs text-gray-500">Analysts</span>
-      </div>
+      {/* Removed center text - will display totalAnalysts separately */}
     </div>
   );
 };
 
-// Timeline Component
+// Timeline Component (with placeholder for chart implementation)
 const RatingTimeline: React.FC<{
   history: Array<{
+    date: Date | null; // Using Date object
     firm: string;
     displayDate: string;
     actionType: string;
@@ -322,86 +362,84 @@ const RatingTimeline: React.FC<{
     );
   }
   
+  // Placeholder for timeline chart - in the future, this would use a proper chart library
   return (
-    <div className="space-y-1 max-h-[350px] overflow-y-auto pr-1">
-      {history.slice(0, 8).map((item, index) => (
-        <motion.div 
-          key={index}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ 
-            opacity: 1, 
-            y: 0,
-            transition: { delay: index * 0.05 }
-          }}
-          className="p-3 hover:bg-gray-50 rounded-lg transition-colors"
-        >
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <div className="flex items-center">
-                <span className="font-medium">{item.firm}</span>
-                <span className="text-xs text-gray-500 ml-2">
-                  {item.displayDate}
-                </span>
-              </div>
-              
-              <div className="flex items-center mt-1.5 text-sm">
-                <Badge 
-                  className={cn(
-                    "mr-2 capitalize font-normal", 
-                    actionBgColors[item.actionType as keyof typeof actionBgColors] || 'bg-gray-100'
-                  )}
-                >
-                  {item.actionType === 'init' ? 'New Coverage' : item.actionType}
-                </Badge>
+    <div className="p-4 border border-dashed border-gray-300 rounded-lg text-center text-gray-500">
+      <p className="font-semibold mb-2">Rating History Timeline Chart</p>
+      <p className="text-sm">(Chart implementation pending)</p>
+      <p className="text-xs mt-1">Showing {history.length} historical rating changes.</p>
+      <div className="mt-6 space-y-1 max-h-[320px] overflow-y-auto pr-1">
+        {history.slice(0, 8).map((item, index) => (
+          <motion.div 
+            key={index}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ 
+              opacity: 1, 
+              y: 0,
+              transition: { delay: index * 0.05 }
+            }}
+            className="p-3 hover:bg-gray-50 rounded-lg transition-colors"
+          >
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="flex items-center">
+                  <span className="font-medium">{item.firm}</span>
+                  <span className="text-xs text-gray-500 ml-2">
+                    {item.displayDate}
+                  </span>
+                </div>
                 
-                {/* From → To rating change */}
-                {item.actionType !== 'init' && item.standardizedFromGrade !== 'N/A' && (
-                  <div className="flex items-center">
-                    <span className={getConsensusTextColor(item.standardizedFromGrade)}>
-                      {item.standardizedFromGrade}
-                    </span>
-                    <ArrowUpRight className="h-3.5 w-3.5 mx-1 text-gray-400 transform rotate-90" />
+                <div className="flex items-center mt-1.5 text-sm">
+                  <Badge 
+                    className={cn(
+                      "mr-2 capitalize font-normal", 
+                      actionBgColors[item.actionType as keyof typeof actionBgColors] || 'bg-gray-100'
+                    )}
+                  >
+                    {item.actionType === 'init' ? 'New Coverage' : item.actionType}
+                  </Badge>
+                  
+                  {/* From → To rating change */}
+                  {item.actionType !== 'init' && item.standardizedFromGrade !== 'N/A' && (
+                    <div className="flex items-center">
+                      <span className={getConsensusTextColor(item.standardizedFromGrade)}>
+                        {item.standardizedFromGrade}
+                      </span>
+                      <ArrowUpRight className="h-3.5 w-3.5 mx-1 text-gray-400 transform rotate-90" />
+                      <span className={getConsensusTextColor(item.standardizedToGrade)}>
+                        {item.standardizedToGrade}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Just show the rating for new coverage */}
+                  {item.actionType === 'init' && (
                     <span className={getConsensusTextColor(item.standardizedToGrade)}>
                       {item.standardizedToGrade}
                     </span>
-                  </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Action icon */}
+              <div className="ml-2">
+                {item.actionType === 'upgrade' && (
+                  <TrendingUp className="h-5 w-5 text-green-500" />
                 )}
-                
-                {/* Just show the rating for new coverage */}
+                {item.actionType === 'downgrade' && (
+                  <TrendingDown className="h-5 w-5 text-red-500" />
+                )}
+                {item.actionType === 'maintain' && (
+                  <BarChart2 className="h-5 w-5 text-amber-500" />
+                )}
                 {item.actionType === 'init' && (
-                  <span className={getConsensusTextColor(item.standardizedToGrade)}>
-                    {item.standardizedToGrade}
-                  </span>
+                  <InfoIcon className="h-5 w-5 text-blue-500" />
                 )}
               </div>
             </div>
-            
-            {/* Action icon */}
-            <div className="ml-2">
-              {item.actionType === 'upgrade' && (
-                <TrendingUp className="h-5 w-5 text-green-500" />
-              )}
-              {item.actionType === 'downgrade' && (
-                <TrendingDown className="h-5 w-5 text-red-500" />
-              )}
-              {item.actionType === 'maintain' && (
-                <BarChart2 className="h-5 w-5 text-amber-500" />
-              )}
-              {item.actionType === 'init' && (
-                <InfoIcon className="h-5 w-5 text-blue-500" />
-              )}
-            </div>
-          </div>
-        </motion.div>
-      ))}
-      
-      {history.length > 8 && (
-        <div className="text-center text-xs text-blue-600 pt-2 pb-1">
-          <Button variant="link" size="sm" className="p-0 h-auto">
-            View all {history.length} ratings
-          </Button>
-        </div>
-      )}
+          </motion.div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -431,14 +469,40 @@ export const ModernAnalystRatings: React.FC<ModernAnalystRatingsProps> = ({
   const [activeTab, setActiveTab] = useState<'snapshot' | 'history'>('snapshot');
   const [selectedPeriod, setSelectedPeriod] = useState<string>('0m');
   
-  const { data: analystData, isLoading, error } = useAnalystData(symbol);
+  // --- CORRECTED DATA FETCHING ---
+  const { data: analystData, isLoading, error, isError } = useQuery<AnalystData | null>({
+    queryKey: ['analystData', symbol],
+    queryFn: () => getAnalystData(symbol), // Using imported function directly
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
+  // --- END CORRECTED DATA FETCHING ---
   
   // Report errors to parent if needed
   useEffect(() => {
-    if (error && onError) {
+    if (isError && error && onError) {
       onError(error as Error);
     }
-  }, [error, onError]);
+  }, [isError, error, onError]);
+  
+  // --- Calculate Available Periods Correctly ---
+  const availablePeriods = useMemo(() => {
+    if (!analystData?.distributionOverTime) return ['0m']; // Default if no data
+    return Object.keys(analystData.distributionOverTime).sort((a, b) => {
+      // Sort '0m' first, then '-1m', '-2m', etc.
+      const numA = parseInt(a.replace('m', ''), 10);
+      const numB = parseInt(b.replace('m', ''), 10);
+      return numA - numB; // Should place 0m before -1m etc.
+    });
+  }, [analystData?.distributionOverTime]);
+
+  // Ensure selectedPeriod is valid, fallback to '0m' if needed
+  useEffect(() => {
+    if (availablePeriods && !availablePeriods.includes(selectedPeriod)) {
+      setSelectedPeriod(availablePeriods[0] || '0m');
+    }
+  }, [availablePeriods, selectedPeriod]);
+  // --- End Period Calculation ---
   
   if (isLoading) {
     return (
@@ -451,7 +515,7 @@ export const ModernAnalystRatings: React.FC<ModernAnalystRatingsProps> = ({
     );
   }
   
-  if (error || !analystData) {
+  if (isError || !analystData) {
     return (
       <Card className={cn("overflow-hidden", className)}>
         <CardContent className="p-4">
@@ -459,7 +523,7 @@ export const ModernAnalystRatings: React.FC<ModernAnalystRatingsProps> = ({
             <p>Unable to load analyst data</p>
             {error && (
               <p className="text-sm text-gray-500 mt-1">
-                {(error as Error).message}
+                {(error as Error).message || 'An unknown error occurred'}
               </p>
             )}
           </div>
@@ -468,8 +532,7 @@ export const ModernAnalystRatings: React.FC<ModernAnalystRatingsProps> = ({
     );
   }
   
-  // Calculate some derived data
-  // Explicitly define default distribution data for type safety
+  // --- Prepare Default Distribution Data ---
   const defaultDistribution: DistributionData = {
     strongBuy: 0,
     buy: 0,
@@ -478,52 +541,22 @@ export const ModernAnalystRatings: React.FC<ModernAnalystRatingsProps> = ({
     strongSell: 0
   };
   
-  // Safely access the distribution data using explicit type checks
-  const currentDistribution = (
-    analystData.distributionOverTime && 
-    typeof selectedPeriod === 'string' && 
-    selectedPeriod in analystData.distributionOverTime
-  ) 
-    ? analystData.distributionOverTime[selectedPeriod as keyof typeof analystData.distributionOverTime] 
-    : (analystData.distributionOverTime && '0m' in analystData.distributionOverTime)
-      ? analystData.distributionOverTime['0m']
-      : defaultDistribution;
+  // Safely access the distribution data for the selected period
+  const currentDistribution = analystData.distributionOverTime?.[selectedPeriod] || 
+                              analystData.distributionOverTime?.['0m'] || 
+                              defaultDistribution;
   
   const totalAnalysts = analystData.numberOfAnalysts;
   const consensusScore = analystData.gaugeScore || 3; // Default to neutral if missing
   
-  // Distribution percentages for bar chart
-  const distributionData = [
-    { label: 'Strong Buy', count: currentDistribution.strongBuy, color: 'bg-emerald-500' },
-    { label: 'Buy', count: currentDistribution.buy, color: 'bg-green-500' },
-    { label: 'Hold', count: currentDistribution.hold, color: 'bg-amber-400' },
-    { label: 'Sell', count: currentDistribution.sell, color: 'bg-red-500' },
-    { label: 'Strong Sell', count: currentDistribution.strongSell, color: 'bg-red-700' }
-  ].filter(item => item.count > 0);
-  
-  // Available periods - use safer type handling and explicit casting
-  const availablePeriods = Object.keys(analystData.distributionOverTime || {})
-    .filter(period => {
-      // Only get periods if they exist in the data
-      if (!(period in (analystData.distributionOverTime || {}))) return false;
-      
-      // Safely access the distribution data
-      const distribution = analystData.distributionOverTime?.[period as keyof typeof analystData.distributionOverTime];
-      
-      // Calculate total ratings for this period
-      let total = 0;
-      if (distribution) {
-        // Use safer iteration approach rather than Object.values
-        if (typeof distribution.strongBuy === 'number') total += distribution.strongBuy;
-        if (typeof distribution.buy === 'number') total += distribution.buy;
-        if (typeof distribution.hold === 'number') total += distribution.hold;
-        if (typeof distribution.sell === 'number') total += distribution.sell;
-        if (typeof distribution.strongSell === 'number') total += distribution.strongSell;
-      }
-      
-      return total > 0;
-    })
-    .sort(); // Sort chronologically, newer periods first
+  // --- Update Distribution Data to Show All Categories ---
+  const fullDistributionData = [
+    { label: 'Strong Buy', count: currentDistribution.strongBuy || 0, color: ratingColors['Strong Buy'], textColor: ratingTextColors['Strong Buy'] },
+    { label: 'Buy', count: currentDistribution.buy || 0, color: ratingColors['Buy'], textColor: ratingTextColors['Buy'] },
+    { label: 'Hold', count: currentDistribution.hold || 0, color: ratingColors['Hold'], textColor: ratingTextColors['Hold'] },
+    { label: 'Sell', count: currentDistribution.sell || 0, color: ratingColors['Sell'], textColor: ratingTextColors['Sell'] },
+    { label: 'Strong Sell', count: currentDistribution.strongSell || 0, color: ratingColors['Strong Sell'], textColor: ratingTextColors['Strong Sell'] }
+  ];
   
   return (
     <Card className={cn("overflow-hidden", className)}>
@@ -592,11 +625,11 @@ export const ModernAnalystRatings: React.FC<ModernAnalystRatingsProps> = ({
                   consensus={analystData.consensusKey || 'N/A'} 
                 />
                 
-                {/* Distribution chart */}
-                <div className="space-y-3">
-                  {/* Period toggle buttons */}
+                {/* Distribution Section */}
+                <div className="flex flex-col items-center space-y-3">
+                  {/* --- Time Period Toggle Buttons --- */}
                   {availablePeriods.length > 1 && (
-                    <div className="flex justify-center space-x-2 mb-4">
+                    <div className="flex justify-center flex-wrap gap-2 mb-2">
                       {availablePeriods.map(period => (
                         <Button
                           key={period}
@@ -604,8 +637,8 @@ export const ModernAnalystRatings: React.FC<ModernAnalystRatingsProps> = ({
                           variant={selectedPeriod === period ? "default" : "outline"}
                           onClick={() => setSelectedPeriod(period)}
                           className={cn(
-                            "text-xs rounded-full px-3 py-1 h-auto",
-                            selectedPeriod === period ? "bg-primary text-white" : ""
+                            "text-xs rounded-full px-3 py-1 h-auto transition-all",
+                            selectedPeriod === period ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
                           )}
                         >
                           {periodMap[period] || period}
@@ -614,53 +647,39 @@ export const ModernAnalystRatings: React.FC<ModernAnalystRatingsProps> = ({
                     </div>
                   )}
                   
-                  {/* Donut chart */}
-                  <DistributionDonut 
-                    distribution={currentDistribution} 
-                    totalAnalysts={totalAnalysts} 
-                  />
+                  {/* Donut chart - no analyst count in center */}
+                  <DistributionDonut distribution={currentDistribution} />
+                  
+                  {/* Display Total Analysts Separately */}
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Based on {totalAnalysts} analyst{totalAnalysts !== 1 ? 's' : ''}
+                  </p>
                 </div>
               </div>
               
-              {/* Distribution bars */}
-              <div className="space-y-3 mt-2">
-                <h4 className="text-sm font-medium text-gray-700">Rating Distribution</h4>
-                
-                {distributionData.map(item => {
-                  const percentage = totalAnalysts > 0 
-                    ? (item.count / totalAnalysts) * 100 
+              {/* --- Legend/List (Using fullDistributionData) --- */}
+              <div className="space-y-2 mt-4">
+                <h4 className="text-sm font-medium text-center md:text-left text-gray-700">
+                  Rating Breakdown ({periodMap[selectedPeriod] || selectedPeriod})
+                </h4>
+                {fullDistributionData.map(item => {
+                  const percentage = totalAnalysts > 0
+                    ? (item.count / totalAnalysts) * 100
                     : 0;
-                  
                   return (
-                    <div key={item.label} className="space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span className={cn(
-                          "text-sm font-medium",
-                          ratingTextColors[item.label as keyof typeof ratingTextColors]
-                        )}>
-                          {item.label}
-                        </span>
-                        <span className="text-sm font-medium">
-                          {item.count} ({Math.round(percentage)}%)
-                        </span>
-                      </div>
-                      <motion.div 
-                        className="h-2 bg-gray-200 rounded-full overflow-hidden"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <motion.div 
-                          className={cn("h-full", item.color)}
-                          initial={{ width: "0%" }}
-                          animate={{ width: `${percentage}%` }}
-                          transition={{ duration: 0.7, ease: "easeOut" }}
-                        />
-                      </motion.div>
+                    // Render list items for ALL categories, showing 0 if count is 0
+                    <div key={item.label} className="flex justify-between items-center text-sm">
+                      <span className={cn("font-medium", item.textColor || ratingTextColors['N/A'])}>
+                        {item.label}
+                      </span>
+                      <span className="font-medium text-gray-600">
+                        {item.count} ({Math.round(percentage)}%)
+                      </span>
                     </div>
                   );
                 })}
               </div>
+              {/* --- REMOVED Redundant Horizontal Bars --- */}
             </motion.div>
           ) : (
             <motion.div 
