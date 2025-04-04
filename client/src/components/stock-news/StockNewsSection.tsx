@@ -42,29 +42,37 @@ interface StockNewsSectionProps {
 const formatNewsDate = (timestamp: number): string => {
   if (!timestamp) return 'N/A';
   
-  // Yahoo Finance API returns Unix timestamps in seconds, convert to milliseconds
-  const date = new Date(timestamp * 1000); 
-  const now = new Date();
+  let date: Date;
   
-  // Check if the date is valid by making sure it's not in the future and not too far in the past
-  const maxAgeYears = 2; // News shouldn't be older than 2 years
-  const minDate = new Date();
-  minDate.setFullYear(minDate.getFullYear() - maxAgeYears);
+  // Based on server code in yahoo-finance-service.ts, the API is returning Unix timestamps in seconds
+  // But the server uses Date.now() (milliseconds) for fallbacks, so we need to handle both
   
-  // If the date is invalid or unreasonable, show "Unknown date"
-  if (date > now || date < minDate) {
-    console.log(`Invalid news date detected for timestamp: ${timestamp}, converted: ${date.toISOString()}`);
+  // If timestamp is in seconds (Unix timestamp, typically 10 digits), convert to milliseconds
+  if (timestamp < 10000000000) {
+    // This is a Unix timestamp in seconds (like 1609459200 for Dec 31, 2020)
+    date = new Date(timestamp * 1000);
+  } else {
+    // This is already in milliseconds (JavaScript timestamp, 13 digits)
+    date = new Date(timestamp);
+  }
+  
+  const isValidDate = !isNaN(date.getTime());
+  if (!isValidDate) {
+    console.warn(`Invalid date for timestamp: ${timestamp}`);
     return 'Unknown date';
   }
+  
+  const now = new Date();
   
   // Format date with month name and day, plus year if not current year
   const isCurrentYear = date.getFullYear() === now.getFullYear();
   
+  // Format based on whether it's current year or not
   if (isCurrentYear) {
-    // Format: "Jan 15" for current year
+    // Format: "Apr 4" for current year
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   } else {
-    // Format: "Jan 15, 2024" for past years
+    // Format: "Apr 4, 2024" for past years
     return date.toLocaleDateString(undefined, { 
       month: 'short', 
       day: 'numeric', 
@@ -177,12 +185,24 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
       console.log('News timestamps for', stock.ticker);
       newsItems.forEach((item, index) => {
         const timestamp = item.providerPublishTime;
-        const date = new Date(timestamp * 1000);
+        
+        // Try both ways of interpreting the timestamp
+        const dateFromDirect = new Date(timestamp);
+        const dateFromSeconds = new Date(timestamp * 1000);
+        
+        console.log(`News #${index + 1} RAW Timestamp:`, timestamp);
         console.log(`News #${index + 1}:`, {
           title: item.title.substring(0, 40) + '...',
           timestamp: timestamp,
-          formatted: date.toLocaleString(),
+          directDate: dateFromDirect.toLocaleString(),
+          secondsMultiplied: dateFromSeconds.toLocaleString(),
           publisher: item.publisher
+        });
+        
+        // Check validity
+        console.log(`News #${index + 1} Date validity:`, {
+          direct: !isNaN(dateFromDirect.getTime()),
+          seconds: !isNaN(dateFromSeconds.getTime())
         });
       });
     }
