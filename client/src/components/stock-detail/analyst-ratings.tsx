@@ -109,7 +109,6 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
   
   // Render error state
   if (hasError) {
-    console.error('Analyst Ratings error:', recommendationsError || historyError);
     return (
       <Card className="w-full my-3">
         <CardContent className="p-4">
@@ -118,22 +117,6 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
             <p className="text-sm text-gray-500 mt-1">
               {recommendationsError?.toString() || historyError?.toString()}
             </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-  
-  // Handle the case where we have no data but also no error
-  if (!recommendationsData && !upgradeHistoryData && !isLoading) {
-    console.log(`No analyst data found for ${symbol}. This could be because the API didn't return data.`);
-    return (
-      <Card className="w-full my-3">
-        <CardContent className="p-4">
-          <h3 className="text-lg font-semibold mb-3">Analyst Ratings</h3>
-          <div className="text-center p-4 text-gray-500">
-            <p>No analyst coverage available for {companyName || symbol}</p>
-            <p className="text-sm mt-2">This stock may not have sufficient analyst coverage or the data may be temporarily unavailable.</p>
           </div>
         </CardContent>
       </Card>
