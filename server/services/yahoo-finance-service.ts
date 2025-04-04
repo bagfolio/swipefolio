@@ -225,15 +225,20 @@ class YahooFinanceService {
       if (searchResults && searchResults.news && Array.isArray(searchResults.news)) {
         // Convert the news items to our YahooNewsItem format
         newsItems = searchResults.news.map(item => {
-          // Convert the providerPublishTime to a timestamp
+          // Convert the providerPublishTime to a timestamp in milliseconds format
           let publishTime: number;
           if (typeof item.providerPublishTime === 'number') {
-            publishTime = item.providerPublishTime;
+            // Check if timestamp is in seconds (Unix format) or milliseconds
+            publishTime = item.providerPublishTime > 9999999999
+              ? item.providerPublishTime  // Already in milliseconds
+              : item.providerPublishTime * 1000; // Convert seconds to milliseconds
           } else if (typeof item.providerPublishTime === 'string') {
             publishTime = new Date(item.providerPublishTime).getTime();
           } else {
             publishTime = Date.now();
           }
+          
+          console.log(`News item timestamp processing for ${symbol}: Original=${item.providerPublishTime}, Normalized=${publishTime}, Date=${new Date(publishTime).toISOString()}`);
           
           return {
             title: item.title || `News about ${symbol}`,
