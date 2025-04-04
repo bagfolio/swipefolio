@@ -38,20 +38,38 @@ interface StockNewsSectionProps {
   // Remove theme prop - we'll use light theme only
 }
 
-// Helper function to format date from timestamp - shows actual publication time
+// Helper function to format date from timestamp - correctly shows publication date
 const formatNewsDate = (timestamp: number): string => {
   if (!timestamp) return 'N/A';
   
-  const date = new Date(timestamp * 1000); // Convert timestamp to milliseconds
+  // Yahoo Finance API returns Unix timestamps in seconds, convert to milliseconds
+  const date = new Date(timestamp * 1000); 
   const now = new Date();
   
-  // Format date as MM/DD for items older than a day, or HH:MM for today's items
-  const isToday = date.toDateString() === now.toDateString();
+  // Check if the date is valid by making sure it's not in the future and not too far in the past
+  const maxAgeYears = 2; // News shouldn't be older than 2 years
+  const minDate = new Date();
+  minDate.setFullYear(minDate.getFullYear() - maxAgeYears);
   
-  if (isToday) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // If the date is invalid or unreasonable, show "Unknown date"
+  if (date > now || date < minDate) {
+    console.log(`Invalid news date detected for timestamp: ${timestamp}, converted: ${date.toISOString()}`);
+    return 'Unknown date';
+  }
+  
+  // Format date with month name and day, plus year if not current year
+  const isCurrentYear = date.getFullYear() === now.getFullYear();
+  
+  if (isCurrentYear) {
+    // Format: "Jan 15" for current year
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   } else {
-    return date.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
+    // Format: "Jan 15, 2024" for past years
+    return date.toLocaleDateString(undefined, { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric'
+    });
   }
 };
 
@@ -153,6 +171,23 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
   const [scrollPosition, setScrollPosition] = useState<number>(0);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   
+  // Debug function to log news timestamps
+  const debugNewsTimestamps = (newsItems: YahooNewsItem[]) => {
+    if (newsItems && newsItems.length > 0) {
+      console.log('News timestamps for', stock.ticker);
+      newsItems.forEach((item, index) => {
+        const timestamp = item.providerPublishTime;
+        const date = new Date(timestamp * 1000);
+        console.log(`News #${index + 1}:`, {
+          title: item.title.substring(0, 40) + '...',
+          timestamp: timestamp,
+          formatted: date.toLocaleString(),
+          publisher: item.publisher
+        });
+      });
+    }
+  };
+  
   // Fetch news data from the API
   const { data: newsData, isLoading, error } = useQuery<{ items: YahooNewsItem[] }>({
     queryKey: ['/api/yahoo-finance/news', stock.ticker],
@@ -191,6 +226,11 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
         metrics: analyzeNewsSentiment(item.title, stock.ticker)
       }))
     : [];
+    
+  // Log timestamp information for debugging
+  if (newsData?.items && newsData.items.length > 0) {
+    debugNewsTimestamps(newsData.items);
+  }
 
   // Define light theme styles
   const styles = {
