@@ -48,13 +48,38 @@
 
 /* Chart line drawing animation */
 @keyframes draw-line {
-  to {
+  0% {
+    stroke-dashoffset: 1000;
+  }
+  100% {
     stroke-dashoffset: 0;
   }
 }
 
 .animate-draw-line {
   animation: draw-line 1.5s ease-in-out forwards;
+}
+
+/* Price Point Hover Animation */
+@keyframes price-point-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+
+/* Edge-to-edge styling */
+.stock-card-scroll-content {
+  scroll-padding-bottom: 5rem; /* Add padding at bottom for fixed buttons */
+}
+
+/* Remove dotted outline on chart elements */
+svg text, svg circle, svg line, svg path, svg rect {
+  outline: none;
 }
 
 /* Confetti animations (standard and slow) */

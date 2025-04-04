@@ -390,63 +390,40 @@ export default function StockCard({
         className="absolute inset-0 overflow-y-auto overflow-x-hidden pb-20 stock-card-scroll-content rounded-2xl bg-white text-slate-900" // Increased bottom padding
         style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
     >
-      {/* --- Time frame selector --- */}
-      <div className="sticky top-0 z-20 flex justify-center space-x-1 px-4 py-3 border-b border-slate-100 bg-white shadow-sm">
-          {["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"].map((period) => (
-              <button
-                  key={period}
-                  className={`px-3 py-1 text-xs rounded-full transition-all duration-200 ${
-                      timeFrame === period
-                          ? `${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-200 shadow-sm' : 'text-red-600 bg-red-50 border border-red-200 shadow-sm'} font-medium`
-                          : 'text-slate-600 hover:bg-slate-50 border border-transparent'
-                  }`}
-                  onClick={() => setTimeFrame(period as TimeFrame)}
-              >
-                  {period}
-              </button>
-          ))}
-      </div>
-
-      {/* --- Header/Chart --- */}
-      <div className="bg-white p-4 flex flex-col border-b border-slate-100 shadow-sm">
-            {/* Stock Name & Ticker */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
+      {/* --- Header/Chart Section (Robinhood Style) --- */}
+      <div className="bg-white flex flex-col w-full">
+            {/* Stock Name & Ticker - Centered at top */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-1">
+              <div className="flex items-center gap-1">
                 <Link
-                  to={`/stock-detail/${stock.ticker}`} // Link to detailed view
-                  className="group flex items-center gap-1.5"
-                  onClick={(e: React.MouseEvent) => e.stopPropagation()} // Prevent card drag/swipe
+                  to={`/stock-detail/${stock.ticker}`}
+                  className="group flex items-center gap-1"
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
                 >
-                  <h2 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{stock.name}</h2>
-                  <span className="text-slate-500 font-medium bg-slate-50 px-2 py-0.5 rounded-md group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">{stock.ticker}</span>
-                  <BarChart3 size={18} className="text-slate-400 group-hover:text-blue-500 ml-1 transition-colors" />
+                  <span className="text-xs font-medium text-slate-500">{stock.ticker}</span>
+                  <h2 className="text-lg font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{stock.name}</h2>
                 </Link>
               </div>
               <div className="flex items-center">
                   <button onClick={refreshData} className="p-1.5 rounded-full hover:bg-slate-100 transition-colors" disabled={isRefreshing}>
-                      <RefreshCw size={17} className={`text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      <RefreshCw size={14} className={`text-slate-400 ${isRefreshing ? 'animate-spin' : ''}`} />
                   </button>
               </div>
             </div>
-             {/* Price and Change */}
-            <div className="mt-2 flex items-center">
-                <span className="text-3xl font-bold text-slate-900 drop-shadow-sm">${displayPrice}</span>
+             
+            {/* Price and Change - Larger, bolder, cleaner */}
+            <div className="flex items-center px-5 pb-2">
+                <span className="text-3xl font-bold text-slate-900">${displayPrice}</span>
                 <div className="ml-2 flex items-center">
-                <span className={`flex items-center text-sm font-semibold px-2 py-0.5 rounded-full ${realTimeChange >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
-                    {realTimeChange >= 0 ? <TrendingUp size={14} className="mr-1" /> : <ChevronLeft size={14} className="mr-1 rotate-90" />} {/* Assuming TrendingDown isn't available */}
+                <span className={`flex items-center text-sm font-semibold ${realTimeChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {realTimeChange >= 0 ? <TrendingUp size={12} className="mr-1" /> : <ChevronLeft size={12} className="mr-1 rotate-90" />}
                     {realTimeChange >= 0 ? '+' : ''}{realTimeChange.toFixed(2)}%
                 </span>
                 </div>
             </div>
-            {/* Day's Range - Only shown when Yahoo data is available */}
-            {dayRange.low > 0 && dayRange.high > 0 && (
-              <div className="mt-1 flex items-center text-xs text-slate-500">
-                <span className="mr-2">Day's Range:</span>
-                <span className="font-medium">${dayRange.low.toFixed(2)} - ${dayRange.high.toFixed(2)}</span>
-              </div>
-            )}
-             {/* Chart Area - Robinhood-inspired */}
-            <div className="relative mt-2 h-72 py-2 w-full mx-0"> {/* Full-width chart */}
+            
+            {/* Chart Area - Full-screen, edge-to-edge */}
+            <div className="relative h-64 w-full -mx-1"> {/* Negative margin to break out of container */}
                 {isLoadingYahooData && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white/50">
                         <Skeleton className="h-full w-full" />
@@ -460,7 +437,7 @@ export default function StockCard({
                 {!isLoadingYahooData && !yahooError && chartPrices.length > 0 && (
                     <>
                         {/* Chart SVG with enhanced styling - Edge to edge */}
-                        <div className="absolute inset-0 px-0"> {/* Removed padding for edge-to-edge */}
+                        <div className="absolute inset-0 touch-manipulation"> {/* Using touch-manipulation to optimize for mobile */}
                             <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
                                 {/* Minimal defs - removed gradient fill as requested */}
                                 <defs>
@@ -496,94 +473,180 @@ export default function StockCard({
                                   />
                                 )}
                                 
-                                {/* Key Price Points with labels - Only display if we have valid chart data */}
+                                {/* Interactive Price Tracker - Robinhood Style */}
                                 {chartPrices.length > 1 && (
                                   <>
-                                    {/* Start price dot and label */}
+                                    {/* Invisible overlay for touch/mouse interaction */}
+                                    <rect 
+                                      x="0" 
+                                      y="0" 
+                                      width="100" 
+                                      height="100" 
+                                      fill="transparent" 
+                                      className="touch-manipulation cursor-crosshair"
+                                      onMouseMove={(e) => {
+                                        // Get SVG element
+                                        const svg = e.currentTarget.ownerSVGElement;
+                                        if (!svg) return;
+                                        
+                                        // Get SVG dimensions and position
+                                        const svgRect = svg.getBoundingClientRect();
+                                        
+                                        // Calculate position as percentage
+                                        const xPercent = (e.clientX - svgRect.left) / svgRect.width * 100;
+                                        
+                                        // Find nearest data point from chart
+                                        const pointIndex = Math.min(
+                                          Math.round(xPercent / 100 * (chartPrices.length - 1)),
+                                          chartPrices.length - 1
+                                        );
+                                        
+                                        // Set dynamic cursor elements - Display at touch position
+                                        const cursorLine = svg.querySelector('#cursorLine');
+                                        const pricePoint = svg.querySelector('#pricePoint');
+                                        const priceLabel = svg.querySelector('#priceLabel');
+                                        
+                                        if (cursorLine && pricePoint && priceLabel) {
+                                          // Clamp position within chart boundaries
+                                          const clampedX = Math.max(0, Math.min(100, xPercent));
+                                          
+                                          // Calculate Y position for the selected price
+                                          const price = chartPrices[pointIndex];
+                                          const yPos = 100 - ((price - minValue) / (maxValue - minValue || 1)) * 100;
+                                          
+                                          // Update elements
+                                          cursorLine.setAttribute('x1', clampedX.toString());
+                                          cursorLine.setAttribute('x2', clampedX.toString());
+                                          cursorLine.setAttribute('opacity', '1');
+                                          
+                                          pricePoint.setAttribute('cx', clampedX.toString());
+                                          pricePoint.setAttribute('cy', yPos.toString());
+                                          pricePoint.setAttribute('opacity', '1');
+                                          
+                                          priceLabel.setAttribute('x', clampedX < 50 ? (clampedX + 5).toString() : (clampedX - 25).toString());
+                                          priceLabel.setAttribute('y', (yPos - 8).toString());
+                                          priceLabel.textContent = `$${price.toFixed(2)}`;
+                                          priceLabel.setAttribute('opacity', '1');
+                                        }
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        // Hide cursor elements on mouse leave
+                                        const svg = e.currentTarget.ownerSVGElement;
+                                        if (!svg) return;
+                                        
+                                        const cursorLine = svg.querySelector('#cursorLine');
+                                        const pricePoint = svg.querySelector('#pricePoint');
+                                        const priceLabel = svg.querySelector('#priceLabel');
+                                        
+                                        if (cursorLine && pricePoint && priceLabel) {
+                                          cursorLine.setAttribute('opacity', '0');
+                                          pricePoint.setAttribute('opacity', '0');
+                                          priceLabel.setAttribute('opacity', '0');
+                                        }
+                                      }}
+                                      // Touch support
+                                      onTouchMove={(e) => {
+                                        // Prevent scrolling
+                                        e.preventDefault();
+                                        
+                                        // Get SVG element
+                                        const svg = e.currentTarget.ownerSVGElement;
+                                        if (!svg || !e.touches[0]) return;
+                                        
+                                        // Get SVG dimensions and position
+                                        const svgRect = svg.getBoundingClientRect();
+                                        
+                                        // Calculate position as percentage
+                                        const xPercent = (e.touches[0].clientX - svgRect.left) / svgRect.width * 100;
+                                        
+                                        // Find nearest data point from chart
+                                        const pointIndex = Math.min(
+                                          Math.round(xPercent / 100 * (chartPrices.length - 1)),
+                                          chartPrices.length - 1
+                                        );
+                                        
+                                        // Set dynamic cursor elements - Display at touch position
+                                        const cursorLine = svg.querySelector('#cursorLine');
+                                        const pricePoint = svg.querySelector('#pricePoint');
+                                        const priceLabel = svg.querySelector('#priceLabel');
+                                        
+                                        if (cursorLine && pricePoint && priceLabel) {
+                                          // Clamp position within chart boundaries
+                                          const clampedX = Math.max(0, Math.min(100, xPercent));
+                                          
+                                          // Calculate Y position for the selected price
+                                          const price = chartPrices[pointIndex];
+                                          const yPos = 100 - ((price - minValue) / (maxValue - minValue || 1)) * 100;
+                                          
+                                          // Update elements
+                                          cursorLine.setAttribute('x1', clampedX.toString());
+                                          cursorLine.setAttribute('x2', clampedX.toString());
+                                          cursorLine.setAttribute('opacity', '1');
+                                          
+                                          pricePoint.setAttribute('cx', clampedX.toString());
+                                          pricePoint.setAttribute('cy', yPos.toString());
+                                          pricePoint.setAttribute('opacity', '1');
+                                          
+                                          priceLabel.setAttribute('x', clampedX < 50 ? (clampedX + 5).toString() : (clampedX - 25).toString());
+                                          priceLabel.setAttribute('y', (yPos - 8).toString());
+                                          priceLabel.textContent = `$${price.toFixed(2)}`;
+                                          priceLabel.setAttribute('opacity', '1');
+                                        }
+                                      }}
+                                      onTouchEnd={(e) => {
+                                        // Hide cursor elements on touch end
+                                        const svg = e.currentTarget.ownerSVGElement;
+                                        if (!svg) return;
+                                        
+                                        const cursorLine = svg.querySelector('#cursorLine');
+                                        const pricePoint = svg.querySelector('#pricePoint');
+                                        const priceLabel = svg.querySelector('#priceLabel');
+                                        
+                                        if (cursorLine && pricePoint && priceLabel) {
+                                          cursorLine.setAttribute('opacity', '0');
+                                          pricePoint.setAttribute('opacity', '0');
+                                          priceLabel.setAttribute('opacity', '0');
+                                        }
+                                      }}
+                                    />
+                                    
+                                    {/* Interactive vertical cursor line */}
+                                    <line 
+                                      id="cursorLine" 
+                                      x1="0" 
+                                      y1="0" 
+                                      x2="0" 
+                                      y2="100" 
+                                      stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)'} 
+                                      strokeDasharray="2,2" 
+                                      strokeWidth="0.8" 
+                                      opacity="0"
+                                    />
+                                    
+                                    {/* Interactive price point bubble */}
                                     <circle 
+                                      id="pricePoint" 
                                       cx="0" 
-                                      cy={100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} 
-                                      r="1.2" 
+                                      cy="0" 
+                                      r="3"
                                       fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} 
+                                      opacity="0"
+                                      filter="url(#glow)"
                                     />
+                                    
+                                    {/* Interactive price label */}
                                     <text 
-                                      x="2" 
-                                      y={100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100 - 5} 
-                                      className="text-[7px] font-medium" 
-                                      fill="#4B5563"
+                                      id="priceLabel" 
+                                      x="0" 
+                                      y="0" 
+                                      fill="#1F2937" 
+                                      fontSize="8" 
+                                      fontWeight="bold" 
+                                      textAnchor="start" 
+                                      opacity="0"
                                     >
-                                      ${chartPrices[0].toFixed(2)}
+                                      $0.00
                                     </text>
-                                    
-                                    {/* End price dot and label */}
-                                    <circle 
-                                      cx="100" 
-                                      cy={100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue || 1)) * 100} 
-                                      r="1.2" 
-                                      fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} 
-                                    />
-                                    <text 
-                                      x="92" 
-                                      y={100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue || 1)) * 100 - 5} 
-                                      className="text-[7px] font-medium" 
-                                      fill="#4B5563"
-                                    >
-                                      ${chartPrices[chartPrices.length-1].toFixed(2)}
-                                    </text>
-                                    
-                                    {/* Max price point - only if it's not the first or last point */}
-                                    {(() => {
-                                      try {
-                                        const maxPrice = Math.max(...chartPrices);
-                                        const maxIndex = chartPrices.indexOf(maxPrice);
-                                        
-                                        // Skip rendering if max is at the start or end (already labeled)
-                                        if (maxIndex === 0 || maxIndex === chartPrices.length - 1) {
-                                          return null;
-                                        }
-                                        
-                                        const maxX = (maxIndex / (chartPrices.length - 1)) * 100;
-                                        const maxY = 100 - ((maxPrice - minValue) / (maxValue - minValue || 1)) * 100;
-                                        
-                                        return (
-                                          <>
-                                            <circle cx={maxX} cy={maxY} r="1.2" fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} />
-                                            <text x={maxX > 80 ? maxX - 15 : maxX + 2} y={maxY - 5} className="text-[7px] font-medium" fill="#4B5563">
-                                              ${maxPrice.toFixed(2)}
-                                            </text>
-                                          </>
-                                        );
-                                      } catch (e) {
-                                        return null;
-                                      }
-                                    })()}
-                                    
-                                    {/* Min price point - only if it's not the first or last point */}
-                                    {(() => {
-                                      try {
-                                        const minPrice = Math.min(...chartPrices);
-                                        const minIndex = chartPrices.indexOf(minPrice);
-                                        
-                                        // Skip rendering if min is at the start or end (already labeled)
-                                        if (minIndex === 0 || minIndex === chartPrices.length - 1) {
-                                          return null;
-                                        }
-                                        
-                                        const minX = (minIndex / (chartPrices.length - 1)) * 100;
-                                        const minY = 100 - ((minPrice - minValue) / (maxValue - minValue || 1)) * 100;
-                                        
-                                        return (
-                                          <>
-                                            <circle cx={minX} cy={minY} r="1.2" fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} />
-                                            <text x={minX > 80 ? minX - 15 : minX + 2} y={minY + 10} className="text-[7px] font-medium" fill="#4B5563">
-                                              ${minPrice.toFixed(2)}
-                                            </text>
-                                          </>
-                                        );
-                                      } catch (e) {
-                                        return null;
-                                      }
-                                    })()}
                                   </>
                                 )}
                             </svg>
@@ -601,15 +664,33 @@ export default function StockCard({
                     </div>
                 )}
             </div>
-             {/* Last Updated Info - Only shown when Yahoo data provides a trading date */}
-             <div className="mt-4 flex items-center justify-between text-xs h-6">
+            
+            {/* --- Time frame selector (Robinhood style below chart) --- */}
+            <div className="flex justify-around px-3 pt-3 pb-2">
+                {["1D", "1W", "1M", "3M", "1Y", "5Y"].map((period) => (
+                    <button
+                        key={period}
+                        className={`px-3 py-1 text-xs rounded-xl transition-all duration-150 ${
+                            timeFrame === (period === "1W" ? "5D" : period)
+                                ? `font-semibold ${realTimeChange >= 0 ? 'text-green-600' : 'text-red-600'}`
+                                : 'text-slate-500 hover:bg-slate-50'
+                        }`}
+                        onClick={() => setTimeFrame((period === "1W" ? "5D" : period) as TimeFrame)}
+                    >
+                        {period}
+                    </button>
+                ))}
+            </div>
+            
+            {/* Last Updated Info - Only shown when Yahoo data provides a trading date */}
+            <div className="mt-1 flex items-center justify-between px-5 text-xs h-6">
                 {latestTradingDay && (
-                  <span className="text-slate-900 font-medium">Last updated: {latestTradingDay}</span>
+                  <span className="text-slate-400 text-[10px]">Last updated: {latestTradingDay}</span>
                 )}
                 {!latestTradingDay && (
                   <span></span> /* Empty span to maintain flex layout */
                 )}
-                <span className="text-slate-700 italic">Swipe <span className="text-red-600 font-medium">left to skip</span> • Swipe <span className="text-green-600 font-medium">right to invest</span></span>
+                <span className="text-slate-400 text-[10px] italic">Swipe for more</span>
             </div>
       </div>
 
