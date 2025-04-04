@@ -30,6 +30,7 @@ import AskAI from "./ask-ai";
 import { getIndustryAverages } from "@/lib/industry-data";
 import StockNewsSection from "@/components/stock-news/StockNewsSection"; // Ensure import
 import AnalystRatings from "@/components/stock-detail/analyst-ratings"; // Import AnalystRatings
+import ModernAnalystRatings from "@/components/stock-detail/modern-analyst-ratings"; // Import ModernAnalystRatings
 import HistoricalPerformanceChart from "@/components/stock-detail/historical-performance-chart"; // Import HistoricalPerformanceChart
 import {
   useYahooChartData,
@@ -863,7 +864,7 @@ export default function StockCard({
 
        {/* --- Analyst Ratings Section --- */}
         <div className="bg-white border-t border-slate-100 mb-4 mx-4 rounded-xl shadow-md overflow-hidden">
-            <AnalystRatings symbol={stock.ticker} companyName={stock.name} />
+            <ModernAnalystRatings symbol={stock.ticker} companyName={stock.name} />
         </div>
         
         {/* --- Historical Performance Chart --- */}
