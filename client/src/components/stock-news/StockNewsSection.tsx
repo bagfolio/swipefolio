@@ -44,42 +44,56 @@ const formatNewsDate = (dateValue: number | string): string => {
   
   let date: Date;
   
-  // Handle different types of date input from Yahoo Finance API
-  if (typeof dateValue === 'string') {
-    // If it's a string, it's likely an ISO date string like "2025-04-03T12:55:01.000Z"
-    date = new Date(dateValue);
-  } else if (typeof dateValue === 'number') {
-    // If it's a large number, it's likely milliseconds (JavaScript timestamp)
-    // If it's a smaller number, it's likely seconds (Unix timestamp)
-    date = dateValue < 10000000000 ? new Date(dateValue * 1000) : new Date(dateValue);
-  } else {
-    console.warn('Unexpected date format:', dateValue);
-    return 'Unknown date';
-  }
-  
-  // Check if the date is valid
-  const isValidDate = !isNaN(date.getTime());
-  if (!isValidDate) {
-    console.warn(`Invalid date from value: ${dateValue}`);
-    return 'Unknown date';
-  }
-  
-  const now = new Date();
-  
-  // Format date with month name and day, plus year if not current year
-  const isCurrentYear = date.getFullYear() === now.getFullYear();
-  
-  // Format based on whether it's current year or not
-  if (isCurrentYear) {
-    // Format: "Apr 4" for current year
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  } else {
-    // Format: "Apr 4, 2024" for past years
-    return date.toLocaleDateString(undefined, { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric'
-    });
+  try {
+    // Handle different types of date input from Yahoo Finance API
+    if (typeof dateValue === 'string') {
+      // If it's a string, it's likely an ISO date string like "2025-04-03T12:55:01.000Z"
+      date = new Date(dateValue);
+    } else if (typeof dateValue === 'number') {
+      // If it's a large number, it's likely milliseconds (JavaScript timestamp)
+      // If it's a smaller number, it's likely seconds (Unix timestamp)
+      date = dateValue < 10000000000 ? new Date(dateValue * 1000) : new Date(dateValue);
+    } else {
+      console.warn('Unexpected date format:', dateValue);
+      return 'Recent';
+    }
+    
+    // Check if the date is valid
+    const isValidDate = !isNaN(date.getTime());
+    if (!isValidDate) {
+      console.warn(`Invalid date from value: ${dateValue}`);
+      return 'Recent';
+    }
+    
+    // Check for unrealistic years (far in the past or future)
+    const year = date.getFullYear();
+    const currentYear = new Date().getFullYear();
+    
+    if (year < 2000 || year > currentYear + 1) {
+      console.warn(`Unrealistic year ${year} detected in timestamp ${dateValue}, using current date`);
+      date = new Date(); // Use current date if the year is unrealistic
+    }
+    
+    const now = new Date();
+    
+    // Format date with month name and day, plus year if not current year
+    const isCurrentYear = date.getFullYear() === now.getFullYear();
+    
+    // Format based on whether it's current year or not
+    if (isCurrentYear) {
+      // Format: "Apr 4" for current year
+      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } else {
+      // Format: "Apr 4, 2024" for past years
+      return date.toLocaleDateString(undefined, { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric'
+      });
+    }
+  } catch (error) {
+    console.error('Error formatting date:', error, dateValue);
+    return 'Recent'; 
   }
 };
 

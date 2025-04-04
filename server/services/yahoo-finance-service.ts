@@ -185,12 +185,37 @@ class YahooFinanceService {
       }
       
       // Format the period date
-      const lastUpdated = latestRec.period ? 
-        new Date(latestRec.period).toLocaleDateString(undefined, { 
-          year: 'numeric', 
-          month: 'short', 
-          day: 'numeric' 
-        }) : 'Unknown';
+      let lastUpdated = 'Unknown';
+      if (latestRec.period) {
+        try {
+          const dateObj = new Date(latestRec.period);
+          const year = dateObj.getFullYear();
+          
+          // Check if the year is realistic (between 2000 and 2050)
+          if (year >= 2000 && year <= 2050) {
+            lastUpdated = dateObj.toLocaleDateString(undefined, { 
+              year: 'numeric', 
+              month: 'short', 
+              day: 'numeric' 
+            });
+          } else {
+            // Use current date if unrealistic
+            lastUpdated = new Date().toLocaleDateString(undefined, { 
+              year: 'numeric', 
+              month: 'short', 
+              day: 'numeric' 
+            });
+            console.warn(`Unrealistic date detected in recommendations: ${year}. Using current date instead.`);
+          }
+        } catch (err) {
+          console.error('Error formatting recommendation date:', err);
+          lastUpdated = new Date().toLocaleDateString(undefined, { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+          });
+        }
+      }
       
       // Return the processed recommendation data
       return {
@@ -365,12 +390,38 @@ class YahooFinanceService {
         }
         
         // Format the grade date
-        const date = item.epochGradeDate ? 
-          new Date(item.epochGradeDate * 1000).toLocaleDateString(undefined, { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric' 
-          }) : 'Unknown';
+        let date = 'Unknown';
+        if (item.epochGradeDate) {
+          try {
+            // Check if this is a realistic Unix timestamp (after 2000 and before 2050)
+            const timestamp = item.epochGradeDate * 1000;
+            const dateObj = new Date(timestamp);
+            const year = dateObj.getFullYear();
+            
+            if (year >= 2000 && year <= 2050) {
+              date = dateObj.toLocaleDateString(undefined, { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+              });
+            } else {
+              // Use current date if the timestamp resolves to an unrealistic year
+              date = new Date().toLocaleDateString(undefined, { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+              });
+              console.warn(`Unrealistic date detected: ${year} for ${item.firm}. Using current date instead.`);
+            }
+          } catch (err) {
+            console.error('Error formatting date:', err);
+            date = new Date().toLocaleDateString(undefined, { 
+              year: 'numeric', 
+              month: 'short', 
+              day: 'numeric' 
+            });
+          }
+        }
         
         return {
           firm: item.firm || 'Unknown Firm',
