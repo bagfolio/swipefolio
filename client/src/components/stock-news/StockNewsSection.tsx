@@ -41,25 +41,25 @@ interface StockNewsSectionProps {
 // Helper function to format date from timestamp - correctly shows publication date
 const formatNewsDate = (timestamp: number): string => {
   if (!timestamp) return 'N/A';
-
+  
   // Yahoo Finance API returns Unix timestamps in seconds, convert to milliseconds
   const date = new Date(timestamp * 1000); 
   const now = new Date();
-
+  
   // Check if the date is valid by making sure it's not in the future and not too far in the past
   const maxAgeYears = 2; // News shouldn't be older than 2 years
   const minDate = new Date();
   minDate.setFullYear(minDate.getFullYear() - maxAgeYears);
-
+  
   // If the date is invalid or unreasonable, show "Unknown date"
   if (date > now || date < minDate) {
     console.log(`Invalid news date detected for timestamp: ${timestamp}, converted: ${date.toISOString()}`);
     return 'Unknown date';
   }
-
+  
   // Format date with month name and day, plus year if not current year
   const isCurrentYear = date.getFullYear() === now.getFullYear();
-
+  
   if (isCurrentYear) {
     // Format: "Jan 15" for current year
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
@@ -78,7 +78,7 @@ const analyzeNewsSentiment = (title: string, ticker: string): NewsItemMetrics =>
   // Convert title to lowercase for case-insensitive matching
   const lowerTitle = title.toLowerCase();
   const metrics: NewsItemMetrics = {};
-
+  
   // Keywords that might indicate positive or negative sentiment for different metrics
   const keywords = {
     performance: {
@@ -98,24 +98,24 @@ const analyzeNewsSentiment = (title: string, ticker: string): NewsItemMetrics =>
       negative: ['downgrade', 'bearish', 'downward', 'resistance', 'selling pressure']
     }
   };
-
+  
   // Check for each metric
   for (const [metric, values] of Object.entries(keywords)) {
     let score = 0;
-
+    
     // Count positive and negative keywords
     for (const word of values.positive) {
       if (lowerTitle.includes(word)) {
         score += 1;
       }
     }
-
+    
     for (const word of values.negative) {
       if (lowerTitle.includes(word)) {
         score -= 1;
       }
     }
-
+    
     // Assign sentiment based on score
     if (score > 0) {
       metrics[metric as keyof NewsItemMetrics] = 'positive';
@@ -125,13 +125,13 @@ const analyzeNewsSentiment = (title: string, ticker: string): NewsItemMetrics =>
       // Check if the title mentions the metric at all
       const allKeywords = [...values.positive, ...values.negative];
       const mentionsMetric = allKeywords.some(word => lowerTitle.includes(word));
-
+      
       if (mentionsMetric) {
         metrics[metric as keyof NewsItemMetrics] = 'neutral';
       }
     }
   }
-
+  
   // Ensure at least one metric is set
   if (Object.keys(metrics).length === 0) {
     // Pick a random metric for neutral sentiment
@@ -139,7 +139,7 @@ const analyzeNewsSentiment = (title: string, ticker: string): NewsItemMetrics =>
     const randomMetric = metricKeys[Math.floor(Math.random() * metricKeys.length)];
     metrics[randomMetric as keyof NewsItemMetrics] = 'neutral';
   }
-
+  
   return metrics;
 };
 
@@ -148,7 +148,7 @@ const getMetricIcon = (metric: string, sentiment: 'positive' | 'negative' | 'neu
   // Define color based on sentiment
   const color = sentiment === 'positive' ? 'text-green-500' : 
                 sentiment === 'negative' ? 'text-red-500' : 'text-amber-500';
-
+  
   // Define icon based on metric
   switch (metric) {
     case 'performance':
@@ -170,7 +170,7 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
   // State for scroll position tracking
   const [scrollPosition, setScrollPosition] = useState<number>(0);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
-
+  
   // Debug function to log news timestamps
   const debugNewsTimestamps = (newsItems: YahooNewsItem[]) => {
     if (newsItems && newsItems.length > 0) {
@@ -187,7 +187,7 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
       });
     }
   };
-
+  
   // Fetch news data from the API
   const { data: newsData, isLoading, error } = useQuery<{ items: YahooNewsItem[] }>({
     queryKey: ['/api/yahoo-finance/news', stock.ticker],
@@ -206,19 +206,19 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
     },
     enabled: !!stock.ticker, // Only fetch if stock ticker is available
   });
-
+  
   // Scroll handler functions
   const handleScroll = (direction: 'left' | 'right') => {
     if (!scrollContainerRef.current) return;
-
+    
     const container = scrollContainerRef.current;
     const cardWidth = 272; // 256px card width + 16px spacing
     const scrollAmount = direction === 'left' ? -cardWidth : cardWidth;
-
+    
     container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     setScrollPosition(container.scrollLeft + scrollAmount);
   };
-
+  
   // Process news items with sentiment analysis
   const processedNews: StockNewsItem[] = newsData?.items 
     ? newsData.items.map(item => ({
@@ -226,7 +226,7 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
         metrics: analyzeNewsSentiment(item.title, stock.ticker)
       }))
     : [];
-
+    
   // Log timestamp information for debugging
   if (newsData?.items && newsData.items.length > 0) {
     debugNewsTimestamps(newsData.items);
@@ -299,10 +299,10 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
       'Business Insider': 'https://www.businessinsider.com/favicon.ico',
       'CNBC Video': 'https://www.cnbc.com/favicon.ico'
     };
-
+    
     return publisherLogos[publisher] || `https://www.google.com/s2/favicons?domain=${encodeURIComponent(publisher.toLowerCase() + '.com')}`;
   };
-
+  
   // Component is ready for production  
   return (
     <div className={styles.container}>
@@ -310,7 +310,7 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
         <h3 className="font-semibold text-slate-900 flex items-center">
           <Calendar className={`w-5 h-5 mr-2 ${styles.iconColor}`} /> Latest News
         </h3>
-
+        
         {/* Navigation buttons */}
         {processedNews.length > 1 && (
           <div className="flex space-x-2">
@@ -339,7 +339,7 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
           </div>
         )}
       </div>
-
+      
       {processedNews.length === 0 ? (
         <div className={`text-center py-6 ${styles.emptyText}`}>
           <p>No recent news available for {stock.ticker}</p>
@@ -357,14 +357,14 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
                 // Get the first metric for this news item
                 const metrics = Object.entries(newsItem.metrics);
                 const primaryMetric = metrics.length > 0 ? metrics[0] : null;
-
+                
                 // Get a suitable thumbnail URL if available
                 // Try to get a medium-sized image first, if not available use any available image
                 const thumbnailUrl = newsItem.thumbnail?.resolutions 
                   ? newsItem.thumbnail.resolutions.find(res => res.width >= 100 && res.width <= 300)?.url 
                     || newsItem.thumbnail.resolutions[0]?.url
                   : null;
-
+                
                 return (
                   <a 
                     key={index} 
@@ -394,7 +394,7 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
                           {formatNewsDate(newsItem.providerPublishTime)}
                         </div>
                       </div>
-
+                      
                       {/* News Thumbnail if available */}
                       <div className="mb-2 rounded-lg overflow-hidden bg-slate-50 h-24">
                         {thumbnailUrl ? (
@@ -422,12 +422,12 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
                           </div>
                         )}
                       </div>
-
+                      
                       {/* News Title */}
                       <h4 className="text-sm font-medium text-slate-800 line-clamp-3 h-[4.5rem]">
                         {newsItem.title}
                       </h4>
-
+                      
                       {/* Metrics and Read More */}
                       <div className="mt-2 flex items-center justify-between">
                         {primaryMetric && (
@@ -454,7 +454,7 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
               })}
             </div>
           </div>
-
+          
           {/* Mobile swipe indicator */}
           <div className="mt-2 text-center text-xs text-slate-400 md:hidden">
             <span>Swipe to see more news</span>
