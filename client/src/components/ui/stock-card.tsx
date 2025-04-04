@@ -392,25 +392,36 @@ export default function StockCard({
     >
       {/* --- Header/Chart Section (Robinhood Style) --- */}
       <div className="bg-white flex flex-col w-full">
-            {/* Stock Name & Ticker - Styled like Robinhood */}
-            <div className="flex items-center justify-between px-5 pt-5 pb-2">
+            {/* Stock Name & Ticker - Robinhood Style */}
+            <div className="flex items-center justify-between px-5 pt-3 pb-1">
               <div className="flex flex-col">
                 <Link
                   to={`/stock-detail/${stock.ticker}`}
                   className="group"
                   onClick={(e: React.MouseEvent) => e.stopPropagation()}
                 >
-                  <h2 className="text-2xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{stock.name}</h2>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="px-2.5 py-1 bg-slate-100 rounded-md text-sm font-medium text-slate-500">{stock.ticker}</span>
-                    <BarChart3 size={16} className="text-slate-400" />
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold text-slate-900">{stock.ticker}</span>
+                    <span className="text-sm text-slate-500">• {stock.name}</span>
                   </div>
                 </Link>
+                {onPrevious && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPrevious();
+                    }}
+                    className="absolute left-3 top-3 bg-slate-100/70 text-slate-500 p-1.5 rounded-full hover:bg-slate-200 transition-colors"
+                    aria-label="Previous Stock"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                )}
               </div>
               <div className="flex items-center">
-                  <button onClick={refreshData} className="p-1.5 rounded-full hover:bg-slate-100 transition-colors" disabled={isRefreshing}>
-                      <RefreshCw size={14} className={`text-slate-400 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  </button>
+                <button onClick={refreshData} className="p-1.5 rounded-full hover:bg-slate-100 transition-colors" disabled={isRefreshing}>
+                  <RefreshCw size={14} className={`text-slate-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
               </div>
             </div>
              
@@ -434,14 +445,14 @@ export default function StockCard({
             )}
             
             {/* Chart Area - Full-screen, edge-to-edge */}
-            <div className="relative h-64 w-full -mx-1"> {/* Negative margin to break out of container */}
+            <div className="relative h-64 w-full -mx-1 mt-3"> {/* Added margin-top and negative x-margin */}
                 {isLoadingYahooData && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/50">
-                        <Skeleton className="h-full w-full" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-white">
+                        <Skeleton className="h-full w-full bg-white/80" />
                     </div>
                 )}
                 {!isLoadingYahooData && yahooError && (
-                     <div className="absolute inset-0 flex items-center justify-center text-xs text-red-500 p-2 bg-red-50 rounded">
+                     <div className="absolute inset-0 flex items-center justify-center text-xs text-red-500 p-2 bg-white rounded">
                         Error loading chart data.
                     </div>
                 )}
@@ -645,25 +656,27 @@ export default function StockCard({
                                       filter="url(#glow)"
                                     />
                                     
-                                    {/* Interactive price label - with background for better readability */}
+                                    {/* Interactive price label - Robinhood Style */}
                                     <g id="priceLabel" opacity="0">
                                       <rect
                                         x="0"
                                         y="0"
-                                        width="30"
-                                        height="12"
-                                        rx="3"
-                                        fill={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'}
+                                        width="36"
+                                        height="16"
+                                        rx="8"
+                                        fill="white"
                                         stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}
                                         strokeWidth="0.5"
+                                        filter="drop-shadow(0px 1px 2px rgba(0,0,0,0.08))"
                                       />
                                       <text 
-                                        x="0" 
-                                        y="0" 
-                                        fill="#1F2937" 
-                                        fontSize="6" 
-                                        fontWeight="medium" 
+                                        x="18" 
+                                        y="11" 
+                                        fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} 
+                                        fontSize="7" 
+                                        fontWeight="bold" 
                                         textAnchor="middle" 
+                                        alignmentBaseline="middle"
                                       >
                                         $0.00
                                       </text>
