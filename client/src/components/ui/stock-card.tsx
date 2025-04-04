@@ -401,8 +401,8 @@ export default function StockCard({
                   onClick={(e: React.MouseEvent) => e.stopPropagation()}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold text-slate-900">{stock.ticker}</span>
-                    <span className="text-sm text-slate-500">• {stock.name}</span>
+                    <span className="text-sm font-medium rounded-full bg-gray-100 px-2 py-0.5 text-gray-600">{stock.ticker}</span>
+                    <span className="text-base font-bold text-slate-900">{stock.name}</span>
                   </div>
                 </Link>
                 {onPrevious && (
@@ -411,10 +411,10 @@ export default function StockCard({
                       e.stopPropagation();
                       onPrevious();
                     }}
-                    className="absolute left-3 top-5 bg-slate-100/50 text-slate-500 p-1.5 rounded-full hover:bg-slate-200 transition-colors"
+                    className="absolute left-3 top-5 bg-transparent text-gray-400 p-1.5 rounded-full hover:text-gray-600 transition-colors"
                     aria-label="Previous Stock"
                   >
-                    <ChevronLeft size={18} />
+                    <ChevronLeft size={20} />
                   </button>
                 )}
               </div>

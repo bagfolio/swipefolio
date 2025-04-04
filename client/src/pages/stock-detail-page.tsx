@@ -224,12 +224,12 @@ const handlePreviousStock = useCallback(() => {
       <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-30 pointer-events-none"> {/* Make header non-interactive initially */}
          <button
            onClick={handleBack}
-           className="text-cyan-400 hover:bg-gray-800 p-2 rounded-full transition-colors bg-black/60 backdrop-blur-sm pointer-events-auto" // Enable pointer events for button
+           className="text-gray-400 hover:text-gray-300 p-2 rounded-full transition-colors bg-transparent backdrop-blur-sm pointer-events-auto" // Enable pointer events for button
          >
-           <ArrowLeft size={20} />
+           <ArrowLeft size={22} />
          </button>
-         <div className="text-center text-sm font-medium text-gray-400">
-             {stack.title}
+         <div className="text-center text-sm font-medium text-transparent">
+             {/* Removed stack title for cleaner UI */}
          </div>
          <div className="w-8"></div> {/* Placeholder */}
       </div>
