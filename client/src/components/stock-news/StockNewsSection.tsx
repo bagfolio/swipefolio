@@ -38,17 +38,20 @@ interface StockNewsSectionProps {
   // Remove theme prop - we'll use light theme only
 }
 
-// Helper function to format date from timestamp
+// Helper function to format date from timestamp - shows actual publication time
 const formatNewsDate = (timestamp: number): string => {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (!timestamp) return 'N/A';
   
-  if (diffHours < 24) {
-    return diffHours === 0 ? 'Just now' : `${diffHours}h ago`;
+  const date = new Date(timestamp * 1000); // Convert timestamp to milliseconds
+  const now = new Date();
+  
+  // Format date as MM/DD for items older than a day, or HH:MM for today's items
+  const isToday = date.toDateString() === now.toDateString();
+  
+  if (isToday) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   } else {
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
   }
 };
 
@@ -146,6 +149,10 @@ const getMetricIcon = (metric: string, sentiment: 'positive' | 'negative' | 'neu
 };
 
 export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => {
+  // State for scroll position tracking
+  const [scrollPosition, setScrollPosition] = useState<number>(0);
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  
   // Fetch news data from the API
   const { data: newsData, isLoading, error } = useQuery<{ items: YahooNewsItem[] }>({
     queryKey: ['/api/yahoo-finance/news', stock.ticker],
@@ -164,6 +171,18 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
     },
     enabled: !!stock.ticker, // Only fetch if stock ticker is available
   });
+  
+  // Scroll handler functions
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (!scrollContainerRef.current) return;
+    
+    const container = scrollContainerRef.current;
+    const cardWidth = 272; // 256px card width + 16px spacing
+    const scrollAmount = direction === 'left' ? -cardWidth : cardWidth;
+    
+    container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    setScrollPosition(container.scrollLeft + scrollAmount);
+  };
   
   // Process news items with sentiment analysis
   const processedNews: StockNewsItem[] = newsData?.items 
@@ -247,95 +266,158 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
   // Component is ready for production  
   return (
     <div className={styles.container}>
-      <h3 className="font-semibold text-slate-900 mb-3 flex items-center">
-        <Calendar className={`w-5 h-5 mr-2 ${styles.iconColor}`} /> Latest News
-      </h3>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="font-semibold text-slate-900 flex items-center">
+          <Calendar className={`w-5 h-5 mr-2 ${styles.iconColor}`} /> Latest News
+        </h3>
+        
+        {/* Navigation buttons */}
+        {processedNews.length > 1 && (
+          <div className="flex space-x-2">
+            <button
+              onClick={() => handleScroll('left')}
+              className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors"
+              aria-label="Scroll left"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
+                className="text-slate-600">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <button
+              onClick={() => handleScroll('right')}
+              className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors"
+              aria-label="Scroll right"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" 
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
+                className="text-slate-600">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
       
       {processedNews.length === 0 ? (
         <div className={`text-center py-6 ${styles.emptyText}`}>
           <p>No recent news available for {stock.ticker}</p>
         </div>
       ) : (
-        <div className="overflow-x-auto pb-2 -mx-4 px-4">
-          <div className="flex space-x-4" style={{ minWidth: 'max-content' }}>
-            {processedNews.map((newsItem, index) => {
-              // Get the first metric for this news item
-              const metrics = Object.entries(newsItem.metrics);
-              const primaryMetric = metrics.length > 0 ? metrics[0] : null;
-              
-              // Get a suitable thumbnail URL if available
-              const thumbnailUrl = newsItem.thumbnail?.resolutions 
-                ? newsItem.thumbnail.resolutions.find(res => res.width >= 100 && res.width <= 200)?.url || newsItem.thumbnail.resolutions[0]?.url
-                : null;
-              
-              return (
-                <a 
-                  key={index} 
-                  href={newsItem.link} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex-shrink-0 w-64 bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-all duration-200 hover:border-blue-400"
-                >
-                  {/* Card Content */}
-                  <div className="p-3">
-                    {/* Publisher Logo and Date */}
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center">
-                        <img 
-                          src={getPublisherLogo(newsItem.publisher)} 
-                          alt={newsItem.publisher}
-                          className="w-5 h-5 mr-2 rounded-full"
-                          onError={(e) => {
-                            // Fallback if logo fails to load
-                            (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cline x1='3' y1='9' x2='21' y2='9'%3E%3C/line%3E%3Cline x1='9' y1='21' x2='9' y2='9'%3E%3C/line%3E%3C/svg%3E";
-                          }}
-                        />
-                        <span className="text-xs font-semibold text-slate-800">{newsItem.publisher}</span>
-                      </div>
-                      <div className="flex items-center text-xs text-slate-500">
-                        <Clock className="w-3 h-3 mr-1" />
-                        {formatNewsDate(newsItem.providerPublishTime)}
-                      </div>
-                    </div>
-                    
-                    {/* News Thumbnail if available */}
-                    {thumbnailUrl && (
-                      <div className="mb-2 rounded-lg overflow-hidden">
-                        <img 
-                          src={thumbnailUrl} 
-                          alt="News thumbnail" 
-                          className="w-full h-24 object-cover"
-                          onError={(e) => {
-                            // Remove the image if it fails to load
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      </div>
-                    )}
-                    
-                    {/* News Title */}
-                    <h4 className="text-sm font-medium text-slate-800 line-clamp-3 h-[4.5rem]">
-                      {newsItem.title}
-                    </h4>
-                    
-                    {/* Metrics and Read More */}
-                    <div className="mt-2 flex items-center justify-between">
-                      {primaryMetric && (
+        <div className="relative">
+          {/* Scroll container */}
+          <div 
+            ref={scrollContainerRef}
+            className="overflow-x-auto pb-2 -mx-4 px-4 scroll-smooth"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            <div className="flex space-x-4" style={{ minWidth: 'max-content' }}>
+              {processedNews.map((newsItem, index) => {
+                // Get the first metric for this news item
+                const metrics = Object.entries(newsItem.metrics);
+                const primaryMetric = metrics.length > 0 ? metrics[0] : null;
+                
+                // Get a suitable thumbnail URL if available
+                // Try to get a medium-sized image first, if not available use any available image
+                const thumbnailUrl = newsItem.thumbnail?.resolutions 
+                  ? newsItem.thumbnail.resolutions.find(res => res.width >= 100 && res.width <= 300)?.url 
+                    || newsItem.thumbnail.resolutions[0]?.url
+                  : null;
+                
+                return (
+                  <a 
+                    key={index} 
+                    href={newsItem.link} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex-shrink-0 w-64 bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-all duration-200 hover:border-blue-400"
+                  >
+                    {/* Card Content */}
+                    <div className="p-3">
+                      {/* Publisher Logo and Date */}
+                      <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center">
-                          <span className="text-xs capitalize bg-slate-100 px-2 py-1 rounded-full text-slate-600 mr-1">
-                            {primaryMetric[0]}
-                          </span>
-                          {getMetricIcon(primaryMetric[0], primaryMetric[1])}
+                          <img 
+                            src={getPublisherLogo(newsItem.publisher)} 
+                            alt={newsItem.publisher}
+                            className="w-5 h-5 mr-2 rounded-full"
+                            onError={(e) => {
+                              // Fallback if logo fails to load
+                              (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cline x1='3' y1='9' x2='21' y2='9'%3E%3C/line%3E%3Cline x1='9' y1='21' x2='9' y2='9'%3E%3C/line%3E%3C/svg%3E";
+                            }}
+                          />
+                          <span className="text-xs font-semibold text-slate-800">{newsItem.publisher}</span>
                         </div>
-                      )}
-                      <span className="text-xs font-medium text-blue-600 flex items-center">
-                        Read more <ExternalLink className="w-3 h-3 ml-1" />
-                      </span>
+                        <div className="flex items-center text-xs text-slate-500">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {formatNewsDate(newsItem.providerPublishTime)}
+                        </div>
+                      </div>
+                      
+                      {/* News Thumbnail if available */}
+                      <div className="mb-2 rounded-lg overflow-hidden bg-slate-50 h-24">
+                        {thumbnailUrl ? (
+                          <img 
+                            src={thumbnailUrl} 
+                            alt="News thumbnail" 
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            onError={(e) => {
+                              // Try to use a fallback image with news topic icon
+                              (e.target as HTMLImageElement).src = `https://via.placeholder.com/300x200/f1f5f9/64748b?text=${encodeURIComponent(newsItem.publisher)}`;
+                            }}
+                          />
+                        ) : (
+                          // Placeholder when no thumbnail is available
+                          <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" 
+                              stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" 
+                              className="text-slate-400">
+                              <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" />
+                              <path d="M18 14h-8" />
+                              <path d="M15 18h-5" />
+                              <path d="M10 6h8v4h-8V6Z" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* News Title */}
+                      <h4 className="text-sm font-medium text-slate-800 line-clamp-3 h-[4.5rem]">
+                        {newsItem.title}
+                      </h4>
+                      
+                      {/* Metrics and Read More */}
+                      <div className="mt-2 flex items-center justify-between">
+                        {primaryMetric && (
+                          <div className="flex items-center">
+                            <span className="text-xs capitalize bg-slate-100 px-2 py-1 rounded-full text-slate-600 mr-1">
+                              {primaryMetric[0]}
+                            </span>
+                            {getMetricIcon(primaryMetric[0], primaryMetric[1])}
+                          </div>
+                        )}
+                        <button 
+                          className="text-xs font-medium text-blue-600 flex items-center hover:text-blue-700 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(newsItem.link, '_blank', 'noopener,noreferrer');
+                          }}
+                        >
+                          Read more <ExternalLink className="w-3 h-3 ml-1" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </a>
-              );
-            })}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Mobile swipe indicator */}
+          <div className="mt-2 text-center text-xs text-slate-400 md:hidden">
+            <span>Swipe to see more news</span>
           </div>
         </div>
       )}
