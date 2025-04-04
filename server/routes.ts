@@ -5,8 +5,8 @@ import { setupAuth } from "./auth";
 import axios from "axios";
 import { getAIResponse } from "./ai-service";
 
-import { jsonStockService } from "./services/json-stock-service";
 import yahooFinanceRoutes from "./api/yahoo-finance";
+import { yahooFinanceService } from "./services/yahoo-finance-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
@@ -399,122 +399,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         Holdings:
         ${portfolioData.map((stock: any) => 
-          `${stock.ticker} (${stock.name}): ${stock.shares} shares, current value $${stock.currentValue.toFixed(2)}, return ${stock.return.toFixed(2)}%`
+          `${stock.name} (${stock.symbol}): $${stock.value.toFixed(2)} (${stock.allocation.toFixed(2)}% of portfolio) | Return: ${stock.return.toFixed(2)}%`
         ).join('\n')}
       `;
       
-      const userMessage = `${query}\n\nMy portfolio information:\n${portfolioContext}`;
+      const userMessage = `${portfolioContext.trim()}\n\nQuery: ${query}`;
       
-      // Try to ensure we have the latest environment variable value
-      const apiKey = process.env.OPENROUTER_API_KEY;
-      console.log("Using OpenRouter API key (first 5 chars):", apiKey ? apiKey.substring(0, 5) + "..." : "undefined");
+      console.log("Calling AI API for portfolio analysis...");
       
-      if (!apiKey) {
-        console.error("OpenRouter API key is missing");
-        return res.status(500).json({ 
-          error: "API key missing", 
-          message: "OpenRouter API key is not configured" 
+      // Get the portfolio advice
+      try {
+        const answer = await getAIResponse(userMessage, {
+          portfolio: {
+            holdings: portfolioData.length,
+            totalValue: totalValue || 0,
+            metrics: {
+              overallReturn: overallReturn || 0,
+              portfolioQuality: portfolioQuality || 0,
+            }
+          },
+          gameMode: false
         });
-      }
-      
-      // Make the API call to OpenRouter following their documentation
-      const openRouterUrl = 'https://openrouter.ai/api/v1/chat/completions';
-      const requestData = {
-        model: "google/gemini-2.0-flash-lite-001",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage }
-        ],
-        temperature: 0.7,
-        max_tokens: 1024
-      };
-      
-      console.log("Making API call to OpenRouter for portfolio analysis");
-      
-      const response = await axios.post(
-        openRouterUrl,
-        requestData,
-        {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://swipefolio.replit.app',
-            'X-Title': 'Swipefolio Portfolio Advisor'
-          }
-        }
-      );
-      
-      console.log("OpenRouter API response status:", response.status);
-      
-      // Extract the AI's response
-      if (response.data && response.data.choices && response.data.choices.length > 0) {
-        const answer = response.data.choices[0].message.content;
-        return res.json({ response: answer });
-      } else {
-        console.error("Invalid API response format:", response.data);
-        return res.status(500).json({ 
-          error: "Invalid API response", 
-          message: "The AI service returned an unexpected response format"
+        
+        console.log("Successfully got portfolio analysis:", answer.substring(0, 50) + "...");
+        return res.json({ analysis: answer });
+      } catch (aiError: any) {
+        console.error("Error getting AI response:", aiError);
+        
+        return res.status(500).json({
+          error: "AI_SERVICE_ERROR",
+          message: aiError instanceof Error ? aiError.message : "Failed to get AI response"
         });
       }
     } catch (error: any) {
       console.error("Error in portfolio analysis request:", error);
-      
-      // Structure for our error response
-      interface AIErrorResponse {
-        error: string;
-        message: string;
-        details?: {
-          status?: number;
-          data?: any;
-        };
-      }
-      
-      let errorResponse: AIErrorResponse = { 
-        error: "AI service error", 
-        message: error instanceof Error ? error.message : "Unknown error occurred"
-      };
-      
-      // Add more detailed error information if available
-      if (error.response) {
-        console.error("Error response status:", error.response.status);
-        console.error("Error response data:", error.response.data);
-        
-        errorResponse = {
-          error: "AI service error", 
-          message: error instanceof Error ? error.message : "Unknown error occurred",
-          details: {
-            status: error.response.status,
-            data: error.response.data
-          }
-        };
-      }
-      
-      return res.status(500).json(errorResponse);
-    }
-  });
-
-  // AI Chat endpoint - General purpose chatbot for the application
-  app.post("/api/ai/chat", async (req, res) => {
-    try {
-      console.log("Received AI chat request");
-      const { message, context } = req.body;
-      
-      // Validate request body
-      if (!message) {
-        return res.status(400).json({ 
-          error: "INVALID_REQUEST", 
-          message: "A message is required" 
-        });
-      }
-      
-      // Get AI response using our service
-      const response = await getAIResponse(message, context);
-      
-      // Return the response
-      return res.json({ response });
-    } catch (error: any) {
-      console.error("Error in AI chat request:", error);
       
       // Define the structure for our error response
       interface AIErrorResponse {
@@ -527,65 +445,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       let errorResponse: AIErrorResponse = { 
-        error: "AI service error", 
+        error: "Portfolio analysis error", 
         message: error instanceof Error ? error.message : "Unknown error occurred"
       };
-      
-      // Add more detailed error information if available
-      if (error.response) {
-        console.error("Error response status:", error.response.status);
-        console.error("Error response data:", error.response.data);
-        
-        errorResponse = {
-          error: "AI service error", 
-          message: error instanceof Error ? error.message : "Unknown error occurred",
-          details: {
-            status: error.response.status,
-            data: error.response.data
-          }
-        };
-      }
       
       return res.status(500).json(errorResponse);
     }
   });
   
-  // Board Room Game - AI scenario generation
-  app.post("/api/ai-scenario", async (req, res) => {
+  // Financial Game AI endpoint
+  app.post("/api/ai/financial-game", async (req, res) => {
     try {
-      console.log("Received AI scenario request");
-      const { prompt } = req.body;
+      console.log("Received financial game request");
+      const { gameContext, playerInput, gameMode } = req.body;
       
-      // Validate request body
-      if (!prompt) {
+      if (!gameContext || !playerInput) {
         return res.status(400).json({ 
           error: "INVALID_REQUEST", 
-          message: "A prompt is required" 
+          message: "Game context and player input are required" 
         });
       }
       
-      // Get AI response with game context
-      const response = await getAIResponse(prompt, { 
-        gameMode: true,
-        gameRole: "CEO Simulator"
-      });
+      console.log(`Game mode: ${gameMode}, Player input: ${playerInput.substring(0, 50)}...`);
+      
+      const gameRole = gameMode || "Financial Advisor";
       
       try {
-        // Try to parse as JSON
-        const scenario = JSON.parse(response);
-        return res.json({ scenario });
-      } catch (parseError) {
-        console.error('Failed to parse AI response as JSON:', parseError);
+        const response = await getAIResponse(playerInput, {
+          gameMode: true,
+          gameRole: gameRole,
+          previousMessages: gameContext.messages || []
+        });
         
-        // If the response isn't valid JSON, return the raw response for debugging
-        return res.status(500).json({ 
-          message: 'Failed to parse AI response as JSON',
-          rawResponse: response
+        console.log("Successfully got game response:", response.substring(0, 50) + "...");
+        return res.json({ 
+          response,
+          gameState: {
+            currentMode: gameMode
+          }
+        });
+      } catch (aiError: any) {
+        console.error("Error getting AI game response:", aiError);
+        
+        return res.status(500).json({
+          error: "AI_SERVICE_ERROR",
+          message: aiError instanceof Error ? aiError.message : "Failed to get AI response for game"
         });
       }
     } catch (error: any) {
-      console.error("Error generating AI scenario:", error);
+      console.error("Error in financial game request:", error);
       
+      // Define the structure for our error response
       interface AIErrorResponse {
         error: string;
         message: string;
@@ -596,53 +506,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       let errorResponse: AIErrorResponse = { 
-        error: "AI service error", 
+        error: "Financial game error", 
         message: error instanceof Error ? error.message : "Unknown error occurred"
       };
-      
-      // Add more detailed error information if available
-      if (error.response) {
-        console.error("Error response status:", error.response.status);
-        console.error("Error response data:", error.response.data);
-        
-        errorResponse = {
-          error: "AI service error", 
-          message: error instanceof Error ? error.message : "Unknown error occurred",
-          details: {
-            status: error.response.status,
-            data: error.response.data
-          }
-        };
-      }
       
       return res.status(500).json(errorResponse);
     }
   });
   
-  // Board Room Game - AI insight/explanation generation
-  app.post("/api/ai-insight", async (req, res) => {
+  // Market Analysis AI endpoint
+  app.post("/api/ai/market-analysis", async (req, res) => {
     try {
-      console.log("Received AI insight request");
-      const { prompt } = req.body;
+      console.log("Received market analysis request");
+      const { query, marketData } = req.body;
       
-      // Validate request body
-      if (!prompt) {
+      if (!query) {
         return res.status(400).json({ 
           error: "INVALID_REQUEST", 
-          message: "A prompt is required" 
+          message: "Query is required" 
         });
       }
       
-      // Get AI response with game context
-      const explanation = await getAIResponse(prompt, { 
-        gameMode: true,
-        gameRole: "CEO Simulator"
-      });
+      // Construct market context
+      const marketContext = marketData ? 
+        `Market Data:\n${JSON.stringify(marketData, null, 2)}` : 
+        "No specific market data provided.";
       
-      return res.json({ explanation });
+      const userMessage = `${marketContext}\n\nQuery: ${query}`;
+      
+      try {
+        const answer = await getAIResponse(userMessage, {
+          gameMode: false
+        });
+        
+        console.log("Successfully got market analysis:", answer.substring(0, 50) + "...");
+        return res.json({ analysis: answer });
+      } catch (aiError: any) {
+        console.error("Error getting AI market analysis:", aiError);
+        
+        return res.status(500).json({
+          error: "AI_SERVICE_ERROR",
+          message: aiError instanceof Error ? aiError.message : "Failed to get AI response for market analysis"
+        });
+      }
     } catch (error: any) {
-      console.error("Error generating AI insight:", error);
+      console.error("Error in market analysis request:", error);
       
+      // Define the structure for our error response
       interface AIErrorResponse {
         error: string;
         message: string;
@@ -653,35 +563,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       let errorResponse: AIErrorResponse = { 
-        error: "AI service error", 
+        error: "Market analysis error", 
         message: error instanceof Error ? error.message : "Unknown error occurred"
       };
-      
-      // Add more detailed error information if available
-      if (error.response) {
-        console.error("Error response status:", error.response.status);
-        console.error("Error response data:", error.response.data);
-        
-        errorResponse = {
-          error: "AI service error", 
-          message: error instanceof Error ? error.message : "Unknown error occurred",
-          details: {
-            status: error.response.status,
-            data: error.response.data
-          }
-        };
-      }
       
       return res.status(500).json(errorResponse);
     }
   });
-
-  // Stock Data API Endpoints
   
-
-  // Get stock data from JSON files
-  // Get stock data for a specific symbol
-
+  // Stock data endpoint that redirects to Yahoo Finance API
   app.get("/api/stock/:symbol", async (req, res) => {
     try {
       const { symbol } = req.params;
@@ -694,135 +584,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[API] Getting stock data for ${normalizedSymbol}`);
       
-
-      // Get stock data directly from JSON files
-      if (jsonStockService.fileExists(normalizedSymbol)) {
-        const stockData = jsonStockService.getStockData(normalizedSymbol);
-        if (stockData) {
-          return res.json(stockData);
-        }
-      }
-      
-      // Return error if no data found
-      return res.status(404).json({ 
-        error: "Stock data not found", 
-        message: `No JSON file found for symbol: ${normalizedSymbol}` 
-      });
+      // Redirect to Yahoo Finance API
+      return res.redirect(`/api/yahoo-finance/chart/${normalizedSymbol}`);
     } catch (error: any) {
       console.error(`[API] Error getting stock data:`, error);
       res.status(500).json({ 
-        error: "Failed to fetch stock data", 
+        error: "Failed to get stock data", 
         message: error.message 
       });
     }
   });
   
-  // Refresh cache for a specific stock symbol - Not needed for JSON files
-  app.post("/api/stock/refresh-cache", async (req, res) => {
-    try {
-      const { symbols } = req.body;
-      
-      if (!symbols || !Array.isArray(symbols) || symbols.length === 0) {
-        return res.status(400).json({ error: "Array of symbols is required" });
-      }
-      
-      // Get the list of symbols to refresh
-      const symbolsToRefresh = symbols.map(s => s.toUpperCase());
-      
-      console.log(`[API] Request to refresh cache for ${symbolsToRefresh.length} symbols: ${symbolsToRefresh.join(', ')}`);
-      
-      // For JSON files, we just check if they exist
-
-      const success = [];
-      const failures = [];
-      
-      // Check each symbol to see if its JSON file exists
-      for (const symbol of symbolsToRefresh) {
-        if (jsonStockService.fileExists(symbol)) {
-          success.push(symbol);
-        } else {
-          failures.push(symbol);
-        }
-      }
-      
-      res.json({
-        message: `JSON files found for ${success.length} symbols. Missing: ${failures.length}`,
-        success,
-        failures
-      });
-    } catch (error: any) {
-      console.error(`[API] Error checking JSON files:`, error);
-      res.status(500).json({ 
-        error: "Failed to check JSON files", 
-        message: error.message 
-      });
-    }
-  });
-  
-  // Clear cache endpoint - Not needed for JSON files since they're read-only
-  app.post("/api/stock/clear-cache", async (req, res) => {
-    try {
-      console.log(`[API] Clearing stock cache requested - Not implemented for JSON files`);
-      
-
-      // For JSON files, we don't need to clear anything since they're read directly from disk
-      res.json({
-        message: "No cache to clear with JSON files. They are read directly from disk.",
-        availableFiles: jsonStockService.getAvailableSymbols().length
-
-      });
-    } catch (error: any) {
-      console.error(`[API] Error in clear cache endpoint:`, error);
-      res.status(500).json({ 
-        error: "Error processing clear cache request", 
-
-        message: error.message 
-      });
-    }
-  });
-
-  // We are now using only JSON data files, YFinance endpoints removed
-  
-  // Get stock price history for charts
+  // Stock history endpoint that redirects to Yahoo Finance API
   app.get("/api/stock/:symbol/history", async (req, res) => {
     try {
-      const symbol = req.params.symbol.toUpperCase();
-      console.log(`[API] Getting price history for: ${symbol}`);
+      const { symbol } = req.params;
+      const { range, interval } = req.query;
       
-      // Get data from JSON files
-      const { jsonStockService } = await import('./services/json-stock-service');
-      
-      if (jsonStockService.fileExists(symbol)) {
-        const stockData = jsonStockService.getStockData(symbol);
-        
-        if (stockData && stockData.history && stockData.history.length > 0) {
-          return res.json({
-            symbol,
-            history: stockData.history,
-            source: 'json'
-          });
-        }
+      if (!symbol) {
+        return res.status(400).json({ error: "Symbol is required" });
       }
       
-      // If JSON file doesn't exist or no history data, return an error
-      return res.status(404).json({ 
-        error: "No history data available", 
-        message: `No JSON file found for symbol: ${symbol}` 
-      });
+      // Uppercase the symbol for consistency
+      const normalizedSymbol = symbol.toUpperCase();
+      
+      console.log(`[API] Getting history for ${normalizedSymbol}, range: ${range}, interval: ${interval}`);
+      
+      // Redirect to Yahoo Finance API with query parameters
+      const redirectUrl = `/api/yahoo-finance/chart/${normalizedSymbol}?range=${range || '1mo'}&interval=${interval || '1d'}`;
+      return res.redirect(redirectUrl);
     } catch (error: any) {
-      console.error(`[API] Error getting price history:`, error);
+      console.error(`[API] Error getting history:`, error);
       res.status(500).json({ 
-        error: "Failed to fetch price history", 
+        error: "Failed to get history data", 
         message: error.message 
       });
     }
   });
   
-  // No longer generating mock history data - using real JSON data only
-
-  // Register Yahoo Finance API routes
-  app.use("/api/yahoo-finance", yahooFinanceRoutes);
-
-  const httpServer = createServer(app);
-  return httpServer;
+  // Register Yahoo Finance routes
+  app.use('/api/yahoo-finance', yahooFinanceRoutes);
+  
+  // Create an HTTP server for the Express app
+  const server = createServer(app);
+  
+  return server;
 }

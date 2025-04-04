@@ -2,9 +2,9 @@ import axios from 'axios';
 import { db } from './db';
 import { stockCache } from '../shared/schema';
 import { eq, sql } from 'drizzle-orm';
-import { getMockStockData, formatMockStockData } from '../shared/mock-stocks';
+// Using Yahoo Finance API directly
 import * as finnhub from 'finnhub';
-import { postgresStockService } from './services/postgres-stock-service';
+// Using Yahoo Finance API directly for stock data needs
 
 // Configure API key
 // Use the API key provided by the user
@@ -163,35 +163,25 @@ export class FinnhubService {
     }
   }
   
-  // Get data from PostgreSQL or fall back to mock data
+  // Redirects to Yahoo Finance API instead of using mock data
   private async getMockData(symbol: string): Promise<any> {
     try {
-      // First try to get data from PostgreSQL database
-      console.log(`[Finnhub] Trying to get data from PostgreSQL for ${symbol}`);
-      const postgresData = await postgresStockService.getStockData(symbol);
+      console.log(`[Finnhub] Yahoo Finance API will be used for ${symbol} data instead`);
       
-      if (postgresData) {
-        console.log(`[Finnhub] Found data in PostgreSQL for ${symbol}`);
-        return postgresData;
-      }
-      
-      // Fall back to hardcoded mock data if PostgreSQL doesn't have the data
-      console.log(`[Finnhub] Data not found in PostgreSQL for ${symbol}, using mock data`);
-      const mockStock = getMockStockData(symbol);
-      
-      if (!mockStock) {
-        console.warn(`[Finnhub] No mock data available for ${symbol}`);
-        return null;
-      }
-      
-      console.log(`[Finnhub] Using mock data for ${symbol}`);
-      return formatMockStockData(mockStock);
+      // Return empty object to trigger Yahoo Finance API usage
+      return {
+        symbol,
+        quote: {},
+        profile: {},
+        metrics: {},
+        priceTarget: {},
+        recommendations: [],
+        lastUpdated: new Date().toISOString(),
+        yahooFinanceRedirect: true
+      };
     } catch (error) {
       console.error(`[Finnhub] Error getting data for ${symbol}:`, error);
-      
-      // Final fallback to hardcoded mock data
-      const mockStock = getMockStockData(symbol);
-      return mockStock ? formatMockStockData(mockStock) : null;
+      return null;
     }
   }
   
