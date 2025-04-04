@@ -345,21 +345,6 @@ export default function PortfolioImpactCalculator({
                                   transform={`rotate(${rotation} 50 50)`}
                                   strokeLinecap="butt"
                                 />
-                                
-                                {/* Add percentage label inside the segment if it's large enough */}
-                                {segmentPct >= 10 && (
-                                  <text
-                                    x="50"
-                                    y="50"
-                                    textAnchor="middle"
-                                    fill="white"
-                                    fontSize="10"
-                                    fontWeight="bold"
-                                    transform={`rotate(${rotation + (segmentPct * 1.8)} 50 50) translate(0, -40)`}
-                                  >
-                                    {Math.round(segmentPct)}%
-                                  </text>
-                                )}
                               </g>
                             ) : null;
                           })
