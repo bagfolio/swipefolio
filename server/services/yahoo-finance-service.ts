@@ -65,31 +65,31 @@ class YahooFinanceService {
   async getChartData(symbol: string, range: string = '1mo', interval: string = '1d') {
     try {
       console.log(`Fetching chart data for ${symbol} with range: ${range}, interval: ${interval}`);
-      
+
       // For intraday data (1d, 5d), use different interval settings
       if (range === '1d' || range === '5d') {
         // For intraday data, we need more granular intervals
         // Use '5m' (5-minute) intervals for 1d and '60m' (60-minute) for 5d
         const intradayInterval = range === '1d' ? '5m' : '60m';
         console.log(`Using intraday interval ${intradayInterval} for ${range} range`);
-        
+
         const result = await yahooFinance.chart(symbol, {
           period1: this.getDateFromRange(range),
           interval: intradayInterval as any,
           includePrePost: true,
         });
-        
+
         return result;
       } else {
         // For non-intraday data, use the regular interval
         const validInterval = this.getValidInterval(interval);
-        
+
         const result = await yahooFinance.chart(symbol, {
           period1: this.getDateFromRange(range),
           interval: validInterval,
           includePrePost: true,
         });
-        
+
         return result;
       }
     } catch (error) {
@@ -118,7 +118,7 @@ class YahooFinanceService {
       '5d': '5d',
       '3mo': '3mo'
     };
-    
+
     return intervalMap[interval] || '1d';
   }
 
@@ -129,35 +129,35 @@ class YahooFinanceService {
   async getRecommendations(symbol: string): Promise<AnalystRecommendation | null> {
     try {
       console.log(`Fetching analyst recommendations for ${symbol}`);
-      
+
       // Get the recommendation trend from quoteSummary
       const quoteSummary = await yahooFinance.quoteSummary(symbol, {
         modules: ['recommendationTrend']
       });
-      
+
       if (!quoteSummary?.recommendationTrend?.trend || 
           !Array.isArray(quoteSummary.recommendationTrend.trend) || 
           quoteSummary.recommendationTrend.trend.length === 0) {
         console.warn(`No recommendation trends found for ${symbol}`);
         return null;
       }
-      
+
       // Get the most recent recommendation trend
       const latestRec = quoteSummary.recommendationTrend.trend[0];
-      
+
       // Calculate total recommendations
       const total = latestRec.strongBuy + latestRec.buy + latestRec.hold + latestRec.sell + latestRec.strongSell;
-      
+
       if (total === 0) {
         console.warn(`No analyst counts available for ${symbol}`);
         return null;
       }
-      
+
       // Calculate percentages
       const buyPercentage = ((latestRec.strongBuy + latestRec.buy) / total) * 100;
       const sellPercentage = ((latestRec.strongSell + latestRec.sell) / total) * 100;
       const holdPercentage = (latestRec.hold / total) * 100;
-      
+
       // Calculate average rating (1=Strong Sell, 5=Strong Buy)
       const averageRating = (
         (latestRec.strongBuy * 5) + 
@@ -166,10 +166,10 @@ class YahooFinanceService {
         (latestRec.sell * 2) + 
         (latestRec.strongSell * 1)
       ) / total;
-      
+
       // Determine consensus
       let consensus: 'buy' | 'sell' | 'hold' | 'neutral' = 'neutral';
-      
+
       if (buyPercentage > 60) {
         consensus = 'buy';
       } else if (sellPercentage > 60) {
@@ -183,7 +183,7 @@ class YahooFinanceService {
       } else if (holdPercentage > buyPercentage && holdPercentage > sellPercentage) {
         consensus = 'hold';
       }
-      
+
       // Format the period date
       const lastUpdated = latestRec.period ? 
         new Date(latestRec.period).toLocaleDateString(undefined, { 
@@ -191,7 +191,7 @@ class YahooFinanceService {
           month: 'short', 
           day: 'numeric' 
         }) : 'Unknown';
-      
+
       // Return the processed recommendation data
       return {
         ...latestRec,
@@ -209,7 +209,7 @@ class YahooFinanceService {
       return null;
     }
   }
-  
+
   /**
    * Fetch news data for a stock symbol
    * Uses quoteSummary with 'assetProfile' module and additional search
@@ -217,34 +217,41 @@ class YahooFinanceService {
   async getNewsData(symbol: string, count: number = 5) {
     try {
       console.log(`Fetching news data for ${symbol}, count: ${count}`);
-      
+
       // First get the quote to confirm symbol
       const quote = await yahooFinance.quote(symbol);
-      
+
       if (!quote) {
         throw new Error(`No quote data found for ${symbol}`);
       }
-      
+
       // Get news through a search for the symbol
       // This gives us the most recent news articles related to the symbol
       const searchResults = await yahooFinance.search(symbol);
-      
+
       // Extract news items from the search results
       let newsItems: YahooNewsItem[] = [];
-      
+
       if (searchResults && searchResults.news && Array.isArray(searchResults.news)) {
         // Convert the news items to our YahooNewsItem format
         newsItems = searchResults.news.map(item => {
-          // Convert the providerPublishTime to a timestamp
+          // Convert and validate the providerPublishTime
           let publishTime: number;
           if (typeof item.providerPublishTime === 'number') {
-            publishTime = item.providerPublishTime;
+            // If timestamp is unreasonably large (year > 2030), use current time
+            const date = new Date(item.providerPublishTime * 1000);
+            if (date.getFullYear() > 2030 || date.getFullYear() < 2010) {
+              console.warn(`Invalid news timestamp detected: ${item.providerPublishTime}, using current time`);
+              publishTime = Math.floor(Date.now() / 1000);
+            } else {
+              publishTime = item.providerPublishTime;
+            }
           } else if (typeof item.providerPublishTime === 'string') {
-            publishTime = new Date(item.providerPublishTime).getTime() / 1000; // Convert to seconds to match Yahoo API format
+            publishTime = Math.floor(new Date(item.providerPublishTime).getTime() / 1000); // Convert to seconds
           } else {
-            publishTime = Math.floor(Date.now() / 1000); // Convert to seconds to match Yahoo API format
+            publishTime = Math.floor(Date.now() / 1000); // Use current time as fallback
           }
-          
+
           return {
             title: item.title || `News about ${symbol}`,
             publisher: item.publisher || 'Yahoo Finance',
@@ -256,14 +263,14 @@ class YahooFinanceService {
           };
         });
       }
-      
+
       // Also try to get news from the quoteSummary with assetProfile if search didn't yield results
       if (newsItems.length === 0) {
         try {
           const summary = await yahooFinance.quoteSummary(symbol, {
             modules: ['assetProfile']
           });
-          
+
           if (summary.assetProfile && summary.assetProfile.companyOfficers) {
             // Create a news item about company officers
             newsItems.push({
@@ -280,7 +287,7 @@ class YahooFinanceService {
           // Continue with whatever news we have
         }
       }
-      
+
       // If we still don't have news, add at least one general item
       if (newsItems.length === 0) {
         newsItems.push({
@@ -292,10 +299,10 @@ class YahooFinanceService {
           relatedTickers: [symbol]
         });
       }
-      
+
       // Sort news by publish time (newest first) and limit to requested count
       newsItems.sort((a, b) => b.providerPublishTime - a.providerPublishTime);
-      
+
       return {
         items: newsItems.slice(0, count),
         symbol: symbol,
@@ -306,7 +313,7 @@ class YahooFinanceService {
       throw error;
     }
   }
-  
+
   /**
    * Fetch analyst upgrade/downgrade history for a stock symbol
    * Uses the quoteSummary endpoint with upgradeDowngradeHistory module
@@ -314,24 +321,24 @@ class YahooFinanceService {
   async getUpgradeHistory(symbol: string): Promise<UpgradeHistoryItem[] | null> {
     try {
       console.log(`Fetching upgrade/downgrade history for ${symbol}`);
-      
+
       // Get the upgrade/downgrade history from quoteSummary
       const quoteSummary = await yahooFinance.quoteSummary(symbol, {
         modules: ['upgradeDowngradeHistory']
       });
-      
+
       if (!quoteSummary?.upgradeDowngradeHistory?.history || 
           !Array.isArray(quoteSummary.upgradeDowngradeHistory.history) || 
           quoteSummary.upgradeDowngradeHistory.history.length === 0) {
         console.warn(`No upgrade/downgrade history found for ${symbol}`);
         return null;
       }
-      
+
       // Map and process the history items
       const historyItems = quoteSummary.upgradeDowngradeHistory.history.map(item => {
         // Determine action type based on from/to grades
         let action: 'upgrade' | 'downgrade' | 'maintain' | 'init' | 'reiterated' = 'maintain';
-        
+
         if (!item.fromGrade) {
           action = 'init'; // Initial coverage
         } else if (item.toGrade === item.fromGrade) {
@@ -352,26 +359,39 @@ class YahooFinanceService {
             'sell': 1,
             'strong sell': 0
           };
-          
+
           // Get numeric values for the from/to grades
           const fromValue = ratingMap[(item.fromGrade || '').toLowerCase()] || 3;
           const toValue = ratingMap[(item.toGrade || '').toLowerCase()] || 3;
-          
+
           if (toValue > fromValue) {
             action = 'upgrade';
           } else if (toValue < fromValue) {
             action = 'downgrade';
           }
         }
-        
-        // Format the grade date
+
+        // Format the grade date with validation
         const date = item.epochGradeDate ? 
-          new Date(item.epochGradeDate * 1000).toLocaleDateString(undefined, { 
-            year: 'numeric', 
-            month: 'short', 
-            day: 'numeric' 
-          }) : 'Unknown';
-        
+          (() => {
+            const dateObj = new Date(item.epochGradeDate * 1000);
+            // Validate the date is reasonable (between 2010-2030)
+            if (dateObj.getFullYear() >= 2010 && dateObj.getFullYear() <= 2030) {
+              return dateObj.toLocaleDateString(undefined, { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+              });
+            } else {
+              // If date is unreasonable, use a recent date instead
+              return new Date().toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              });
+            }
+          })() : 'Recent';
+
         return {
           firm: item.firm || 'Unknown Firm',
           toGrade: item.toGrade || 'Not Specified',
@@ -381,7 +401,7 @@ class YahooFinanceService {
           epochGradeDate: item.epochGradeDate || 0
         };
       });
-      
+
       // Sort by date (newest first)
       return historyItems.sort((a, b) => b.epochGradeDate - a.epochGradeDate);
     } catch (error) {
@@ -396,14 +416,14 @@ class YahooFinanceService {
   async handleChartRequest(req: Request, res: Response) {
     const { symbol } = req.params;
     const { range = '1mo', interval = '1d' } = req.query;
-    
+
     try {
       const data = await this.getChartData(
         symbol, 
         range as string, 
         interval as string
       );
-      
+
       res.json(data);
     } catch (error) {
       console.error(`Failed to fetch chart data for ${symbol}:`, error);
@@ -420,13 +440,13 @@ class YahooFinanceService {
   async handleNewsRequest(req: Request, res: Response) {
     const { symbol } = req.params;
     const { count = 5 } = req.query;
-    
+
     try {
       const data = await this.getNewsData(
         symbol, 
         parseInt(count as string, 10) || 5
       );
-      
+
       res.json(data);
     } catch (error) {
       console.error(`Failed to fetch news data for ${symbol}:`, error);
@@ -436,23 +456,23 @@ class YahooFinanceService {
       });
     }
   }
-  
+
   /**
    * Handle recommendations data request
    */
   async handleRecommendationsRequest(req: Request, res: Response) {
     const { symbol } = req.params;
-    
+
     try {
       const data = await this.getRecommendations(symbol);
-      
+
       if (!data) {
         return res.status(404).json({
           error: 'No recommendations found',
           message: `No analyst recommendations available for ${symbol}`
         });
       }
-      
+
       res.json(data);
     } catch (error) {
       console.error(`Failed to fetch recommendations for ${symbol}:`, error);
@@ -462,23 +482,23 @@ class YahooFinanceService {
       });
     }
   }
-  
+
   /**
    * Handle upgrade/downgrade history request
    */
   async handleUpgradeHistoryRequest(req: Request, res: Response) {
     const { symbol } = req.params;
-    
+
     try {
       const data = await this.getUpgradeHistory(symbol);
-      
+
       if (!data) {
         return res.status(404).json({
           error: 'No upgrade/downgrade history found',
           message: `No analyst upgrade/downgrade history available for ${symbol}`
         });
       }
-      
+
       res.json(data);
     } catch (error) {
       console.error(`Failed to fetch upgrade/downgrade history for ${symbol}:`, error);
@@ -494,7 +514,7 @@ class YahooFinanceService {
    */
   private getDateFromRange(range: string): Date {
     const now = new Date();
-    
+
     switch (range) {
       case '1d':
         return new Date(now.setDate(now.getDate() - 1));

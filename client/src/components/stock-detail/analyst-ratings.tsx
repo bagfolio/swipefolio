@@ -28,41 +28,41 @@ interface AnalystRatingsProps {
 
 const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) => {
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
-  
+
   // Fetch analyst recommendations data
   const { 
     data: recommendationsData, 
     isLoading: isRecommendationsLoading,
     error: recommendationsError
   } = useAnalystRecommendations(symbol);
-  
+
   // Fetch upgrade/downgrade history
   const {
     data: upgradeHistoryData,
     isLoading: isHistoryLoading,
     error: historyError
   } = useUpgradeHistory(symbol);
-  
+
   const isLoading = isRecommendationsLoading || isHistoryLoading;
   const hasError = recommendationsError || historyError;
-  
+
   // Derived data for visualizations
   const ratingSummary = useMemo(() => {
     if (!recommendationsData) return null;
-    
+
     const buyPercentage = recommendationsData.buyPercentage || 0;
     const holdPercentage = recommendationsData.holdPercentage || 0;
     const sellPercentage = recommendationsData.sellPercentage || 0;
-    
+
     const buyCount = recommendationsData.strongBuy + recommendationsData.buy;
     const holdCount = recommendationsData.hold;
     const sellCount = recommendationsData.strongSell + recommendationsData.sell;
-    
+
     // Calculate consensus score (1-5 scale, 1=Strong Sell, 5=Strong Buy)
     // This gives us a normalized score for the gauge
     const consensusScore = recommendationsData.averageRating || 3;
     const normalizedScore = ((consensusScore - 1) / 4) * 100; // Convert to 0-100 for the gauge
-    
+
     return {
       buyPercentage,
       holdPercentage,
@@ -77,11 +77,11 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
       lastUpdated: recommendationsData.lastUpdated
     };
   }, [recommendationsData]);
-  
+
   // Format label for consensus score
   const getConsensusLabel = (score?: number): string => {
     if (!score) return 'Neutral';
-    
+
     if (score > 4.5) return 'Strong Buy';
     if (score > 3.75) return 'Buy';
     if (score > 3.25) return 'Outperform';
@@ -90,11 +90,11 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
     if (score > 1.5) return 'Sell';
     return 'Strong Sell';
   };
-  
+
   // Get color for ratings based on consensus
   const getConsensusColor = (consensus?: string): string => {
     if (!consensus) return 'text-gray-500';
-    
+
     switch (consensus) {
       case 'buy':
         return 'text-green-600';
@@ -106,18 +106,18 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
         return 'text-blue-500';
     }
   };
-  
+
   // Get background color for gauge
   const getGaugeColor = (score?: number): string => {
     if (!score) return 'bg-gray-300';
-    
+
     if (score > 4) return 'bg-green-500';
     if (score > 3) return 'bg-green-400';
     if (score > 2.75) return 'bg-amber-400';
     if (score > 2) return 'bg-amber-500';
     return 'bg-red-500';
   };
-  
+
   // Get icon and style for action type
   const getActionDetails = (action: string) => {
     switch (action) {
@@ -153,11 +153,11 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
         };
     }
   };
-  
+
   // Get color for rating grade
   const getRatingColor = (rating: string): string => {
     rating = rating.toLowerCase();
-    
+
     if (rating.includes('buy') || rating.includes('outperform') || rating.includes('overweight')) {
       return 'text-green-600';
     } else if (rating.includes('sell') || rating.includes('underperform') || rating.includes('underweight')) {
@@ -168,7 +168,7 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
       return 'text-gray-600';
     }
   };
-  
+
   // Render loading state
   if (isLoading) {
     return (
@@ -180,7 +180,7 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
       </Card>
     );
   }
-  
+
   // Render error state
   if (hasError) {
     return (
@@ -196,7 +196,7 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
       </Card>
     );
   }
-  
+
   // Render no data state
   if (!recommendationsData && !upgradeHistoryData) {
     return (
@@ -209,13 +209,13 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
       </Card>
     );
   }
-  
+
   return (
     <Card className="w-full my-3 overflow-hidden">
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Analyst Ratings</h3>
-          
+
           {/* Tab toggle - styled as a modern switch */}
           <div className="relative flex items-center space-x-1 bg-gray-100 p-1 rounded-full">
             <button
@@ -256,7 +256,7 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
             </button>
           </div>
         </div>
-        
+
         <AnimatePresence mode="wait">
           {activeTab === 'current' ? (
             <motion.div 
@@ -279,7 +279,7 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
                           style={{ width: `${ratingSummary.normalizedScore}%` }}
                         />
                       </div>
-                      
+
                       {/* Gauge markers */}
                       <div className="w-full flex justify-between mt-1 px-1">
                         <div className="h-1.5 w-0.5 bg-gray-300" />
@@ -288,7 +288,7 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
                         <div className="h-1.5 w-0.5 bg-gray-300" />
                         <div className="h-1.5 w-0.5 bg-gray-300" />
                       </div>
-                      
+
                       {/* Consensus text */}
                       <div className="mt-3 text-center">
                         <p className={cn("text-xl font-bold leading-none", getConsensusColor(ratingSummary.consensus))}>
@@ -299,7 +299,7 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
                         </p>
                       </div>
                     </div>
-                    
+
                     {/* Label scale */}
                     <div className="w-full flex justify-between text-xs text-gray-500 mt-1 px-1">
                       <span>Sell</span>
@@ -307,11 +307,11 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
                       <span>Buy</span>
                     </div>
                   </div>
-                  
+
                   {/* Distribution visualization */}
                   <div className="space-y-3">
                     <h4 className="text-sm font-medium text-gray-700">Rating Distribution</h4>
-                    
+
                     {/* Buy group */}
                     <div className="space-y-1">
                       <div className="flex justify-between items-center">
@@ -320,7 +320,7 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
                       </div>
                       <Progress value={ratingSummary.buyPercentage} className="h-2" indicatorClassName="bg-green-500" />
                     </div>
-                    
+
                     {/* Hold group */}
                     <div className="space-y-1">
                       <div className="flex justify-between items-center">
@@ -329,7 +329,7 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
                       </div>
                       <Progress value={ratingSummary.holdPercentage} className="h-2" indicatorClassName="bg-amber-400" />
                     </div>
-                    
+
                     {/* Sell group */}
                     <div className="space-y-1">
                       <div className="flex justify-between items-center">
@@ -339,7 +339,7 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
                       <Progress value={ratingSummary.sellPercentage} className="h-2" indicatorClassName="bg-red-500" />
                     </div>
                   </div>
-                  
+
                   {/* Summary stats */}
                   <div className="flex justify-between text-sm text-gray-500 pt-2">
                     <span>Based on {ratingSummary.total} analyst ratings</span>
@@ -369,11 +369,11 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
                       Showing {Math.min(upgradeHistoryData.length, 8)} of {upgradeHistoryData.length}
                     </span>
                   </div>
-                  
+
                   <div className="space-y-0 max-h-[350px] overflow-y-auto pr-1">
                     {upgradeHistoryData.slice(0, 8).map((item, index) => {
                       const actionDetails = getActionDetails(item.action);
-                      
+
                       return (
                         <motion.div 
                           key={index}
@@ -390,10 +390,12 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
                               <div className="flex items-center">
                                 <span className="font-medium">{item.firm}</span>
                                 <span className="text-xs text-gray-500 ml-2">
-                                  {item.date}
+                                  {item.date && item.date.includes('5') && item.date.length > 10 
+                                    ? new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) 
+                                    : item.date}
                                 </span>
                               </div>
-                              
+
                               <div className="flex items-center mt-1 text-sm">
                                 {item.action !== 'init' && (
                                   <>
@@ -408,7 +410,7 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
                                 </span>
                               </div>
                             </div>
-                            
+
                             <Badge 
                               variant="outline" 
                               className={cn(
@@ -420,7 +422,7 @@ const AnalystRatings: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) 
                               {actionDetails.text}
                             </Badge>
                           </div>
-                          
+
                           {index < upgradeHistoryData.slice(0, 8).length - 1 && (
                             <Separator className="mt-3" />
                           )}
