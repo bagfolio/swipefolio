@@ -54,81 +54,30 @@ function calculateGaugeScore(distribution: any): number | null {
   return weightedSum / totalAnalysts;
 }
 
-// Function to fetch analyst data from our API endpoints
+// Function to fetch analyst data from our enhanced API endpoint
 async function getAnalystData(symbol: string): Promise<AnalystData | null> {
   try {
-    // Get recommendations data
-    const recommendationsResponse = await fetch(`/api/yahoo-finance/recommendations/${symbol}`);
-    if (!recommendationsResponse.ok) {
-      throw new Error(`Failed to fetch recommendations for ${symbol}`);
+    // Use our new unified analyst data endpoint
+    const response = await fetch(`/api/yahoo-finance/analyst-data/${symbol}`);
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error(`Server error fetching analyst data: ${errorData.message || 'Unknown error'}`);
+      throw new Error(`Failed to fetch analyst data for ${symbol}: ${errorData.message || response.statusText}`);
     }
-    const recommendationsData = await recommendationsResponse.json();
-
-    // Get upgrade history data
-    const upgradeHistoryResponse = await fetch(`/api/yahoo-finance/upgrade-history/${symbol}`);
-    if (!upgradeHistoryResponse.ok) {
-      throw new Error(`Failed to fetch upgrade history for ${symbol}`);
+    
+    const data = await response.json();
+    
+    // Log the received data for debugging
+    console.log(`Received analyst data for ${symbol}:`, data);
+    
+    if (!data) {
+      console.warn(`No analyst data returned for ${symbol}`);
+      return null;
     }
-    const upgradeHistoryData = await upgradeHistoryResponse.json();
-
-    // Create distribution data for current period
-    const currentDistribution: DistributionData = {
-      strongBuy: recommendationsData.strongBuy || 0,
-      buy: recommendationsData.buy || 0,
-      hold: recommendationsData.hold || 0,
-      sell: recommendationsData.sell || 0,
-      strongSell: recommendationsData.strongSell || 0,
-    };
-
-    // Calculate gauge score
-    const gaugeScore = calculateGaugeScore(currentDistribution);
-
-    // Process history data
-    const processedHistory = upgradeHistoryData.map((item: any) => {
-      // Parse date with validation
-      let dateObject: Date | null = null;
-      try {
-        if (item.date) {
-          const potentialDate = new Date(item.date);
-          if (isValid(potentialDate)) {
-            dateObject = potentialDate;
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to parse date:', item.date);
-      }
-
-      // Determine action type
-      const actionType = !item.fromGrade ? 'init' : 
-                   item.toGrade === item.fromGrade ? 'maintain' :
-                   standardizeRating(item.toGrade) > standardizeRating(item.fromGrade) ? 'upgrade' : 'downgrade';
-
-      return {
-        date: dateObject,
-        firm: item.firm,
-        displayDate: item.date, // Use the display date string directly
-        actionType: actionType,
-        standardizedToGrade: standardizeRating(item.toGrade),
-        standardizedFromGrade: standardizeRating(item.fromGrade || ''),
-      };
-    });
-
-    // Create the final data structure
-    const result: AnalystData = {
-      consensusKey: recommendationsData.consensus || 'N/A',
-      consensusMean: recommendationsData.averageRating || null,
-      numberOfAnalysts: recommendationsData.total || 0,
-      gaugeScore: gaugeScore,
-      distributionOverTime: {
-        '0m': currentDistribution,
-        // Add past periods as a demonstration
-        '-1m': { ...currentDistribution }, // Clone current as example
-        '-2m': { ...currentDistribution }, // In a real implementation, these would be different
-      },
-      ratingHistoryForChart: processedHistory,
-    };
-
-    return result;
+    
+    // Return the data directly as it matches our expected format from analystRatingsService
+    return data as AnalystData;
   } catch (error) {
     console.error(`Error fetching analyst data for ${symbol}:`, error);
     throw error;
