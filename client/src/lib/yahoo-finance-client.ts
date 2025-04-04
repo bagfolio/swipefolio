@@ -76,18 +76,40 @@ export async function fetchStockChartData(symbol: string, range: string = "1mo",
 }
 
 /**
- * Hook to query Yahoo Finance chart data
+ * Hook to query Yahoo Finance chart data with preloading for other timeframes
  */
 export function useYahooChartData(symbol: string, timeFrame: string) {
   // Map timeFrame to corresponding Yahoo Finance range
   const range = timeFrameToRange[timeFrame] || "1mo";
   
-  return useQuery<YahooChartResponse>({
+  // Get primary chart data
+  const primaryQuery = useQuery<YahooChartResponse>({
     queryKey: ['/api/yahoo-finance/chart', symbol, range],
     queryFn: async () => fetchStockChartData(symbol, range),
     staleTime: 5 * 60 * 1000, // 5 minutes
     enabled: !!symbol,
   });
+  
+  // Preload data for other common timeframes in the background
+  // This improves UX by avoiding loading states when switching timeframes
+  const timeFramesToPreload = ["5D", "1M", "6M", "1Y"];
+  
+  // Preload each timeframe if it's not the current one
+  timeFramesToPreload.forEach(tf => {
+    if (tf !== timeFrame) {
+      const preloadRange = timeFrameToRange[tf] || "1mo";
+      useQuery<YahooChartResponse>({
+        queryKey: ['/api/yahoo-finance/chart', symbol, preloadRange],
+        queryFn: async () => fetchStockChartData(symbol, preloadRange),
+        staleTime: 5 * 60 * 1000,
+        enabled: !!symbol && !!primaryQuery.data, // Only preload after primary data is loaded
+        refetchOnWindowFocus: false, // Don't refetch preloaded data on window focus
+        retry: 1, // Limit retries for preloaded data
+      });
+    }
+  });
+  
+  return primaryQuery;
 }
 
 /**

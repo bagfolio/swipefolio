@@ -443,7 +443,7 @@ export default function StockCard({
               </div>
             )}
              {/* Chart Area - Robinhood-inspired */}
-            <div className="relative mt-2 h-72 py-2"> {/* Increased height for more prominent chart */}
+            <div className="relative mt-2 h-72 py-2 w-full mx-0"> {/* Full-width chart */}
                 {isLoadingYahooData && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white/50">
                         <Skeleton className="h-full w-full" />
@@ -456,63 +456,129 @@ export default function StockCard({
                 )}
                 {!isLoadingYahooData && !yahooError && chartPrices.length > 0 && (
                     <>
-                        {/* Y Axis Labels */}
-                        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-slate-700 font-medium pointer-events-none py-3 z-10 w-12">
-                            <span>${priceRangeMax.toFixed(0)}</span>
-                            <span>${((priceRangeMax + priceRangeMin) / 2).toFixed(0)}</span>
-                            <span>${priceRangeMin.toFixed(0)}</span>
-                        </div>
-                        {/* Chart SVG with enhanced styling */}
-                        <div className="absolute inset-0 pl-12 pr-4 drop-shadow-md"> {/* Added drop shadow */}
+                        {/* Chart SVG with enhanced styling - Edge to edge */}
+                        <div className="absolute inset-0 px-0"> {/* Removed padding for edge-to-edge */}
                             <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
-                                {/* Enhanced Gradient Definitions */}
+                                {/* Enhanced Gradient Definitions - More subtle */}
                                 <defs>
-                                    {/* Main area gradient with more vibrant colors */}
+                                    {/* Main area gradient with subtle colors */}
                                     <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                                        <stop offset="0%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'} />
-                                        <stop offset="85%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.05)' : 'rgba(239, 68, 68, 0.05)'} />
+                                        <stop offset="0%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)'} />
+                                        <stop offset="90%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.02)' : 'rgba(239, 68, 68, 0.02)'} />
                                         <stop offset="100%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.0)' : 'rgba(239, 68, 68, 0.0)'} />
                                     </linearGradient>
                                     
-                                    {/* Glow effect for the line */}
+                                    {/* Subtle glow effect for the line */}
                                     <filter id="glow" x="-5%" y="-5%" width="110%" height="110%">
-                                        <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
-                                        <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 18 -7" result="glow" />
+                                        <feGaussianBlur in="SourceGraphic" stdDeviation="0.8" result="blur" />
+                                        <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 15 -7" result="glow" />
                                         <feComposite in="SourceGraphic" in2="glow" operator="over" />
                                     </filter>
                                 </defs>
                                 
-                                {/* Horizontal dotted grid lines */}
-                                <line x1="0" y1="25" x2="100" y2="25" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'} strokeWidth="0.5" strokeDasharray="1,2" />
-                                <line x1="0" y1="50" x2="100" y2="50" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'} strokeWidth="0.5" strokeDasharray="1,2" />
-                                <line x1="0" y1="75" x2="100" y2="75" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'} strokeWidth="0.5" strokeDasharray="1,2" />
+                                {/* Horizontal dotted grid lines - more subtle */}
+                                <line x1="0" y1="25" x2="100" y2="25" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.07)' : 'rgba(239, 68, 68, 0.07)'} strokeWidth="0.3" strokeDasharray="1,2" />
+                                <line x1="0" y1="50" x2="100" y2="50" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.07)' : 'rgba(239, 68, 68, 0.07)'} strokeWidth="0.3" strokeDasharray="1,2" />
+                                <line x1="0" y1="75" x2="100" y2="75" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.07)' : 'rgba(239, 68, 68, 0.07)'} strokeWidth="0.3" strokeDasharray="1,2" />
                                 
-                                {/* Enhanced Area Fill with gradient */}
+                                {/* Enhanced Area Fill with subtle gradient */}
                                 <path
-                                d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} ${
+                                d={`M0,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} ${
                                     chartPrices.map((point: number, i: number) =>
-                                    `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
+                                    `L${(i / (chartPrices.length - 1)) * 100},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
                                     ).join(' ')
-                                } L105,${100 - ((chartPrices[chartPrices.length - 1] - minValue) / (maxValue - minValue || 1)) * 100} L105,100 L-5,100 Z`}
+                                } L100,${100 - ((chartPrices[chartPrices.length - 1] - minValue) / (maxValue - minValue || 1)) * 100} L100,100 L0,100 Z`}
                                 fill="url(#chartGradient)" 
                                 />
                                 
-                                {/* Enhanced Chart Line with glow effect */}
+                                {/* Enhanced Chart Line - THINNER with subtle glow effect */}
                                 <path
-                                d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} ${
+                                d={`M0,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} ${
                                     chartPrices.map((point: number, i: number) =>
-                                    `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
+                                    `L${(i / (chartPrices.length - 1)) * 100},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
                                     ).join(' ')
-                                } L105,${100 - ((chartPrices[chartPrices.length - 1] - minValue) / (maxValue - minValue || 1)) * 100}`}
-                                className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`}
-                                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                } L100,${100 - ((chartPrices[chartPrices.length - 1] - minValue) / (maxValue - minValue || 1)) * 100}`}
+                                className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none animate-draw-line`}
+                                strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
                                 filter="url(#glow)"
+                                style={{
+                                  strokeDasharray: "1000",
+                                  strokeDashoffset: "1000",
+                                  animation: "draw-line 1.5s ease-in-out forwards"
+                                }}
                                 />
+                                
+                                {/* Key Price Points with labels */}
+                                {/* Start price dot and label */}
+                                <circle 
+                                  cx="0" 
+                                  cy={100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} 
+                                  r="1.2" 
+                                  fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} 
+                                />
+                                <text 
+                                  x="2" 
+                                  y={100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100 - 5} 
+                                  className="text-[7px] font-medium" 
+                                  fill="#4B5563"
+                                >
+                                  ${chartPrices[0].toFixed(2)}
+                                </text>
+                                
+                                {/* End price dot and label */}
+                                <circle 
+                                  cx="100" 
+                                  cy={100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue || 1)) * 100} 
+                                  r="1.2" 
+                                  fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} 
+                                />
+                                <text 
+                                  x="92" 
+                                  y={100 - ((chartPrices[chartPrices.length-1] - minValue) / (maxValue - minValue || 1)) * 100 - 5} 
+                                  className="text-[7px] font-medium" 
+                                  fill="#4B5563"
+                                >
+                                  ${chartPrices[chartPrices.length-1].toFixed(2)}
+                                </text>
+                                
+                                {/* Max price point */}
+                                {(() => {
+                                  const maxPrice = Math.max(...chartPrices);
+                                  const maxIndex = chartPrices.indexOf(maxPrice);
+                                  const maxX = (maxIndex / (chartPrices.length - 1)) * 100;
+                                  const maxY = 100 - ((maxPrice - minValue) / (maxValue - minValue || 1)) * 100;
+                                  
+                                  return (
+                                    <>
+                                      <circle cx={maxX} cy={maxY} r="1.2" fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} />
+                                      <text x={maxX > 80 ? maxX - 15 : maxX + 2} y={maxY - 5} className="text-[7px] font-medium" fill="#4B5563">
+                                        ${maxPrice.toFixed(2)}
+                                      </text>
+                                    </>
+                                  );
+                                })()}
+                                
+                                {/* Min price point */}
+                                {(() => {
+                                  const minPrice = Math.min(...chartPrices);
+                                  const minIndex = chartPrices.indexOf(minPrice);
+                                  const minX = (minIndex / (chartPrices.length - 1)) * 100;
+                                  const minY = 100 - ((minPrice - minValue) / (maxValue - minValue || 1)) * 100;
+                                  
+                                  return (
+                                    <>
+                                      <circle cx={minX} cy={minY} r="1.2" fill={realTimeChange >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)'} />
+                                      <text x={minX > 80 ? minX - 15 : minX + 2} y={minY + 10} className="text-[7px] font-medium" fill="#4B5563">
+                                        ${minPrice.toFixed(2)}
+                                      </text>
+                                    </>
+                                  );
+                                })()}
                             </svg>
                         </div>
                         
-                        {/* X Axis Labels */}
-                        <div className="absolute left-0 right-0 bottom-1 pl-12 pr-4 flex justify-between text-xs text-slate-500 font-medium pointer-events-none">
+                        {/* X Axis Labels - Edge to edge */}
+                        <div className="absolute left-0 right-0 bottom-1 px-2 flex justify-between text-[9px] text-slate-500 font-medium pointer-events-none">
                             {timeScaleLabels.map((label, index) => (<span key={index}>{label}</span>))}
                         </div>
                     </>

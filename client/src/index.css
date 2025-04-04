@@ -46,6 +46,17 @@
   animation: shine 2s infinite;
 }
 
+/* Chart line drawing animation */
+@keyframes draw-line {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-draw-line {
+  animation: draw-line 1.5s ease-in-out forwards;
+}
+
 /* Confetti animations (standard and slow) */
 @keyframes confetti-burst {
   0% {
