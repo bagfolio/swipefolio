@@ -40,56 +40,78 @@ interface StockNewsSectionProps {
 
 // Helper function to format date from timestamp or ISO string
 const formatNewsDate = (dateValue: number | string): string => {
-  if (!dateValue) return 'N/A';
-  
-  let date: Date;
+  if (!dateValue) return 'Recent';
   
   try {
-    // Handle different types of date input from Yahoo Finance API
-    if (typeof dateValue === 'string') {
-      // If it's a string, it's likely an ISO date string like "2025-04-03T12:55:01.000Z"
+    let date: Date;
+    let useRelativeDates = false;
+    
+    // For Yahoo Finance, we need to determine the correct interpretation of the timestamp
+    if (typeof dateValue === 'number') {
+      // Yahoo Finance uses Unix timestamps (seconds since epoch)
+      // The current Unix timestamp for 2025 is around 1743 million
+      // If it's a 10-digit number around this magnitude, it's likely a Unix timestamp in seconds
+      
+      // Convert to milliseconds for JavaScript Date
+      const timestampMs = dateValue * 1000;
+      date = new Date(timestampMs);
+      
+      // Check if this is a valid date within a realistic range (2000-2030)
+      const year = date.getFullYear();
+      if (year >= 2000 && year <= 2030) {
+        // Valid date - no adjustments needed
+        console.log(`Using valid date conversion for timestamp ${dateValue} → ${date.toISOString()}`);
+      } else {
+        // Might be a different format or corrupt data - use relative date instead
+        useRelativeDates = true;
+        console.log(`Invalid year ${year} from timestamp ${dateValue}, using relative time`);
+      }
+    } else if (typeof dateValue === 'string') {
+      // If it's a string, parse as ISO date
       date = new Date(dateValue);
-    } else if (typeof dateValue === 'number') {
-      // If it's a large number, it's likely milliseconds (JavaScript timestamp)
-      // If it's a smaller number, it's likely seconds (Unix timestamp)
-      date = dateValue < 10000000000 ? new Date(dateValue * 1000) : new Date(dateValue);
+      if (isNaN(date.getTime())) {
+        useRelativeDates = true;
+      }
     } else {
       console.warn('Unexpected date format:', dateValue);
       return 'Recent';
     }
     
-    // Check if the date is valid
-    const isValidDate = !isNaN(date.getTime());
-    if (!isValidDate) {
-      console.warn(`Invalid date from value: ${dateValue}`);
+    // If date validation failed, use a relative time description
+    if (useRelativeDates) {
       return 'Recent';
     }
     
-    // Check for unrealistic years (far in the past or future)
-    const year = date.getFullYear();
-    const currentYear = new Date().getFullYear();
-    
-    if (year < 2000 || year > currentYear + 1) {
-      console.warn(`Unrealistic year ${year} detected in timestamp ${dateValue}, using current date`);
-      date = new Date(); // Use current date if the year is unrealistic
-    }
-    
+    // Get current date for comparison
     const now = new Date();
+    const timeDiff = now.getTime() - date.getTime();
+    const dayDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
     
-    // Format date with month name and day, plus year if not current year
-    const isCurrentYear = date.getFullYear() === now.getFullYear();
-    
-    // Format based on whether it's current year or not
-    if (isCurrentYear) {
-      // Format: "Apr 4" for current year
-      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    // Format based on how recent the news is
+    if (dayDiff === 0) {
+      // Today
+      return 'Today';
+    } else if (dayDiff === 1) {
+      // Yesterday
+      return 'Yesterday';
+    } else if (dayDiff < 7) {
+      // Within the last week - show day of week
+      return date.toLocaleDateString(undefined, { weekday: 'short' });
     } else {
-      // Format: "Apr 4, 2024" for past years
-      return date.toLocaleDateString(undefined, { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric'
-      });
+      // Format with month and day, plus year if not current year
+      const isCurrentYear = date.getFullYear() === now.getFullYear();
+      
+      if (isCurrentYear) {
+        // Format: "Apr 4" for current year
+        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      } else {
+        // Format: "Apr 4, 2024" for past years
+        return date.toLocaleDateString(undefined, { 
+          month: 'short', 
+          day: 'numeric', 
+          year: 'numeric'
+        });
+      }
     }
   } catch (error) {
     console.error('Error formatting date:', error, dateValue);

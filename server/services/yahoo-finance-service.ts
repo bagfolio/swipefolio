@@ -184,36 +184,25 @@ class YahooFinanceService {
         consensus = 'hold';
       }
       
-      // Format the period date
+      // Format the period date exactly as received from Yahoo Finance
+      // We'll use the date directly without any fallbacks to ensure data integrity
       let lastUpdated = 'Unknown';
       if (latestRec.period) {
         try {
           const dateObj = new Date(latestRec.period);
-          const year = dateObj.getFullYear();
           
-          // Check if the year is realistic (between 2000 and 2050)
-          if (year >= 2000 && year <= 2050) {
-            lastUpdated = dateObj.toLocaleDateString(undefined, { 
-              year: 'numeric', 
-              month: 'short', 
-              day: 'numeric' 
-            });
-          } else {
-            // Use current date if unrealistic
-            lastUpdated = new Date().toLocaleDateString(undefined, { 
-              year: 'numeric', 
-              month: 'short', 
-              day: 'numeric' 
-            });
-            console.warn(`Unrealistic date detected in recommendations: ${year}. Using current date instead.`);
-          }
-        } catch (err) {
-          console.error('Error formatting recommendation date:', err);
-          lastUpdated = new Date().toLocaleDateString(undefined, { 
+          // Format date using a standard format
+          lastUpdated = dateObj.toLocaleDateString(undefined, { 
             year: 'numeric', 
             month: 'short', 
             day: 'numeric' 
           });
+          
+          // Log the raw date for debugging
+          console.log(`Recommendation period date: raw=${latestRec.period}, formatted=${lastUpdated}`);
+        } catch (err) {
+          console.error('Error formatting recommendation date:', err);
+          // Keep as "Unknown" if there's an error, don't substitute
         }
       }
       
@@ -389,37 +378,28 @@ class YahooFinanceService {
           }
         }
         
-        // Format the grade date
+        // Format the date exactly as received from Yahoo Finance
+        // The epochGradeDate is provided directly by Yahoo Finance API, so we use it as-is
+        // without any fallbacks to ensure data integrity
         let date = 'Unknown';
         if (item.epochGradeDate) {
           try {
-            // Check if this is a realistic Unix timestamp (after 2000 and before 2050)
+            // Convert timestamp (seconds) to milliseconds for JavaScript Date
             const timestamp = item.epochGradeDate * 1000;
             const dateObj = new Date(timestamp);
-            const year = dateObj.getFullYear();
             
-            if (year >= 2000 && year <= 2050) {
-              date = dateObj.toLocaleDateString(undefined, { 
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric' 
-              });
-            } else {
-              // Use current date if the timestamp resolves to an unrealistic year
-              date = new Date().toLocaleDateString(undefined, { 
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric' 
-              });
-              console.warn(`Unrealistic date detected: ${year} for ${item.firm}. Using current date instead.`);
-            }
-          } catch (err) {
-            console.error('Error formatting date:', err);
-            date = new Date().toLocaleDateString(undefined, { 
+            // Format the date string using standard formatting
+            date = dateObj.toLocaleDateString(undefined, { 
               year: 'numeric', 
               month: 'short', 
               day: 'numeric' 
             });
+            
+            // Log the raw date information for debugging
+            console.log(`Analyst rating date for ${item.firm}: raw=${item.epochGradeDate}, formatted=${date}`);
+          } catch (err) {
+            console.error(`Error formatting date for ${item.firm}:`, err);
+            // Keep the default "Unknown" in case of error
           }
         }
         
