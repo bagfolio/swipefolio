@@ -147,8 +147,9 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
     return getEarningsData(symbol);
   }, [symbol]);
   
-  // Format tooltip values
-  const formatTooltipValue = (value: number) => {
+  // Format tooltip values with null safety
+  const formatTooltipValue = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return 'N/A';
     return value.toFixed(2);
   };
   
@@ -197,13 +198,13 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
     return null;
   };
   
-  // Monthly returns tooltip
+  // Monthly returns tooltip with null safety
   const MonthlyReturnsTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
+    if (active && payload && payload.length && payload[0]?.value !== undefined) {
       const returnValue = parseFloat(payload[0].value);
       return (
         <div className="bg-white p-3 border rounded-md shadow-md text-xs">
-          <p className="font-semibold text-gray-800">{label}</p>
+          <p className="font-semibold text-gray-800">{label || 'N/A'}</p>
           <p className={cn(
             "flex items-center mt-1 font-medium",
             returnValue >= 0 ? "text-green-600" : "text-red-600"
