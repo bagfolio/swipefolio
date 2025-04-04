@@ -392,8 +392,8 @@ export default function StockCard({
     >
       {/* --- Header/Chart Section (Robinhood Style) --- */}
       <div className="bg-white flex flex-col w-full">
-            {/* Stock Name & Ticker - Robinhood Style */}
-            <div className="flex items-center justify-between px-5 pt-3 pb-1">
+            {/* Stock Name & Ticker - Robinhood Style, moved down */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-1 mt-4">
               <div className="flex flex-col">
                 <Link
                   to={`/stock-detail/${stock.ticker}`}
@@ -411,7 +411,7 @@ export default function StockCard({
                       e.stopPropagation();
                       onPrevious();
                     }}
-                    className="absolute left-3 top-3 bg-slate-100/70 text-slate-500 p-1.5 rounded-full hover:bg-slate-200 transition-colors"
+                    className="absolute left-3 top-5 bg-slate-100/50 text-slate-500 p-1.5 rounded-full hover:bg-slate-200 transition-colors"
                     aria-label="Previous Stock"
                   >
                     <ChevronLeft size={18} />
@@ -425,8 +425,8 @@ export default function StockCard({
               </div>
             </div>
              
-            {/* Price and Change - Larger, bolder, cleaner */}
-            <div className="flex items-start px-5 pb-2">
+            {/* Price and Change - Larger, bolder, cleaner - with fixed height */}
+            <div className="flex items-start px-5 pb-2 h-14"> {/* Added fixed height */}
                 <span className="text-3xl font-bold text-slate-900">${displayPrice}</span>
                 <div className="ml-2 flex items-center mt-1.5">
                 <span className={`flex items-center text-sm px-3 py-1 rounded-full ${realTimeChange >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50'}`}>
@@ -436,13 +436,15 @@ export default function StockCard({
                 </div>
             </div>
             
-            {/* Day's Range - Only shown when Yahoo data is available */}
-            {dayRange.low > 0 && dayRange.high > 0 && (
-              <div className="px-5 mb-2 flex items-center text-xs text-slate-500">
-                <span className="mr-2">Day's Range:</span>
-                <span className="font-medium">${dayRange.low.toFixed(2)} - ${dayRange.high.toFixed(2)}</span>
-              </div>
-            )}
+            {/* Day's Range - Only shown when Yahoo data is available - with fixed height */}
+            <div className="h-6"> {/* Fixed height container */}
+              {dayRange.low > 0 && dayRange.high > 0 && (
+                <div className="px-5 flex items-center text-xs text-slate-500">
+                  <span className="mr-2">Day's Range:</span>
+                  <span className="font-medium">${dayRange.low.toFixed(2)} - ${dayRange.high.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
             
             {/* Chart Area - Full-screen, edge-to-edge */}
             <div className="relative h-64 w-full -mx-1 mt-3"> {/* Added margin-top and negative x-margin */}
@@ -476,7 +478,7 @@ export default function StockCard({
                                 <line x1="0" y1="50" x2="100" y2="50" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.07)' : 'rgba(239, 68, 68, 0.07)'} strokeWidth="0.3" strokeDasharray="1,2" />
                                 <line x1="0" y1="75" x2="100" y2="75" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.07)' : 'rgba(239, 68, 68, 0.07)'} strokeWidth="0.3" strokeDasharray="1,2" />
                                 
-                                {/* Chart Line - THINNER with subtle glow effect - only displays after animation */}
+                                {/* Chart Line - THINNER with subtle glow effect - always starts from far left edge */}
                                 {chartPrices.length > 1 && (
                                   <path
                                   d={`M0,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} ${
@@ -485,7 +487,7 @@ export default function StockCard({
                                       ).join(' ')
                                   }`}
                                   className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`}
-                                  strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
+                                  strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round"
                                   filter="url(#glow)"
                                   style={{
                                     strokeDasharray: "1000",
@@ -699,8 +701,8 @@ export default function StockCard({
                 )}
             </div>
             
-            {/* --- Time frame selector (Robinhood style below chart) --- */}
-            <div className="flex justify-around px-3 pt-3 pb-2">
+            {/* --- Time frame selector (Robinhood style below chart) - Moved up slightly --- */}
+            <div className="flex justify-around px-3 pt-2 pb-1 -mt-1">
                 {["1D", "1W", "1M", "3M", "1Y", "5Y"].map((period) => (
                     <button
                         key={period}
