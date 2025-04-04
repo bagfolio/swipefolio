@@ -236,3 +236,152 @@ export function useUpgradeHistory(symbol: string) {
     enabled: !!symbol,
   });
 }
+
+// Interface for dividend data
+export interface DividendData {
+  symbol: string;
+  dividendYield: number;
+  sectorMedian: number;
+  marketMedian: number;
+  payoutAmount: number;
+  lastPaidDate: string;
+}
+
+// Interface for earnings data
+export interface EarningsData {
+  quarter: string;
+  actual: number;
+  expected: number;
+  surprise: string;
+  date: string;
+}
+
+// Interface for revenue data
+export interface RevenueData {
+  year: string;
+  value: number;
+  growth?: string;
+}
+
+/**
+ * Hook to query Yahoo Finance dividend data
+ * Currently returns mock data - will be replaced with actual API data
+ */
+export function useYahooDividendData(symbol: string) {
+  return useQuery<DividendData>({
+    queryKey: ['/api/yahoo-finance/dividend', symbol],
+    queryFn: async () => {
+      // This will be replaced with actual API data when endpoint is available
+      // For now, return test data based on the symbol
+      const mockResponse: DividendData = {
+        symbol,
+        dividendYield: symbol === 'AAPL' ? 0.5 : 
+                       symbol === 'MSFT' ? 0.8 : 
+                       symbol === 'GOOGL' ? 0.0 : 0.4,
+        sectorMedian: 2.1,
+        marketMedian: 3.9,
+        payoutAmount: symbol === 'AAPL' ? 0.24 : 
+                      symbol === 'MSFT' ? 0.68 : 0.0,
+        lastPaidDate: 'Aug 11, 2023'
+      };
+      
+      return mockResponse;
+    },
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    enabled: !!symbol,
+  });
+}
+
+/**
+ * Hook to query Yahoo Finance earnings data
+ * Currently returns mock data - will be replaced with actual API data
+ */
+export function useYahooEarningsData(symbol: string) {
+  return useQuery<EarningsData[]>({
+    queryKey: ['/api/yahoo-finance/earnings', symbol],
+    queryFn: async () => {
+      // This will be replaced with actual API data when endpoint is available
+      // For now, return test data
+      const mockEarnings: EarningsData[] = [
+        { 
+          quarter: 'Q1 2024', 
+          actual: symbol === 'AAPL' ? 2.35 : symbol === 'MSFT' ? 2.94 : 1.98, 
+          expected: symbol === 'AAPL' ? 2.28 : symbol === 'MSFT' ? 2.82 : 1.95, 
+          surprise: symbol === 'AAPL' ? '+3.1%' : symbol === 'MSFT' ? '+4.3%' : '+1.5%',
+          date: 'Apr 26, 2024'
+        },
+        { 
+          quarter: 'Q4 2023', 
+          actual: symbol === 'AAPL' ? 2.18 : symbol === 'MSFT' ? 2.69 : 1.85, 
+          expected: symbol === 'AAPL' ? 2.10 : symbol === 'MSFT' ? 2.65 : 1.87, 
+          surprise: symbol === 'AAPL' ? '+3.8%' : symbol === 'MSFT' ? '+1.5%' : '-1.1%',
+          date: 'Jan 15, 2024'
+        },
+        { 
+          quarter: 'Q3 2023', 
+          actual: symbol === 'AAPL' ? 2.06 : symbol === 'MSFT' ? 2.51 : 1.75, 
+          expected: symbol === 'AAPL' ? 2.12 : symbol === 'MSFT' ? 2.41 : 1.78, 
+          surprise: symbol === 'AAPL' ? '-2.8%' : symbol === 'MSFT' ? '+4.1%' : '-1.7%',
+          date: 'Oct 12, 2023'
+        },
+        { 
+          quarter: 'Q2 2023', 
+          actual: symbol === 'AAPL' ? 1.98 : symbol === 'MSFT' ? 2.40 : 1.65, 
+          expected: symbol === 'AAPL' ? 1.95 : symbol === 'MSFT' ? 2.35 : 1.62, 
+          surprise: symbol === 'AAPL' ? '+1.5%' : symbol === 'MSFT' ? '+2.1%' : '+1.9%',
+          date: 'Jul 21, 2023'
+        },
+      ];
+      
+      return mockEarnings;
+    },
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    enabled: !!symbol,
+  });
+}
+
+/**
+ * Hook to query Yahoo Finance revenue data
+ * Currently returns mock data - will be replaced with actual API data
+ */
+export function useYahooRevenueData(symbol: string) {
+  return useQuery<RevenueData[]>({
+    queryKey: ['/api/yahoo-finance/revenue', symbol],
+    queryFn: async () => {
+      // This will be replaced with actual API data when endpoint is available
+      
+      // Different revenue data based on the symbol
+      let mockRevenue: RevenueData[];
+      
+      if (symbol === 'AAPL') {
+        mockRevenue = [
+          { year: '2020', value: 274.5, growth: '+5.5%' },
+          { year: '2021', value: 365.8, growth: '+33.3%' },
+          { year: '2022', value: 394.3, growth: '+7.8%' },
+          { year: '2023', value: 383.3, growth: '-2.8%' },
+          { year: '2024', value: 400.9, growth: '+4.6%' },
+        ];
+      } else if (symbol === 'MSFT') {
+        mockRevenue = [
+          { year: '2020', value: 143.0, growth: '+13.6%' },
+          { year: '2021', value: 168.1, growth: '+17.5%' },
+          { year: '2022', value: 198.3, growth: '+18.0%' },
+          { year: '2023', value: 211.9, growth: '+6.9%' },
+          { year: '2024', value: 227.6, growth: '+7.4%' },
+        ];
+      } else {
+        mockRevenue = [
+          { year: '2020', value: 122.3, growth: '+8.2%' },
+          { year: '2021', value: 135.7, growth: '+10.9%' },
+          { year: '2022', value: 149.2, growth: '+9.9%' },
+          { year: '2023', value: 156.8, growth: '+5.1%' },
+          { year: '2024', value: 168.4, growth: '+7.4%' },
+        ];
+      }
+      
+      return mockRevenue;
+    },
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    enabled: !!symbol,
+  });
+}
