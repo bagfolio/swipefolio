@@ -442,8 +442,8 @@ export default function StockCard({
                 <span className="font-medium">${dayRange.low.toFixed(2)} - ${dayRange.high.toFixed(2)}</span>
               </div>
             )}
-             {/* Chart Area */}
-            <div className="relative mt-3 h-44 py-2">
+             {/* Chart Area - Robinhood-inspired */}
+            <div className="relative mt-2 h-72 py-2"> {/* Increased height for more prominent chart */}
                 {isLoadingYahooData && (
                     <div className="absolute inset-0 flex items-center justify-center bg-white/50">
                         <Skeleton className="h-full w-full" />
@@ -457,22 +457,47 @@ export default function StockCard({
                 {!isLoadingYahooData && !yahooError && chartPrices.length > 0 && (
                     <>
                         {/* Y Axis Labels */}
-                        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-slate-900 font-medium pointer-events-none py-3 z-10 w-12">
+                        <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-[10px] text-slate-700 font-medium pointer-events-none py-3 z-10 w-12">
                             <span>${priceRangeMax.toFixed(0)}</span>
                             <span>${((priceRangeMax + priceRangeMin) / 2).toFixed(0)}</span>
                             <span>${priceRangeMin.toFixed(0)}</span>
                         </div>
-                        {/* Chart SVG */}
-                        <div className="absolute inset-0 pl-12 pr-4">
+                        {/* Chart SVG with enhanced styling */}
+                        <div className="absolute inset-0 pl-12 pr-4 drop-shadow-md"> {/* Added drop shadow */}
                             <svg className="w-full h-full" viewBox={`0 0 100 100`} preserveAspectRatio="none">
-                                {/* Gradient Definition */}
+                                {/* Enhanced Gradient Definitions */}
                                 <defs>
-                                <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                                    <stop offset="0%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'} />
-                                    <stop offset="100%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.01)' : 'rgba(239, 68, 68, 0.01)'} />
-                                </linearGradient>
+                                    {/* Main area gradient with more vibrant colors */}
+                                    <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'} />
+                                        <stop offset="85%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.05)' : 'rgba(239, 68, 68, 0.05)'} />
+                                        <stop offset="100%" stopColor={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.0)' : 'rgba(239, 68, 68, 0.0)'} />
+                                    </linearGradient>
+                                    
+                                    {/* Glow effect for the line */}
+                                    <filter id="glow" x="-5%" y="-5%" width="110%" height="110%">
+                                        <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
+                                        <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 18 -7" result="glow" />
+                                        <feComposite in="SourceGraphic" in2="glow" operator="over" />
+                                    </filter>
                                 </defs>
-                                {/* Chart Line */}
+                                
+                                {/* Horizontal dotted grid lines */}
+                                <line x1="0" y1="25" x2="100" y2="25" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'} strokeWidth="0.5" strokeDasharray="1,2" />
+                                <line x1="0" y1="50" x2="100" y2="50" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'} strokeWidth="0.5" strokeDasharray="1,2" />
+                                <line x1="0" y1="75" x2="100" y2="75" stroke={realTimeChange >= 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'} strokeWidth="0.5" strokeDasharray="1,2" />
+                                
+                                {/* Enhanced Area Fill with gradient */}
+                                <path
+                                d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} ${
+                                    chartPrices.map((point: number, i: number) =>
+                                    `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
+                                    ).join(' ')
+                                } L105,${100 - ((chartPrices[chartPrices.length - 1] - minValue) / (maxValue - minValue || 1)) * 100} L105,100 L-5,100 Z`}
+                                fill="url(#chartGradient)" 
+                                />
+                                
+                                {/* Enhanced Chart Line with glow effect */}
                                 <path
                                 d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} ${
                                     chartPrices.map((point: number, i: number) =>
@@ -480,30 +505,23 @@ export default function StockCard({
                                     ).join(' ')
                                 } L105,${100 - ((chartPrices[chartPrices.length - 1] - minValue) / (maxValue - minValue || 1)) * 100}`}
                                 className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`}
-                                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-                                />
-                                {/* Area Fill */}
-                                <path
-                                d={`M-5,${100 - ((chartPrices[0] - minValue) / (maxValue - minValue || 1)) * 100} ${
-                                    chartPrices.map((point: number, i: number) =>
-                                    `L${(i / (chartPrices.length - 1)) * 110 - 5},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
-                                    ).join(' ')
-                                } L105,${100 - ((chartPrices[chartPrices.length - 1] - minValue) / (maxValue - minValue || 1)) * 100} L105,100 L-5,100 Z`}
-                                fill="url(#chartGradient)" fillOpacity="0.5"
+                                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                filter="url(#glow)"
                                 />
                             </svg>
                         </div>
+                        
                         {/* X Axis Labels */}
-                         <div className="absolute left-0 right-0 bottom-1 pl-12 pr-4 flex justify-between text-[10px] text-slate-900 font-medium pointer-events-none">
+                        <div className="absolute left-0 right-0 bottom-1 pl-12 pr-4 flex justify-between text-xs text-slate-500 font-medium pointer-events-none">
                             {timeScaleLabels.map((label, index) => (<span key={index}>{label}</span>))}
                         </div>
                     </>
                 )}
-                 {!isLoadingYahooData && !yahooError && chartPrices.length === 0 && (
+                {!isLoadingYahooData && !yahooError && chartPrices.length === 0 && (
                      <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-400 p-2 bg-slate-50 rounded">
                         No chart data available for this period.
                     </div>
-                 )}
+                )}
             </div>
              {/* Last Updated Info - Only shown when Yahoo data provides a trading date */}
              <div className="mt-4 flex items-center justify-between text-xs h-6">
@@ -517,28 +535,63 @@ export default function StockCard({
             </div>
       </div>
 
-      {/* --- Metrics --- */}
+      {/* --- Metrics - Robinhood-inspired --- */}
       <div className="grid grid-cols-2 gap-4 p-4 bg-white border-b border-slate-100">
           {Object.entries(stock.metrics).filter(([key]) => ['performance', 'stability', 'value', 'momentum'].includes(key)).map(([key, metricObj]) => {
           const metricName = key.charAt(0).toUpperCase() + key.slice(1);
           return (
               <div key={key} className="group relative" onClick={() => handleMetricClickInternal(metricName)} >
-                  {/* Hover Glow Effect */}
-                  <div className={`absolute inset-0 rounded-xl blur-sm transform scale-[0.98] translate-y-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ${ metricObj.color === 'green' ? 'bg-gradient-to-r from-green-100/30 to-emerald-100/30' : metricObj.color === 'yellow' ? 'bg-gradient-to-r from-amber-100/30 to-yellow-100/30' : 'bg-gradient-to-r from-red-100/30 to-rose-100/30'}`}></div>
-                  {/* Main Metric Box */}
-                  <div className={`p-4 rounded-xl border relative z-10 overflow-hidden active:scale-95 transition-all duration-150 cursor-pointer shadow-md hover:shadow-lg group-hover:translate-y-[-2px] ${ metricObj.color === 'green' ? 'bg-white border-green-200 group-hover:border-green-300' : metricObj.color === 'yellow' ? 'bg-white border-amber-200 group-hover:border-amber-300' : 'bg-white border-red-200 group-hover:border-red-300'}`}>
-                      {/* Top Color Bar */}
-                      <div className={`absolute top-0 left-0 w-full h-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${ metricObj.color === 'green' ? 'bg-gradient-to-r from-green-400 to-emerald-500' : metricObj.color === 'yellow' ? 'bg-gradient-to-r from-amber-400 to-yellow-500' : 'bg-gradient-to-r from-red-400 to-rose-500'}`}></div>
-                      {/* Icon and Info */}
-                      <div className="flex items-center justify-between mb-2">
-                      <div className={`flex items-center justify-center rounded-full w-8 h-8 ${ metricObj.color === 'green' ? 'bg-green-100 text-green-600' : metricObj.color === 'yellow' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'}`}>
-                          {key === 'performance' && <TrendingUp size={16} />} {key === 'stability' && <Shield size={16} />} {key === 'value' && <DollarSign size={16} />} {key === 'momentum' && <Zap size={16} />}
+                  {/* Enhanced Hover Glow Effect */}
+                  <div className={`absolute inset-0 rounded-xl blur-sm transform scale-[0.98] translate-y-1 opacity-0 group-hover:opacity-100 transition-all duration-300 ${ 
+                    metricObj.color === 'green' ? 'bg-gradient-to-r from-green-200/60 to-emerald-200/60 shadow-lg shadow-green-50' : 
+                    metricObj.color === 'yellow' ? 'bg-gradient-to-r from-amber-200/60 to-yellow-200/60 shadow-lg shadow-amber-50' : 
+                    'bg-gradient-to-r from-red-200/60 to-rose-200/60 shadow-lg shadow-red-50'
+                  }`}></div>
+                  
+                  {/* Main Metric Box with enhanced styling */}
+                  <div className={`p-4 rounded-xl border-2 relative z-10 overflow-hidden active:scale-95 transition-all duration-150 cursor-pointer 
+                    ${metricObj.color === 'green' 
+                    ? 'bg-gradient-to-br from-white to-green-50 border-green-300 group-hover:border-green-400 shadow-md shadow-green-100/50' 
+                    : metricObj.color === 'yellow' 
+                    ? 'bg-gradient-to-br from-white to-amber-50 border-amber-300 group-hover:border-amber-400 shadow-md shadow-amber-100/50'
+                    : 'bg-gradient-to-br from-white to-red-50 border-red-300 group-hover:border-red-400 shadow-md shadow-red-100/50'}`}>
+                      
+                      {/* Enhanced Top Color Bar */}
+                      <div className={`absolute top-0 left-0 w-full h-[3px] ${
+                        metricObj.color === 'green' 
+                        ? 'bg-gradient-to-r from-green-500 to-emerald-600' 
+                        : metricObj.color === 'yellow' 
+                        ? 'bg-gradient-to-r from-amber-500 to-yellow-600' 
+                        : 'bg-gradient-to-r from-red-500 to-rose-600'}`}>
                       </div>
-                      <Info size={15} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+                      
+                      {/* Icon and Info with enhanced styling */}
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div className={`flex items-center justify-center rounded-full w-9 h-9 shadow-sm ${
+                          metricObj.color === 'green' 
+                          ? 'bg-gradient-to-br from-green-100 to-green-200 text-green-600' 
+                          : metricObj.color === 'yellow' 
+                          ? 'bg-gradient-to-br from-amber-100 to-amber-200 text-amber-600' 
+                          : 'bg-gradient-to-br from-red-100 to-red-200 text-red-600'}`}>
+                            {key === 'performance' && <TrendingUp size={17} />} 
+                            {key === 'stability' && <Shield size={17} />} 
+                            {key === 'value' && <DollarSign size={17} />} 
+                            {key === 'momentum' && <Zap size={17} />}
+                        </div>
+                        <Info size={16} className="text-slate-500 group-hover:text-slate-700 transition-colors mr-1" />
                       </div>
-                      {/* Value and Name */}
-                      <div className={`text-lg font-semibold text-slate-900`}>{metricObj.value}</div>
-                      <div className="text-slate-500 text-sm font-medium mt-0.5 capitalize">{metricName}</div>
+                      
+                      {/* Value and Name with enhanced styling */}
+                      <div className={`text-xl font-bold ${
+                        metricObj.color === 'green' 
+                        ? 'text-green-700' 
+                        : metricObj.color === 'yellow' 
+                        ? 'text-amber-700' 
+                        : 'text-red-700'}`}>
+                        {metricObj.value}
+                      </div>
+                      
+                      <div className="text-slate-600 text-sm font-semibold mt-1 capitalize">{metricName}</div>
                   </div>
               </div>
           );
