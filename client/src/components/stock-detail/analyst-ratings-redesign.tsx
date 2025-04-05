@@ -186,7 +186,10 @@ const AnalystGauge: React.FC<{ score: number | null }> = ({ score }) => {
 };
 
 // Rating Distribution Bar Chart
-const RatingDistributionBars: React.FC<{ distribution: DistributionData }> = ({ distribution }) => {
+const RatingDistributionBars: React.FC<{ 
+  distribution: DistributionData,
+  previousDistribution?: DistributionData 
+}> = ({ distribution, previousDistribution }) => {
   // Calculate total analysts
   const total = Object.values(distribution).reduce((sum, count) => sum + count, 0);
   
@@ -196,11 +199,11 @@ const RatingDistributionBars: React.FC<{ distribution: DistributionData }> = ({ 
   
   // Format data for visualization
   const ratingData = [
-    { label: 'Strong Buy', count: distribution.strongBuy, color: 'bg-emerald-500' },
-    { label: 'Buy', count: distribution.buy, color: 'bg-green-500' },
-    { label: 'Hold', count: distribution.hold, color: 'bg-amber-400' },
-    { label: 'Sell', count: distribution.sell, color: 'bg-red-500' },
-    { label: 'Strong Sell', count: distribution.strongSell, color: 'bg-red-700' },
+    { label: 'Strong Buy', count: distribution.strongBuy, color: 'bg-emerald-500', key: 'strongBuy' as const },
+    { label: 'Buy', count: distribution.buy, color: 'bg-green-500', key: 'buy' as const },
+    { label: 'Hold', count: distribution.hold, color: 'bg-amber-400', key: 'hold' as const },
+    { label: 'Sell', count: distribution.sell, color: 'bg-red-500', key: 'sell' as const },
+    { label: 'Strong Sell', count: distribution.strongSell, color: 'bg-red-700', key: 'strongSell' as const },
   ];
   
   return (
@@ -208,11 +211,34 @@ const RatingDistributionBars: React.FC<{ distribution: DistributionData }> = ({ 
       {ratingData.map((rating, index) => {
         const percentage = total > 0 ? (rating.count / total) * 100 : 0;
         
+        // Calculate change if previous distribution is available
+        let changeText = null;
+        let changeColor = '';
+        
+        if (previousDistribution) {
+          const prevCount = previousDistribution[rating.key];
+          const diff = rating.count - prevCount;
+          
+          if (diff !== 0) {
+            changeColor = diff > 0 ? 'text-green-500' : 'text-red-500';
+            const sign = diff > 0 ? '+' : '';
+            changeText = `${sign}${diff}`;
+          }
+        }
+        
         return (
           <div key={index} className="space-y-1">
             <div className="flex justify-between text-sm">
               <span>{rating.label}</span>
-              <span className="font-medium">{rating.count} ({percentage.toFixed(0)}%)</span>
+              <div className="font-medium flex items-center">
+                {rating.count} ({percentage.toFixed(0)}%)
+                
+                {changeText && (
+                  <span className={cn("ml-2 text-xs", changeColor)}>
+                    {changeText}
+                  </span>
+                )}
+              </div>
             </div>
             <div className="h-3 w-full bg-gray-200 rounded-full overflow-hidden">
               <motion.div 
@@ -337,7 +363,7 @@ const PeriodSelector: React.FC<{
 
 // Main Component
 export const AnalystRatingsRedesign: React.FC<AnalystRatingsProps> = ({ symbol, className }) => {
-  const [activeTab, setActiveTab] = useState<'snapshot' | 'history'>('snapshot');
+  // Removed tabs - only showing snapshot view
   const [selectedPeriod, setSelectedPeriod] = useState<string>('0m');
   
   // Fetch analyst data
@@ -420,41 +446,31 @@ export const AnalystRatingsRedesign: React.FC<AnalystRatingsProps> = ({ symbol, 
         </CardDescription>
       </CardHeader>
       
-      <CardContent className="pt-0 pb-4">
-        <Tabs defaultValue="snapshot" value={activeTab} onValueChange={(val) => setActiveTab(val as 'snapshot' | 'history')}>
-          <TabsList className="w-full mb-4">
-            <TabsTrigger value="snapshot" className="flex-1">Current Snapshot</TabsTrigger>
-            <TabsTrigger value="history" className="flex-1">Rating History</TabsTrigger>
-          </TabsList>
+      <CardContent className="pt-2 pb-4">
+        <div className="space-y-4">
+          {/* Period selector */}
+          <PeriodSelector 
+            periods={availablePeriods}
+            selectedPeriod={selectedPeriod}
+            onChange={setSelectedPeriod}
+          />
           
-          <TabsContent value="snapshot" className="space-y-4">
-            {/* Period selector for snapshot tab */}
-            <PeriodSelector 
-              periods={availablePeriods}
-              selectedPeriod={selectedPeriod}
-              onChange={setSelectedPeriod}
+          {/* Consensus gauge */}
+          <div className="mb-4">
+            <h4 className="text-sm font-medium mb-2">Consensus Rating</h4>
+            <AnalystGauge score={analystData.gaugeScore} />
+          </div>
+          
+          {/* Rating distribution */}
+          <div>
+            <h4 className="text-sm font-medium mb-2">Rating Distribution</h4>
+            <RatingDistributionBars 
+              distribution={currentDistribution} 
+              previousDistribution={selectedPeriod !== '0m' && availablePeriods.includes('-1m') ? 
+                analystData?.distributionOverTime?.['-1m'] : undefined}
             />
-            
-            {/* Consensus gauge */}
-            <div className="mb-4">
-              <h4 className="text-sm font-medium mb-2">Consensus Rating</h4>
-              <AnalystGauge score={analystData.gaugeScore} />
-            </div>
-            
-            {/* Rating distribution */}
-            <div>
-              <h4 className="text-sm font-medium mb-2">Rating Distribution</h4>
-              <RatingDistributionBars distribution={currentDistribution} />
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="history">
-            <div>
-              <h4 className="text-sm font-medium mb-3">Recent Rating Changes</h4>
-              <RatingHistoryTimeline history={analystData.ratingHistoryForChart} />
-            </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
