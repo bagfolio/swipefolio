@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useYahooChartData, useSP500ChartData, timeFrameToRange } from '@/lib/yahoo-finance-client';
-import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line, LineChart, Bar, BarChart } from 'recharts';
+import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line, LineChart, Bar, BarChart, ComposedChart } from 'recharts';
 import { ChevronDown, Calendar, BarChart as BarChartIcon, LineChart as LineChartIcon, TrendingUp, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -48,6 +48,8 @@ const getDividendData = (symbol: string) => {
 };
 
 // Sample earnings data
+
+// Helper formatting functions
 const getEarningsData = (symbol: string) => {
   // This would normally come from an API
   return [
@@ -220,6 +222,53 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
         };
       });
   }, [combinedData, showBenchmarks]);
+  
+  // Create aggregated bar chart data (5-6 columns instead of granular data)
+  const aggregatedBarData = useMemo(() => {
+    if (!percentageReturnData.length) return [];
+    
+    // Determine number of divisions
+    const numDivisions = 5; // We want 5 consolidated bars
+    const totalPoints = percentageReturnData.length;
+    const pointsPerDivision = Math.ceil(totalPoints / numDivisions);
+    
+    const result = [];
+    
+    // Group data into chunks
+    for (let i = 0; i < numDivisions; i++) {
+      const startIndex = i * pointsPerDivision;
+      const endIndex = Math.min(startIndex + pointsPerDivision, totalPoints);
+      
+      if (startIndex >= totalPoints) break;
+      
+      // Get points in this division
+      const divisionPoints = percentageReturnData.slice(startIndex, endIndex);
+      
+      // Use the last point in the division for comparison
+      const lastPoint = divisionPoints[divisionPoints.length - 1];
+      
+      // Format period label
+      let periodLabel;
+      if (divisionPoints.length > 1) {
+        periodLabel = `${divisionPoints[0].date} - ${lastPoint.date}`;
+      } else {
+        periodLabel = lastPoint.date;
+      }
+      
+      // For shorter timeframes, just use the date
+      if (timeFrame === '1M' || timeFrame === '3M') {
+        periodLabel = lastPoint.date;
+      }
+      
+      result.push({
+        period: periodLabel,
+        stockReturn: parseFloat(lastPoint.stockReturn),
+        sp500Return: lastPoint.benchmarkReturn ? parseFloat(lastPoint.benchmarkReturn) : 0
+      });
+    }
+    
+    return result;
+  }, [percentageReturnData, timeFrame]);
   
   // Calculate monthly returns
   const monthlyReturnsData = useMemo(() => {
@@ -448,22 +497,25 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               
               {/* Chart area */}
               {chartType === 'bar' ? (
-                // Comparison bar chart
+                // Aggregated comparison bar chart
                 <div className="w-full h-[350px] mt-2">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={percentageReturnData}
-                      margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
-                      barSize={24}
-                      barGap={4}
+                      data={aggregatedBarData}
+                      margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+                      barSize={40}
+                      barGap={8}
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis 
-                        dataKey="date"
+                        dataKey="period"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        tick={{ fontSize: 10, fill: '#6b7280' }}
                         tickMargin={8}
+                        height={60}
+                        angle={-20}
+                        textAnchor="end"
                       />
                       <YAxis 
                         axisLine={false}
@@ -471,8 +523,42 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         tick={{ fontSize: 12, fill: '#6b7280' }}
                         tickFormatter={(value) => `${value}%`}
                         tickMargin={8}
+                        domain={['auto', 'auto']}
                       />
-                      <Tooltip content={<ComparisonTooltip />} />
+                      <Tooltip 
+                        content={({ active, payload, label }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-white p-3 border rounded-md shadow-md text-xs">
+                                <p className="font-semibold text-gray-800">{label}</p>
+                                <div className="mt-1">
+                                  {payload.map((entry: any, index: number) => (
+                                    <p 
+                                      key={`tooltip-${index}`} 
+                                      className="flex items-center mt-1"
+                                    >
+                                      <span 
+                                        className={`w-3 h-3 inline-block rounded-full mr-2 ${
+                                          entry.dataKey === 'stockReturn' ? 'bg-blue-600' : 'bg-emerald-500'
+                                        }`}
+                                      />
+                                      <span className="text-gray-700">
+                                        {entry.dataKey === 'stockReturn' ? companyName || symbol : 'S&P 500'}:
+                                      </span>
+                                      <span className={`ml-1 font-medium ${
+                                        entry.value >= 0 ? 'text-green-600' : 'text-red-600'
+                                      }`}>
+                                        {entry.value >= 0 ? '+' : ''}{formatTooltipValue(entry.value)}%
+                                      </span>
+                                    </p>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
                       <Legend />
                       <Bar 
                         name={companyName || symbol}
@@ -483,7 +569,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                       {showBenchmarks && (
                         <Bar 
                           name="S&P 500"
-                          dataKey="benchmarkReturn" 
+                          dataKey="sp500Return" 
                           fill={sp500Color}
                           radius={[4, 4, 0, 0]}
                         />
@@ -547,12 +633,12 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                   </ResponsiveContainer>
                 </div>
               ) : (
-                // Main line chart
+                // Main line chart with dual Y-axis
                 <div className="w-full h-[350px] mt-2">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
+                    <ComposedChart
                       data={combinedData}
-                      margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
+                      margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
                     >
                       <defs>
                         <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
@@ -573,7 +659,10 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         tickMargin={8}
                         minTickGap={30}
                       />
+                      
+                      {/* Left Y-axis for stock price */}
                       <YAxis 
+                        yAxisId="left"
                         domain={['auto', 'auto']}
                         axisLine={false}
                         tickLine={false}
@@ -581,10 +670,26 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         tickFormatter={(value) => `$${value.toFixed(0)}`}
                         tickMargin={8}
                       />
+                      
+                      {/* Right Y-axis for S&P 500 percentage return */}
+                      {showBenchmarks && (
+                        <YAxis 
+                          yAxisId="right"
+                          orientation="right"
+                          domain={['auto', 'auto']}
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 12, fill: '#6b7280' }}
+                          tickFormatter={(value) => `${value}%`}
+                          tickMargin={8}
+                        />
+                      )}
+                      
                       <Tooltip content={<CustomTooltip />} />
                       
                       {/* Main stock line with gradient area */}
                       <Area
+                        yAxisId="left"
                         type="monotone"
                         dataKey="value"
                         name={companyName || symbol}
@@ -595,22 +700,20 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         fill="url(#colorValue)"
                       />
                       
-                      {/* Benchmark lines */}
+                      {/* S&P 500 percentage line */}
                       {showBenchmarks && (
-                        <>
-                          <Line
-                            type="monotone"
-                            dataKey="sp500"
-                            name="S&P 500"
-                            stroke={sp500Color}
-                            strokeWidth={1.5}
-                            dot={false}
-                            activeDot={{ r: 4, strokeWidth: 0 }}
-                          />
-
-                        </>
+                        <Line
+                          yAxisId="right"
+                          type="monotone"
+                          dataKey="sp500"
+                          name="S&P 500"
+                          stroke={sp500Color}
+                          strokeWidth={1.5}
+                          dot={false}
+                          activeDot={{ r: 4, strokeWidth: 0 }}
+                        />
                       )}
-                    </LineChart>
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               )}
@@ -620,16 +723,17 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                 <div className="flex flex-wrap items-center gap-4 pt-1">
                   <div className="flex items-center">
                     <span className="inline-block w-3 h-3 bg-blue-600 rounded-full mr-2"></span>
-                    <span className="text-sm text-gray-700">{companyName || symbol}</span>
+                    <span className="text-sm text-gray-700">
+                      {companyName || symbol} {chartType === 'line' ? '(Price in $)' : '(% Return)'}
+                    </span>
                   </div>
                   
                   {showBenchmarks && (
                     <>
                       <div className="flex items-center">
                         <span className="inline-block w-3 h-3 bg-emerald-500 rounded-full mr-2"></span>
-                        <span className="text-sm text-gray-700">S&P 500</span>
+                        <span className="text-sm text-gray-700">S&P 500 (% Return)</span>
                       </div>
-
                     </>
                   )}
                 </div>
