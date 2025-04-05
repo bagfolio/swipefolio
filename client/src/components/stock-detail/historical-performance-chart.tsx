@@ -542,9 +542,8 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         tick={{ fontSize: 12, fill: '#6b7280' }}
                         tickFormatter={(value) => `${value}%`}
                         tickMargin={8}
-                        // Calculate domain with padding for bar chart
-                        domain={[(dataMin: number) => Math.floor(dataMin * 1.1), 
-                                (dataMax: number) => Math.ceil(dataMax * 1.1)]}
+                        // Apply fixed domain with padding for bar chart
+                        domain={[(dataMin: number) => Math.floor(dataMin * 1.2), (dataMax: number) => Math.ceil(dataMax * 1.2)]}
                       />
                       <Tooltip 
                         content={({ active, payload, label }) => {
@@ -660,7 +659,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                 // Line chart showing percentage returns for both metrics
                 <div className="w-full h-[350px] mt-2">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
+                    <ComposedChart
                       data={percentageReturnData}
                       margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
                     >
@@ -684,18 +683,32 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         minTickGap={30}
                       />
                       
-                      {/* Single Y-axis for percentage returns */}
+                      {/* Unified Y-axis with fixed domain and padding */}
                       <YAxis 
-                        // Calculate domain with padding to ensure all data is visible
-                        domain={[(dataMin: number) => {
-                          // Find the minimum value between stock and benchmark
-                          // Add 10% padding below lowest point
-                          return Math.floor(dataMin * 1.1);
-                        }, 
-                        (dataMax: number) => {
-                          // Add 10% padding above highest point
-                          return Math.ceil(dataMax * 1.1);
-                        }]}
+                        domain={[
+                          (dataMin: number) => {
+                            // Find all values (including both metrics)
+                            const allValues = percentageReturnData.flatMap(point => [
+                              parseFloat(point.stockReturn),
+                              point.benchmarkReturn ? parseFloat(point.benchmarkReturn) : null
+                            ]).filter(v => v !== null) as number[];
+                            
+                            const min = Math.min(...allValues);
+                            // Add 20% padding below for better visibility
+                            return Math.floor(min * 1.2);
+                          },
+                          (dataMax: number) => {
+                            // Find all values (including both metrics)
+                            const allValues = percentageReturnData.flatMap(point => [
+                              parseFloat(point.stockReturn),
+                              point.benchmarkReturn ? parseFloat(point.benchmarkReturn) : null
+                            ]).filter(v => v !== null) as number[];
+                            
+                            const max = Math.max(...allValues);
+                            // Add 20% padding above for better visibility
+                            return Math.ceil(max * 1.2);
+                          }
+                        ]}
                         axisLine={false}
                         tickLine={false}
                         tick={{ fontSize: 12, fill: '#6b7280' }}
@@ -703,8 +716,8 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         tickMargin={8}
                       />
                       
-                      <Tooltip content={<ComparisonTooltip />}
-                      />
+                      <Tooltip content={<ComparisonTooltip />} />
+                      <Legend />
                       
                       {/* Stock percentage line with light fill */}
                       <Area
@@ -713,9 +726,10 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         name={companyName || symbol}
                         stroke={stockColor}
                         strokeWidth={2}
+                        fillOpacity={0.3}
+                        fill="url(#colorValue)"
                         dot={false}
                         activeDot={{ r: 6, strokeWidth: 0 }}
-                        fill="url(#colorValue)"
                       />
                       
                       {/* S&P 500 percentage line */}
@@ -730,7 +744,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                           activeDot={{ r: 4, strokeWidth: 0 }}
                         />
                       )}
-                    </LineChart>
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </div>
               )}
