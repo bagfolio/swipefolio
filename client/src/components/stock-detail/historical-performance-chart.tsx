@@ -101,8 +101,9 @@ interface HistoricalPerformanceChartProps {
 interface ProcessedDataPoint {
   date: string;
   rawDate: string;
-  value: string; // percentage return
-  originalValue: number; // actual price
+  value: number; // actual price for main chart
+  percentReturn: string; // percentage return for comparison
+  originalValue: number; // redundant, keeping for compatibility
   timestamp: number;
 }
 
@@ -150,7 +151,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
       return [];
     }
     
-    // Get initial price for calculating returns
+    // Get initial price for calculating returns (for percentage calculation only)
     const initialStockPrice = chartData.quotes[0].close;
     
     return chartData.quotes.map(quote => {
@@ -164,7 +165,8 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
           year: timeFrame === '1Y' || timeFrame === '5Y' || timeFrame === 'MAX' ? 'numeric' : undefined
         }),
         rawDate: quote.date,
-        value: stockReturn.toFixed(2), // Store as % return
+        value: quote.close, // Use actual price for the main chart
+        percentReturn: stockReturn.toFixed(2), // Store % return for comparison charts
         originalValue: quote.close,  // Keep original price for reference
         timestamp: new Date(quote.date).getTime()
       };
@@ -213,7 +215,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
       .map(point => {
         return {
           date: point.date,
-          stockReturn: point.value, // Already percentage from processedData
+          stockReturn: point.percentReturn, // Use percentage return for comparison
           benchmarkReturn: point.sp500, // Already percentage from sp500ReturnsByDate
         };
       });
@@ -258,7 +260,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
     setTimeFrame(newTimeFrame);
   };
   
-  // Custom tooltip component for line chart (percentage return view)
+  // Custom tooltip component for line chart (price view)
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -269,13 +271,13 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               <span className="w-3 h-3 inline-block bg-blue-600 rounded-full mr-2"></span>
               <span className="text-gray-700">{companyName || symbol}: </span>
               <span className="ml-1 font-medium">
-                {formatTooltipValue(payload[0]?.value)}%
+                ${formatTooltipValue(payload[0]?.value)}
               </span>
             </p>
             {showBenchmarks && payload[1] && (
               <p className="flex items-center mt-1">
                 <span className="w-3 h-3 inline-block bg-emerald-500 rounded-full mr-2"></span>
-                <span className="text-gray-700">S&P 500: </span>
+                <span className="text-gray-700">S&P 500 Return: </span>
                 <span className="ml-1 font-medium">
                   {formatTooltipValue(payload[1]?.value)}%
                 </span>
