@@ -304,7 +304,7 @@ const DistributionDonut: React.FC<{
   );
 };
 
-// Timeline Component (with placeholder for chart implementation)
+// Timeline Component with Historical Bar Chart
 const RatingTimeline: React.FC<{
   history: Array<{
     date: Date | null; // Using Date object
@@ -314,7 +314,16 @@ const RatingTimeline: React.FC<{
     standardizedToGrade: string;
     standardizedFromGrade: string;
   }>;
-}> = ({ history }) => {
+  chartData: Array<{
+    month: string;
+    buy: number;
+    hold: number;
+    sell: number;
+    strongBuy?: number;
+    strongSell?: number;
+    total?: number;
+  }>;
+}> = ({ history, chartData }) => {
   if (!history?.length) {
     return (
       <div className="flex flex-col items-center justify-center p-6 text-gray-500">
@@ -324,83 +333,168 @@ const RatingTimeline: React.FC<{
     );
   }
   
-  // Placeholder for timeline chart - in the future, this would use a proper chart library
+  // Use the chartData that's passed from the parent component
+  // This data comes from the distributionOverTime property in the analyst data
+  
   return (
-    <div className="p-4 border border-dashed border-gray-300 rounded-lg text-center text-gray-500">
-      <p className="font-semibold mb-2">Rating History Timeline Chart</p>
-      <p className="text-sm">(Chart implementation pending)</p>
-      <p className="text-xs mt-1">Showing {history.length} historical rating changes.</p>
-      <div className="mt-6 space-y-1 max-h-[320px] overflow-y-auto pr-1">
-        {history.slice(0, 8).map((item, index) => (
-          <motion.div 
-            key={index}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ 
-              opacity: 1, 
-              y: 0,
-              transition: { delay: index * 0.05 }
-            }}
-            className="p-3 hover:bg-gray-50 rounded-lg transition-colors"
+    <div className="p-4">
+      <h4 className="text-sm font-medium text-gray-700 mb-2">Analyst Rating Trends</h4>
+      
+      {/* Stacked Bar Chart */}
+      <div className="w-full pt-4">
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart
+            data={chartData}
+            margin={{ top: 10, right: 20, left: 20, bottom: 20 }}
+            barSize={50}
+            barGap={8}
           >
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="flex items-center">
-                  <span className="font-medium">{item.firm}</span>
-                  <span className="text-xs text-gray-500 ml-2">
-                    {item.displayDate}
-                  </span>
-                </div>
-                
-                <div className="flex items-center mt-1.5 text-sm">
-                  <Badge 
-                    className={cn(
-                      "mr-2 capitalize font-normal", 
-                      actionBgColors[item.actionType as keyof typeof actionBgColors] || 'bg-gray-100'
-                    )}
-                  >
-                    {item.actionType === 'init' ? 'New Coverage' : item.actionType}
-                  </Badge>
+            <XAxis 
+              dataKey="month" 
+              tickLine={false}
+              axisLine={false}
+              fontSize={12}
+              tick={{ fill: '#6b7280' }}
+            />
+            <YAxis hide={true} />
+            
+            {/* Buy (green) */}
+            <Bar 
+              dataKey="buy" 
+              stackId="a" 
+              fill="#6cb06a"
+              radius={[4, 4, 0, 0]}
+            >
+              <LabelList 
+                dataKey="buy" 
+                position="center" 
+                fill="white" 
+                formatter={(value: number) => (value > 0 ? value : '')} 
+              />
+            </Bar>
+            
+            {/* Hold (yellow) */}
+            <Bar 
+              dataKey="hold" 
+              stackId="a" 
+              fill="#f0d461"
+            >
+              <LabelList 
+                dataKey="hold" 
+                position="center" 
+                fill="black" 
+                formatter={(value: number) => (value > 0 ? value : '')} 
+              />
+            </Bar>
+            
+            {/* Sell (orange/red) */}
+            <Bar 
+              dataKey="sell" 
+              stackId="a" 
+              fill="#e3735d"
+            >
+              <LabelList 
+                dataKey="sell" 
+                position="center" 
+                fill="white" 
+                formatter={(value: number) => (value > 0 ? value : '')} 
+              />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+        
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-4 mt-2 mb-4 text-xs text-gray-600">
+          <div className="flex items-center">
+            <span className="inline-block w-3 h-3 bg-[#6cb06a] mr-1"></span>
+            <span>Buy</span>
+          </div>
+          <div className="flex items-center">
+            <span className="inline-block w-3 h-3 bg-[#f0d461] mr-1"></span>
+            <span>Hold</span>
+          </div>
+          <div className="flex items-center">
+            <span className="inline-block w-3 h-3 bg-[#e3735d] mr-1"></span>
+            <span>Sell</span>
+          </div>
+        </div>
+      </div>
+      
+      {/* Recent rating history list */}
+      <div className="mt-4">
+        <h4 className="text-sm font-medium text-gray-700 mb-2">Recent Rating Changes</h4>
+        <div className="space-y-1 max-h-[220px] overflow-y-auto pr-1">
+          {history.slice(0, 5).map((item, index) => (
+            <motion.div 
+              key={index}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ 
+                opacity: 1, 
+                y: 0,
+                transition: { delay: index * 0.05 }
+              }}
+              className="p-3 hover:bg-gray-50 rounded-lg transition-colors"
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center">
+                    <span className="font-medium">{item.firm}</span>
+                    <span className="text-xs text-gray-500 ml-2">
+                      {item.displayDate}
+                    </span>
+                  </div>
                   
-                  {/* From → To rating change */}
-                  {item.actionType !== 'init' && item.standardizedFromGrade !== 'N/A' && (
-                    <div className="flex items-center">
-                      <span className={getConsensusTextColor(item.standardizedFromGrade)}>
-                        {item.standardizedFromGrade}
-                      </span>
-                      <ArrowUpRight className="h-3.5 w-3.5 mx-1 text-gray-400 transform rotate-90" />
+                  <div className="flex items-center mt-1.5 text-sm">
+                    <Badge 
+                      className={cn(
+                        "mr-2 capitalize font-normal", 
+                        actionBgColors[item.actionType as keyof typeof actionBgColors] || 'bg-gray-100'
+                      )}
+                    >
+                      {item.actionType === 'init' ? 'New Coverage' : item.actionType}
+                    </Badge>
+                    
+                    {/* From → To rating change */}
+                    {item.actionType !== 'init' && item.standardizedFromGrade !== 'N/A' && (
+                      <div className="flex items-center">
+                        <span className={getConsensusTextColor(item.standardizedFromGrade)}>
+                          {item.standardizedFromGrade}
+                        </span>
+                        <ArrowUpRight className="h-3.5 w-3.5 mx-1 text-gray-400 transform rotate-90" />
+                        <span className={getConsensusTextColor(item.standardizedToGrade)}>
+                          {item.standardizedToGrade}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Just show the rating for new coverage */}
+                    {item.actionType === 'init' && (
                       <span className={getConsensusTextColor(item.standardizedToGrade)}>
                         {item.standardizedToGrade}
                       </span>
-                    </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Action icon */}
+                <div className="ml-2">
+                  {item.actionType === 'upgrade' && (
+                    <TrendingUp className="h-5 w-5 text-green-500" />
                   )}
-                  
-                  {/* Just show the rating for new coverage */}
+                  {item.actionType === 'downgrade' && (
+                    <TrendingDown className="h-5 w-5 text-red-500" />
+                  )}
+                  {item.actionType === 'maintain' && (
+                    <BarChart2 className="h-5 w-5 text-amber-500" />
+                  )}
                   {item.actionType === 'init' && (
-                    <span className={getConsensusTextColor(item.standardizedToGrade)}>
-                      {item.standardizedToGrade}
-                    </span>
+                    <InfoIcon className="h-5 w-5 text-blue-500" />
                   )}
                 </div>
               </div>
-              
-              {/* Action icon */}
-              <div className="ml-2">
-                {item.actionType === 'upgrade' && (
-                  <TrendingUp className="h-5 w-5 text-green-500" />
-                )}
-                {item.actionType === 'downgrade' && (
-                  <TrendingDown className="h-5 w-5 text-red-500" />
-                )}
-                {item.actionType === 'maintain' && (
-                  <BarChart2 className="h-5 w-5 text-amber-500" />
-                )}
-                {item.actionType === 'init' && (
-                  <InfoIcon className="h-5 w-5 text-blue-500" />
-                )}
-              </div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -532,6 +626,39 @@ export const ModernAnalystRatings: React.FC<ModernAnalystRatingsProps> = ({
   });
   
   const consensusScore = analystData.gaugeScore || 3; // Default to neutral if missing
+  
+  // --- Prepare data for the history chart ---
+  const chartData = useMemo(() => {
+    if (!analystData?.distributionOverTime) {
+      return [];
+    }
+    
+    // Get month labels for the last few months
+    const labels = ['-3m', '-2m', '-1m', '0m'];
+    const monthLabels = labels.map(period => periodMap[period] || period);
+    
+    // Create a clean array for the bar chart
+    return labels.map((period, index) => {
+      const dist = analystData.distributionOverTime?.[period] || {
+        strongBuy: 0, buy: 0, hold: 0, sell: 0, strongSell: 0
+      };
+      
+      return {
+        month: monthLabels[index],
+        // Combine categories for cleaner visualization
+        buy: dist.strongBuy + dist.buy,
+        hold: dist.hold,
+        sell: dist.sell + dist.strongSell,
+        
+        // Include individual values for detailed view
+        strongBuy: dist.strongBuy,
+        strongSell: dist.strongSell,
+        
+        // Total for calculations
+        total: dist.strongBuy + dist.buy + dist.hold + dist.sell + dist.strongSell
+      };
+    });
+  }, [analystData?.distributionOverTime]);
   
   // --- Update Distribution Data to Show All Categories ---
   const fullDistributionData = [
@@ -673,7 +800,10 @@ export const ModernAnalystRatings: React.FC<ModernAnalystRatingsProps> = ({
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
             >
-              <RatingTimeline history={analystData.ratingHistoryForChart} />
+              <RatingTimeline 
+                history={analystData.ratingHistoryForChart} 
+                chartData={chartData}
+              />
             </motion.div>
           )}
         </AnimatePresence>
