@@ -16,7 +16,7 @@ import { ChevronDown, Calendar, BarChart as BarChartIcon, LineChart as LineChart
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-// Helper to combine stock data with S&P 500 data
+// Helper to combine stock data with VOO (S&P 500 ETF) data
 const combineChartData = (stockData: any[] = [], sp500Data: any = null) => {
   if (!stockData.length || !sp500Data?.quotes) return stockData;
 
@@ -116,7 +116,7 @@ interface ProcessedDataPoint {
 }
 
 interface CombinedDataPoint extends ProcessedDataPoint {
-  sp500?: string; // S&P 500 percentage return
+  sp500?: string; // VOO (S&P 500 ETF) percentage return
 }
 
 interface PercentageReturnPoint {
@@ -132,7 +132,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
   const [timeFrame, setTimeFrame] = useState('1Y');
   const [showMonthlyReturns, setShowMonthlyReturns] = useState(false);
   const [activeDataTab, setActiveDataTab] = useState('main');
-  // S&P 500 comparison is always shown by default
+  // VOO (S&P 500 ETF) comparison is always shown by default
   const showBenchmarks = true;
   const [chartType, setChartType] = useState<'line' | 'bar'>('bar');
 
@@ -143,7 +143,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
     error: stockError 
   } = useYahooChartData(symbol, timeFrame);
 
-  // Fetch S&P 500 data
+  // Fetch VOO (S&P 500 ETF) data
   const {
     data: sp500Data,
     isLoading: sp500Loading,
@@ -181,7 +181,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
     });
   }, [chartData, timeFrame]);
 
-  // Process and combine with S&P 500 data
+  // Process and combine with VOO (S&P 500 ETF) data
   const combinedData: CombinedDataPoint[] = useMemo(() => {
     if (!sp500Data?.quotes || sp500Data.quotes.length === 0 || !processedData.length) {
       return processedData;
@@ -306,7 +306,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
     isLoading: dividendsLoading 
   } = useYahooDividendEvents(symbol, timeFrame);
 
-  // Fetch dividend comparison data between stock and S&P 500
+  // Fetch dividend comparison data between stock and VOO (Vanguard S&P 500 ETF)
   const {
     data: dividendComparisonData,
     isLoading: dividendComparisonLoading
@@ -370,7 +370,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                       : "bg-emerald-500"
                   }`}
                 ></span>
-                <span className="text-gray-700">{entry.name || (entry.dataKey === "value" ? (companyName || symbol) : "S&P 500")}: </span>
+                <span className="text-gray-700">{entry.name || (entry.dataKey === "value" ? (companyName || symbol) : "VOO (S&P 500 ETF)")}: </span>
                 <span className="ml-1 font-medium">
                   {entry.dataKey === "value" ? "$" : ""}{formatTooltipValue(entry.value)}{entry.dataKey === "sp500" ? "%" : ""}
                 </span>
@@ -401,7 +401,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                   }`}
                 />
                 <span className="text-gray-700">
-                  {entry.name === 'stock' ? companyName || symbol : 'S&P 500'}:
+                  {entry.name === 'stock' ? companyName || symbol : 'VOO (S&P 500 ETF)'}:
                 </span>
                 <span className={`ml-1 font-medium ${
                   parseFloat(entry.value) >= 0 ? 'text-green-600' : 'text-red-600'
@@ -589,7 +589,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                                         }`}
                                       />
                                       <span className="text-gray-700">
-                                        {entry.dataKey === 'stockReturn' ? companyName || symbol : 'S&P 500'}:
+                                        {entry.dataKey === 'stockReturn' ? companyName || symbol : 'VOO (S&P 500 ETF)'}:
                                       </span>
                                       <span className={`ml-1 font-medium ${
                                         entry.value >= 0 ? 'text-green-600' : 'text-red-600'
@@ -614,7 +614,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                       />
                       {showBenchmarks && (
                         <Bar 
-                          name="S&P 500"
+                          name="VOO (S&P 500 ETF)"
                           dataKey="sp500Return" 
                           fill={sp500Color}
                           radius={[4, 4, 0, 0]}
@@ -758,12 +758,12 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         activeDot={{ r: 6, strokeWidth: 0 }}
                       />
 
-                      {/* S&P 500 percentage line */}
+                      {/* VOO (S&P 500 ETF) percentage line */}
                       {showBenchmarks && (
                         <Line
                           type="monotone"
                           dataKey="benchmarkReturn"
-                          name="S&P 500"
+                          name="VOO (S&P 500 ETF)"
                           stroke={sp500Color}
                           strokeWidth={1.5}
                           dot={false}
@@ -789,7 +789,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                     <>
                       <div className="flex items-center">
                         <span className="inline-block w-3 h-3 bg-emerald-500 rounded-full mr-2"></span>
-                        <span className="text-sm text-gray-700">S&P 500 (% Return)</span>
+                        <span className="text-sm text-gray-700">VOO (S&P 500 ETF) (% Return)</span>
                       </div>
                     </>
                   )}
@@ -969,7 +969,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               {dividendComparisonData && dividendComparisonData.quarters && dividendComparisonData.quarters.length > 0 && (
                 <div className="space-y-2 mt-6">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium">Dividend Yield Comparison with S&P 500</h4>
+                    <h4 className="text-sm font-medium">Dividend Yield Comparison with VOO (Vanguard S&P 500 ETF)</h4>
 
                     <Button 
                       variant="outline" 
@@ -1027,7 +1027,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         />
                         <Tooltip 
                           formatter={(value: number, name: string) => {
-                            let label = name === 'stockYield' ? `${symbol} Yield` : 'S&P 500 Yield';
+                            let label = name === 'stockYield' ? `${symbol} Yield` : 'VOO (S&P 500 ETF) Yield';
                             return [`${value.toFixed(2)}%`, label];
                           }}
                           labelFormatter={(label) => `Quarter: ${label}`}
@@ -1040,7 +1040,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                           radius={[4, 4, 0, 0]}
                         />
                         <Bar
-                          name="S&P 500 Yield"
+                          name="VOO (S&P 500 ETF) Yield"
                           dataKey="sp500Yield"
                           fill={sp500Color}
                           radius={[4, 4, 0, 0]}
@@ -1090,7 +1090,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         />
                         <Tooltip 
                           formatter={(value: number, name: string) => {
-                            let label = name === 'stockDividend' ? `${symbol} Dividend` : 'S&P 500 Dividend';
+                            let label = name === 'stockDividend' ? `${symbol} Dividend` : 'VOO (S&P 500 ETF) Dividend';
                             return [`$${value.toFixed(2)}`, label];
                           }}
                           labelFormatter={(label) => `Quarter: ${label}`}
@@ -1103,7 +1103,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                           radius={[4, 4, 0, 0]}
                         />
                         <Bar
-                          name="S&P 500"
+                          name="VOO (S&P 500 ETF)"
                           dataKey="sp500Dividend"
                           fill={sp500Color}
                           radius={[4, 4, 0, 0]}

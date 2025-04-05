@@ -231,9 +231,9 @@ export interface DividendChartData {
 export interface DividendComparisonData {
   quarters: string[];
   stockDividends: number[];
-  sp500Dividends: number[];
+  sp500Dividends: number[]; // Actually VOO dividends but kept for backwards compatibility
   stockYields: number[];
-  sp500Yields: number[];
+  sp500Yields: number[]; // Actually VOO yields but kept for backwards compatibility
   stockSymbol: string;
 }
 
@@ -529,26 +529,27 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
     staleTime: 60 * 60 * 1000, // 1 hour
     enabled: !!symbol,
   });
-  const sp500ChartQuery = useQuery<YahooChartResponse>({
-    queryKey: ['/api/yahoo-finance/chart', '^GSPC', range, 'dividends'],
-    queryFn: async () => fetchStockChartData('^GSPC', range),
+  // Use VOO (Vanguard S&P 500 ETF) instead of ^GSPC for better dividend data
+  const vooChartQuery = useQuery<YahooChartResponse>({
+    queryKey: ['/api/yahoo-finance/chart', 'VOO', range, 'dividends'],
+    queryFn: async () => fetchStockChartData('VOO', range),
     staleTime: 60 * 60 * 1000, // 1 hour
     enabled: !!symbol,
   });
 
   return useQuery<DividendComparisonData>({
-    queryKey: ['/api/yahoo-finance/dividend-comparison', symbol, '^GSPC', range],
+    queryKey: ['/api/yahoo-finance/dividend-comparison', symbol, 'VOO', range],
     queryFn: async () => {
       const stockData = stockChartQuery.data;
-      const sp500Data = sp500ChartQuery.data;
+      const vooData = vooChartQuery.data;
 
-      if (!stockData || !sp500Data) {
+      if (!stockData || !vooData) {
         throw new Error('Chart data not available');
       }
 
       const stockDividends = extractDividendEvents(stockData);
-      const sp500Dividends = extractDividendEvents(sp500Data);
-      const allDates = [...stockDividends, ...sp500Dividends].map(div => parseSafeDividendDate(div.date));
+      const vooDividends = extractDividendEvents(vooData);
+      const allDates = [...stockDividends, ...vooDividends].map(div => parseSafeDividendDate(div.date));
       const sortedDates = allDates.sort((a, b) => a.getTime() - b.getTime());
       const quarters: string[] = [];
       const seenQuarters = new Set<string>();
@@ -563,7 +564,7 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
 
       const recentQuarters = quarters.slice(-8);
       const stockDividendValues: number[] = [];
-      const sp500DividendValues: number[] = [];
+      const vooDividendValues: number[] = [];
 
       recentQuarters.forEach(quarter => {
         const [q, year] = quarter.split(' ');
@@ -574,32 +575,32 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
         const startDate = new Date(yearNum, startMonth, 1);
         const endDate = new Date(yearNum, endMonth, 0);
 
-        const stockDiv = stockDividends.find(div => {
+        const stockDiv = stockDividends.find((div: YahooDividendEvent) => {
           const divDate = parseSafeDividendDate(div.date);
           return divDate >= startDate && divDate <= endDate;
         });
-        const sp500Div = sp500Dividends.find(div => {
+        const vooDiv = vooDividends.find((div: YahooDividendEvent) => {
           const divDate = parseSafeDividendDate(div.date);
           return divDate >= startDate && divDate <= endDate;
         });
 
         stockDividendValues.push(stockDiv ? stockDiv.amount : 0);
-        sp500DividendValues.push(sp500Div ? sp500Div.amount : 0);
+        vooDividendValues.push(vooDiv ? vooDiv.amount : 0);
       });
 
       const stockYields: number[] = [];
-      const sp500Yields: number[] = [];
+      const vooYields: number[] = [];
       
-      console.log(`[DEBUG] Calculating dividend yields for ${symbol} vs S&P 500`);
+      console.log(`[DEBUG] Calculating dividend yields for ${symbol} vs VOO (S&P 500 ETF)`);
       console.log(`[DEBUG] Stock dividend events:`, stockData.events?.dividends);
-      console.log(`[DEBUG] S&P 500 dividend events:`, sp500Data.events?.dividends);
+      console.log(`[DEBUG] VOO dividend events:`, vooData.events?.dividends);
       console.log(`[DEBUG] Recent quarters:`, recentQuarters);
       console.log(`[DEBUG] Stock dividend values:`, stockDividendValues);
-      console.log(`[DEBUG] S&P 500 dividend values:`, sp500DividendValues);
+      console.log(`[DEBUG] VOO dividend values:`, vooDividendValues);
 
       recentQuarters.forEach((quarter, index) => {
         const stockDiv = stockDividendValues[index];
-        const sp500Div = sp500DividendValues[index];
+        const vooDiv = vooDividendValues[index];
         const [q, year] = quarter.split(' ');
         const quarterNum = parseInt(q.substring(1)) - 1;
         const yearNum = parseInt(year);
@@ -611,8 +612,8 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
         let stockPrice = 0;
         if (stockData.quotes && stockData.quotes.length > 0) {
           const lastQuoteBeforeEnd = stockData.quotes
-            .filter(quote => new Date(quote.date) <= endDate)
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+            .filter((quote: YahooChartQuote) => new Date(quote.date) <= endDate)
+            .sort((a: YahooChartQuote, b: YahooChartQuote) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
           
           if (lastQuoteBeforeEnd) {
             stockPrice = lastQuoteBeforeEnd.close;
@@ -626,51 +627,51 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
           console.log(`[DEBUG] No quote data available for ${symbol}`);
         }
         
-        // Do the same for S&P 500
-        let sp500Price = 0;
-        if (sp500Data.quotes && sp500Data.quotes.length > 0) {
-          const lastQuoteBeforeEnd = sp500Data.quotes
-            .filter(quote => new Date(quote.date) <= endDate)
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+        // Do the same for VOO
+        let vooPrice = 0;
+        if (vooData.quotes && vooData.quotes.length > 0) {
+          const lastQuoteBeforeEnd = vooData.quotes
+            .filter((quote: YahooChartQuote) => new Date(quote.date) <= endDate)
+            .sort((a: YahooChartQuote, b: YahooChartQuote) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
           
           if (lastQuoteBeforeEnd) {
-            sp500Price = lastQuoteBeforeEnd.close;
-            console.log(`[DEBUG] S&P 500 price for ${quarter}: $${sp500Price.toFixed(2)} (${lastQuoteBeforeEnd.date})`);
+            vooPrice = lastQuoteBeforeEnd.close;
+            console.log(`[DEBUG] VOO price for ${quarter}: $${vooPrice.toFixed(2)} (${lastQuoteBeforeEnd.date})`);
           } else {
             // Fall back to the last quote
-            sp500Price = sp500Data.quotes[sp500Data.quotes.length - 1].close;
-            console.log(`[DEBUG] S&P 500 fallback price: $${sp500Price.toFixed(2)}`);
+            vooPrice = vooData.quotes[vooData.quotes.length - 1].close;
+            console.log(`[DEBUG] VOO fallback price: $${vooPrice.toFixed(2)}`);
           }
         } else {
-          console.log(`[DEBUG] No quote data available for S&P 500`);
+          console.log(`[DEBUG] No quote data available for VOO`);
         }
         
         // Calculate quarterly dividend yield
         const stockQuarterlyYield = stockPrice > 0 ? (stockDiv / stockPrice) * 100 : 0;
-        const sp500QuarterlyYield = sp500Price > 0 ? (sp500Div / sp500Price) * 100 : 0;
+        const vooQuarterlyYield = vooPrice > 0 ? (vooDiv / vooPrice) * 100 : 0;
         
         // Annualize the yield (multiply by 4 for quarterly)
         const annualizedStockYield = stockQuarterlyYield * 4;
-        const annualizedSP500Yield = sp500QuarterlyYield * 4;
+        const annualizedVOOYield = vooQuarterlyYield * 4;
         
         console.log(`[DEBUG] ${quarter} - ${symbol} div: $${stockDiv.toFixed(4)}, yield: ${annualizedStockYield.toFixed(2)}%`);
-        console.log(`[DEBUG] ${quarter} - S&P 500 div: $${sp500Div.toFixed(4)}, yield: ${annualizedSP500Yield.toFixed(2)}%`);
+        console.log(`[DEBUG] ${quarter} - VOO div: $${vooDiv.toFixed(4)}, yield: ${annualizedVOOYield.toFixed(2)}%`);
         
         stockYields.push(annualizedStockYield);
-        sp500Yields.push(annualizedSP500Yield);
+        vooYields.push(annualizedVOOYield);
       });
 
       return {
         quarters: recentQuarters,
         stockDividends: stockDividendValues,
-        sp500Dividends: sp500DividendValues,
+        sp500Dividends: vooDividendValues, // Keep property name for backward compatibility
         stockYields: stockYields,
-        sp500Yields: sp500Yields,
+        sp500Yields: vooYields, // Keep property name for backward compatibility
         stockSymbol: symbol
       };
     },
     staleTime: 60 * 60 * 1000, // 1 hour
-    enabled: !!symbol && stockChartQuery.isSuccess && sp500ChartQuery.isSuccess,
+    enabled: !!symbol && stockChartQuery.isSuccess && vooChartQuery.isSuccess,
   });
 }
 
