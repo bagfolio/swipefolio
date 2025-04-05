@@ -9,15 +9,17 @@ import {
   useYahooEarningsData, 
   useYahooRevenueData,
   useYahooDividendEvents,
+  useYahooDividendComparison,
   DividendData,
   DividendChartData,
+  DividendComparisonData,
   EarningsData,
   RevenueData
 } from '@/lib/yahoo-finance-client';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ScatterChart, Scatter, ZAxis, ComposedChart, Line } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { ArrowRight, BarChart as BarChartIcon, DollarSign, TrendingUp, Calendar } from 'lucide-react';
+import { ArrowRight, BarChart as BarChartIcon, DollarSign, TrendingUp, Calendar, TrendingDown } from 'lucide-react';
 
 interface ImprovedPerformanceChartProps {
   symbol: string;
@@ -34,6 +36,7 @@ const ImprovedPerformanceChart: React.FC<ImprovedPerformanceChartProps> = ({
   // Fetch data using the Yahoo Finance hooks
   const { data: dividendInfo, isLoading: isLoadingDividends } = useYahooDividendData(symbol, timeFrame);
   const { data: dividendEvents, isLoading: isLoadingDividendEvents } = useYahooDividendEvents(symbol, timeFrame);
+  const { data: dividendComparison, isLoading: isLoadingDividendComparison } = useYahooDividendComparison(symbol, timeFrame);
   const { data: earningsInfo, isLoading: isLoadingEarnings } = useYahooEarningsData(symbol);
   const { data: revenueInfo, isLoading: isLoadingRevenue } = useYahooRevenueData(symbol);
   
@@ -302,6 +305,78 @@ const ImprovedPerformanceChart: React.FC<ImprovedPerformanceChartProps> = ({
                     </div>
                   )}
                 </ResponsiveContainer>
+              </div>
+              
+              {/* Dividend comparison with S&P 500 */}
+              <div className="h-72 w-full mb-6 mt-6 border-t pt-4">
+                <h5 className="text-sm font-medium mb-2">Dividend Comparison with S&P 500</h5>
+                <ResponsiveContainer width="100%" height="90%">
+                  {dividendComparison ? (
+                    <BarChart
+                      data={dividendComparison.quarters.map((quarter, index) => ({
+                        quarter,
+                        [symbol]: dividendComparison.stockDividends[index],
+                        'S&P 500': dividendComparison.sp500Dividends[index]
+                      }))}
+                      margin={{ top: 10, right: 10, left: 10, bottom: 30 }}
+                      barGap={2}
+                      barCategoryGap="15%"
+                    >
+                      <XAxis 
+                        dataKey="quarter" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        interval={0}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        tickFormatter={(value) => `$${value.toFixed(2)}`}
+                        domain={[0, 'dataMax * 1.2']}
+                      />
+                      <Tooltip 
+                        formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, `${name} Dividend`]}
+                        labelFormatter={(value) => `Quarter: ${value}`}
+                        labelStyle={{ color: '#374151', fontWeight: 'bold' }}
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '0.375rem',
+                          padding: '0.5rem'
+                        }}
+                      />
+                      <Legend />
+                      <Bar 
+                        dataKey={symbol} 
+                        name={symbol}
+                        radius={[4, 4, 0, 0]}
+                        fill="#4f46e5"
+                        animationDuration={750}
+                      />
+                      <Bar 
+                        dataKey="S&P 500" 
+                        name="S&P 500"
+                        radius={[4, 4, 0, 0]}
+                        fill="#10b981"
+                        animationDuration={750}
+                      />
+                    </BarChart>
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center">
+                      <p className="text-gray-500">
+                        {isLoadingDividendComparison ? 'Loading dividend comparison data...' : 'No dividend comparison data available for this time period'}
+                      </p>
+                    </div>
+                  )}
+                </ResponsiveContainer>
+                <div className="text-sm text-gray-500 mt-2">
+                  <p className="flex items-center">
+                    <TrendingUp className="h-4 w-4 text-indigo-600 mr-1" />
+                    Compare quarterly dividend payments between {symbol} and the S&P 500
+                  </p>
+                </div>
               </div>
               
               <div className="mt-2 text-xs text-gray-500">

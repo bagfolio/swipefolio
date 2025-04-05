@@ -278,6 +278,14 @@ export interface DividendChartData {
   type: string;
 }
 
+// Interface for dividend comparison data
+export interface DividendComparisonData {
+  quarters: string[];
+  stockDividends: number[];
+  sp500Dividends: number[];
+  stockSymbol: string;
+}
+
 // Interface for earnings data
 export interface EarningsData {
   quarter: string;
@@ -500,9 +508,111 @@ export function useYahooDividendEvents(symbol: string, timeFrame: string) {
 }
 
 /**
- * Hook to query Yahoo Finance revenue data
- * Currently returns mock data - will be replaced with actual API data
+ * Hook to compare dividend data between a stock and S&P 500
+ * Returns quarterly dividend data for both the stock and the S&P 500
  */
+export function useYahooDividendComparison(symbol: string, timeFrame: string) {
+  const range = timeFrameToRange[timeFrame] || "1y";
+  
+  // Get the stock dividend data
+  const stockChartQuery = useQuery<YahooChartResponse>({
+    queryKey: ['/api/yahoo-finance/chart', symbol, range, 'dividends'],
+    queryFn: async () => fetchStockChartData(symbol, range),
+    staleTime: 60 * 60 * 1000, // 1 hour
+    enabled: !!symbol,
+  });
+  
+  // Get the S&P 500 dividend data
+  const sp500ChartQuery = useQuery<YahooChartResponse>({
+    queryKey: ['/api/yahoo-finance/chart', '^GSPC', range, 'dividends'],
+    queryFn: async () => fetchStockChartData('^GSPC', range),
+    staleTime: 60 * 60 * 1000, // 1 hour
+    enabled: !!symbol,
+  });
+  
+  // Process and compare the dividend data
+  return useQuery<DividendComparisonData>({
+    queryKey: ['/api/yahoo-finance/dividend-comparison', symbol, '^GSPC', range],
+    queryFn: async () => {
+      const stockData = stockChartQuery.data;
+      const sp500Data = sp500ChartQuery.data;
+      
+      if (!stockData || !sp500Data) {
+        throw new Error('Chart data not available');
+      }
+      
+      // Extract dividend events
+      const stockDividends = extractDividendEvents(stockData);
+      const sp500Dividends = extractDividendEvents(sp500Data);
+      
+      // Group by quarter for comparison
+      // First, create a combined timeline of quarters
+      const allDates = [...stockDividends, ...sp500Dividends].map(div => new Date(div.date));
+      
+      // Sort dates chronologically
+      const sortedDates = allDates.sort((a, b) => a.getTime() - b.getTime());
+      
+      // Get unique quarters represented in the data
+      const quarters: string[] = [];
+      const seenQuarters = new Set<string>();
+      
+      sortedDates.forEach(date => {
+        const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${date.getFullYear()}`;
+        if (!seenQuarters.has(quarter)) {
+          seenQuarters.add(quarter);
+          quarters.push(quarter);
+        }
+      });
+      
+      // If we have more than 8 quarters, just take the most recent 8
+      const recentQuarters = quarters.slice(-8);
+      
+      // Create arrays for stock and SP500 dividend values
+      const stockDividendValues: number[] = [];
+      const sp500DividendValues: number[] = [];
+      
+      // For each quarter, find the corresponding dividend amount
+      recentQuarters.forEach(quarter => {
+        // Parse quarter string (e.g., "Q1 2023")
+        const [q, year] = quarter.split(' ');
+        const quarterNum = parseInt(q.substring(1)) - 1; // Q1 -> 0, Q2 -> 1, etc.
+        const yearNum = parseInt(year);
+        
+        // Calculate start and end dates for this quarter
+        const startMonth = quarterNum * 3;
+        const endMonth = startMonth + 3;
+        const startDate = new Date(yearNum, startMonth, 1);
+        const endDate = new Date(yearNum, endMonth, 0); // Last day of the end month
+        
+        // Find stock dividend in this quarter
+        const stockDiv = stockDividends.find(div => {
+          const divDate = new Date(div.date);
+          return divDate >= startDate && divDate <= endDate;
+        });
+        
+        // Find S&P 500 dividend in this quarter
+        const sp500Div = sp500Dividends.find(div => {
+          const divDate = new Date(div.date);
+          return divDate >= startDate && divDate <= endDate;
+        });
+        
+        // Add to arrays (use 0 if no dividend found)
+        stockDividendValues.push(stockDiv ? stockDiv.amount : 0);
+        sp500DividendValues.push(sp500Div ? sp500Div.amount : 0);
+      });
+      
+      return {
+        quarters: recentQuarters,
+        stockDividends: stockDividendValues,
+        sp500Dividends: sp500DividendValues,
+        stockSymbol: symbol
+      };
+    },
+    staleTime: 60 * 60 * 1000, // 1 hour
+    enabled: !!symbol && stockChartQuery.isSuccess && sp500ChartQuery.isSuccess,
+  });
+}
+
 export function useYahooRevenueData(symbol: string) {
   return useQuery<RevenueData[]>({
     queryKey: ['/api/yahoo-finance/revenue', symbol],
