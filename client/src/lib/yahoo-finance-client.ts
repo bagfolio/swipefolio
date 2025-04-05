@@ -562,7 +562,17 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
         }
       });
 
-      const recentQuarters = quarters.slice(-8);
+      // Adjust the number of quarters to show based on the timeFrame
+      let numQuarters = 8; // Default for 1Y-2Y
+      
+      if (timeFrame === '3Y') {
+        numQuarters = 12; // Show 3 years (12 quarters)
+      } else if (timeFrame === '5Y' || timeFrame === 'MAX') {
+        numQuarters = 20; // Show 5 years (20 quarters)
+      }
+      
+      // Get the most recent quarters based on the timeFrame
+      const recentQuarters = quarters.slice(-numQuarters);
       const stockDividendValues: number[] = [];
       const vooDividendValues: number[] = [];
 
@@ -661,13 +671,40 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
         vooYields.push(annualizedVOOYield);
       });
 
+      // Calculate summary statistics
+      const totalStockDividend = stockDividendValues.reduce((sum, div) => sum + div, 0);
+      const totalVooDividend = vooDividendValues.reduce((sum, div) => sum + div, 0);
+      
+      const avgStockDividend = stockDividendValues.length > 0 
+        ? totalStockDividend / stockDividendValues.filter(div => div > 0).length 
+        : 0;
+      const avgVooDividend = vooDividendValues.length > 0 
+        ? totalVooDividend / vooDividendValues.filter(div => div > 0).length 
+        : 0;
+      
+      const avgStockYield = stockYields.length > 0 
+        ? stockYields.reduce((sum, yield_val) => sum + yield_val, 0) / stockYields.filter(yield_val => yield_val > 0).length 
+        : 0;
+      const avgVooYield = vooYields.length > 0 
+        ? vooYields.reduce((sum, yield_val) => sum + yield_val, 0) / vooYields.filter(yield_val => yield_val > 0).length 
+        : 0;
+        
       return {
         quarters: recentQuarters,
         stockDividends: stockDividendValues,
         sp500Dividends: vooDividendValues, // Keep property name for backward compatibility
         stockYields: stockYields,
         sp500Yields: vooYields, // Keep property name for backward compatibility
-        stockSymbol: symbol
+        stockSymbol: symbol,
+        summary: {
+          totalStockDividend,
+          totalVooDividend,
+          avgStockDividend,
+          avgVooDividend,
+          avgStockYield,
+          avgVooYield,
+          timeFrameYears: timeFrame === '1Y' ? 1 : timeFrame === '2Y' ? 2 : timeFrame === '3Y' ? 3 : timeFrame === '5Y' ? 5 : 5
+        }
       };
     },
     staleTime: 60 * 60 * 1000, // 1 hour

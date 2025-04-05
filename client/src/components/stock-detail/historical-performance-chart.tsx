@@ -838,9 +838,10 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                 </div>
               </div>
 
-              {/* Summary statistics for dividends */}
+              {/* Enhanced summary statistics for dividends */}
               {dividendData.length > 0 && (
-                <div className="flex flex-wrap gap-4 p-4 bg-gray-50 rounded-lg mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mt-4">
+                  {/* Basic stats (always show) */}
                   <div className="flex-1 min-w-[160px]">
                     <h5 className="text-xs text-gray-500 mb-1">Latest Dividend</h5>
                     <div className="text-xl font-semibold text-blue-600">
@@ -851,28 +852,58 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                     </div>
                   </div>
 
-                  <div className="flex-1 min-w-[160px]">
-                    <h5 className="text-xs text-gray-500 mb-1">Annual Yield</h5>
-                    <div className="text-xl font-semibold text-emerald-600">
-                      {dividendData.length >= 4 ? 
-                        `${((dividendData.slice(0, 4).reduce((sum, div) => sum + div.amount, 0) / 
-                        (chartData?.quotes?.[chartData.quotes.length - 1]?.close || 100)) * 100).toFixed(2)}%` : 
-                        'N/A'}
-                    </div>
-                    <div className="text-xs text-gray-700 mt-1">
-                      Based on current price
-                    </div>
-                  </div>
+                  {/* Enhanced Stats (when comparison data available) */}
+                  {dividendComparisonData && dividendComparisonData.summary ? (
+                    <>
+                      <div className="flex-1 min-w-[160px]">
+                        <h5 className="text-xs text-gray-500 mb-1">Total Dividend ({dividendComparisonData.summary.timeFrameYears}Y Period)</h5>
+                        <div className="text-lg font-semibold text-blue-600">
+                          ${dividendComparisonData.summary.totalStockDividend.toFixed(2)}
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-700 mt-1">
+                          <span>vs. VOO (S&P 500 ETF):</span>
+                          <span className="font-medium">${dividendComparisonData.summary.totalVooDividend.toFixed(2)}</span>
+                        </div>
+                      </div>
 
-                  <div className="flex-1 min-w-[160px]">
-                    <h5 className="text-xs text-gray-500 mb-1">Payment Frequency</h5>
-                    <div className="text-xl font-semibold text-gray-700">
-                      {dividendData.length >= 3 ? 'Quarterly' : 'N/A'}
-                    </div>
-                    <div className="text-xs text-gray-700 mt-1">
-                      {dividendData.length} payment(s) found
-                    </div>
-                  </div>
+                      <div className="flex-1 min-w-[160px]">
+                        <h5 className="text-xs text-gray-500 mb-1">Avg. Annual Yield</h5>
+                        <div className="text-lg font-semibold text-emerald-600">
+                          {dividendComparisonData.summary.avgStockYield.toFixed(2)}%
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-700 mt-1">
+                          <span>vs. VOO (S&P 500 ETF):</span>
+                          <span className="font-medium">{dividendComparisonData.summary.avgVooYield.toFixed(2)}%</span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Fallback when comparison data not available */}
+                      <div className="flex-1 min-w-[160px]">
+                        <h5 className="text-xs text-gray-500 mb-1">Annual Yield</h5>
+                        <div className="text-xl font-semibold text-emerald-600">
+                          {dividendData.length >= 4 ? 
+                            `${((dividendData.slice(0, 4).reduce((sum, div) => sum + div.amount, 0) / 
+                            (chartData?.quotes?.[chartData.quotes.length - 1]?.close || 100)) * 100).toFixed(2)}%` : 
+                            'N/A'}
+                        </div>
+                        <div className="text-xs text-gray-700 mt-1">
+                          Based on current price
+                        </div>
+                      </div>
+
+                      <div className="flex-1 min-w-[160px]">
+                        <h5 className="text-xs text-gray-500 mb-1">Payment Frequency</h5>
+                        <div className="text-xl font-semibold text-gray-700">
+                          {dividendData.length >= 3 ? 'Quarterly' : 'N/A'}
+                        </div>
+                        <div className="text-xs text-gray-700 mt-1">
+                          {dividendData.length} payment(s) found
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -895,45 +926,66 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                   </Button>
 
                   <div id="dividend-history-details" className="mt-4 space-y-6" style={{ display: 'none' }}>
-                    {/* Dividend payment history bar chart */}
+                    {/* Dividend payment history comparison line chart */}
                     <div className="w-full h-[250px]">
-                      <h4 className="text-sm font-medium mb-3">Dividend Trend Over Time</h4>
+                      <h4 className="text-sm font-medium mb-3">Dividend Trend Comparison Over Time</h4>
                       <ResponsiveContainer width="100%" height="100%" minHeight={200}>
-                        <AreaChart
-                          data={dividendData.slice().reverse()}
-                          margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
+                        <ComposedChart
+                          data={
+                            dividendComparisonData && dividendComparisonData.quarters ? 
+                            dividendComparisonData.quarters.map((quarter, index) => ({
+                              quarter,
+                              stockDividend: dividendComparisonData.stockDividends[index] || 0,
+                              sp500Dividend: dividendComparisonData.sp500Dividends[index] || 0
+                            })) : []
+                          }
+                          margin={{ top: 10, right: 10, left: 0, bottom: 30 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                           <XAxis 
-                            dataKey="date" 
+                            dataKey="quarter" 
                             axisLine={false}
                             tickLine={false}
                             tick={{ fontSize: 10, fill: '#6b7280' }}
                             angle={-30}
                             textAnchor="end"
-                            height={50}
+                            height={60}
                           />
                           <YAxis 
-                            domain={[(dataMin: number) => Math.floor(dataMin * 0.9), 
-                                    (dataMax: number) => Math.ceil(dataMax * 1.1)]}
+                            domain={[(dataMin: number) => Math.floor(dataMin * 0.8), 
+                                    (dataMax: number) => Math.ceil(dataMax * 1.2)]}
                             axisLine={false}
                             tickLine={false}
                             tick={{ fontSize: 12, fill: '#6b7280' }}
                             tickFormatter={(value) => `$${value.toFixed(2)}`}
                           />
                           <Tooltip 
-                            formatter={(value: number) => [`$${value.toFixed(2)}`, 'Dividend']}
-                            labelFormatter={(label) => `Date: ${label}`}
+                            formatter={(value: number, name: string) => {
+                              let label = name === 'stockDividend' ? `${symbol} Dividend` : 'VOO (S&P 500 ETF) Dividend';
+                              return [`$${value.toFixed(2)}`, label];
+                            }}
+                            labelFormatter={(label) => `Quarter: ${label}`}
                           />
-                          <Area
+                          <Legend />
+                          <Line
                             type="monotone"
-                            dataKey="amount"
-                            fill={stockColor}
+                            name={`${symbol} Dividend`}
+                            dataKey="stockDividend"
+                            stroke={stockColor}
                             strokeWidth={2}
-                            dot={false}
+                            dot={{ r: 3 }}
                             activeDot={{ r: 6, strokeWidth: 0 }}
                           />
-                        </AreaChart>
+                          <Line
+                            type="monotone"
+                            name="VOO (S&P 500 ETF) Dividend"
+                            dataKey="sp500Dividend"
+                            stroke={sp500Color}
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            activeDot={{ r: 6, strokeWidth: 0 }}
+                          />
+                        </ComposedChart>
                       </ResponsiveContainer>
                     </div>
 
