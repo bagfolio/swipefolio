@@ -267,22 +267,21 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
         <div className="bg-white p-3 border rounded-md shadow-md text-xs">
           <p className="font-semibold text-gray-800">{label}</p>
           <div className="mt-1">
-            <p className="flex items-center">
-              <span className="w-3 h-3 inline-block bg-blue-600 rounded-full mr-2"></span>
-              <span className="text-gray-700">{companyName || symbol}: </span>
-              <span className="ml-1 font-medium">
-                ${formatTooltipValue(payload[0]?.value)}
-              </span>
-            </p>
-            {showBenchmarks && payload[1] && (
-              <p className="flex items-center mt-1">
-                <span className="w-3 h-3 inline-block bg-emerald-500 rounded-full mr-2"></span>
-                <span className="text-gray-700">S&P 500 Return: </span>
+            {payload.map((entry: any, index: number) => (
+              <p key={`tooltip-entry-${index}`} className="flex items-center">
+                <span 
+                  className={`w-3 h-3 inline-block rounded-full mr-2 ${
+                    entry.name === companyName || entry.name === symbol || entry.dataKey === "value" 
+                      ? "bg-blue-600" 
+                      : "bg-emerald-500"
+                  }`}
+                ></span>
+                <span className="text-gray-700">{entry.name || (entry.dataKey === "value" ? (companyName || symbol) : "S&P 500")}: </span>
                 <span className="ml-1 font-medium">
-                  {formatTooltipValue(payload[1]?.value)}%
+                  {entry.dataKey === "value" ? "$" : ""}{formatTooltipValue(entry.value)}{entry.dataKey === "sp500" ? "%" : ""}
                 </span>
               </p>
-            )}
+            ))}
           </div>
         </div>
       );
@@ -588,6 +587,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                       <Area
                         type="monotone"
                         dataKey="value"
+                        name={companyName || symbol}
                         stroke={stockColor}
                         strokeWidth={2}
                         dot={false}
@@ -601,6 +601,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                           <Line
                             type="monotone"
                             dataKey="sp500"
+                            name="S&P 500"
                             stroke={sp500Color}
                             strokeWidth={1.5}
                             dot={false}
