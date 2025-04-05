@@ -128,7 +128,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
   const [activeDataTab, setActiveDataTab] = useState('main');
   // S&P 500 comparison is always shown by default
   const showBenchmarks = true;
-  const [chartType, setChartType] = useState<'line' | 'bar'>('line');
+  const [chartType, setChartType] = useState<'line' | 'bar'>('bar');
   
   // Fetch stock chart data
   const { 
@@ -247,17 +247,36 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
       // Use the last point in the division for comparison
       const lastPoint = divisionPoints[divisionPoints.length - 1];
       
-      // Format period label
+      // Format period label with cleaner month-year format
       let periodLabel;
+      
+      // Create clean date formatter for month-year only
+      const formatMonthYear = (dateStr: string) => {
+        try {
+          const dateParts = dateStr.split(', ');
+          // If we have month and day, extract just the month
+          if (dateParts[0].includes(' ')) {
+            const monthPart = dateParts[0].split(' ')[0];
+            return `${monthPart} ${dateParts[1] || ''}`.trim();
+          }
+          return dateStr;
+        } catch (e) {
+          return dateStr;
+        }
+      };
+      
       if (divisionPoints.length > 1) {
-        periodLabel = `${divisionPoints[0].date} - ${lastPoint.date}`;
+        // Only show month and year for cleaner labels
+        const startDate = formatMonthYear(divisionPoints[0].date);
+        const endDate = formatMonthYear(lastPoint.date);
+        periodLabel = `${startDate} - ${endDate}`;
       } else {
-        periodLabel = lastPoint.date;
+        periodLabel = formatMonthYear(lastPoint.date);
       }
       
-      // For shorter timeframes, just use the date
+      // For shorter timeframes, just use the date with month-year format
       if (timeFrame === '1M' || timeFrame === '3M') {
-        periodLabel = lastPoint.date;
+        periodLabel = formatMonthYear(lastPoint.date);
       }
       
       result.push({
@@ -633,17 +652,17 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                   </ResponsiveContainer>
                 </div>
               ) : (
-                // Main line chart with dual Y-axis
+                // Line chart showing percentage returns for both metrics
                 <div className="w-full h-[350px] mt-2">
                   <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart
-                      data={combinedData}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+                    <LineChart
+                      data={percentageReturnData}
+                      margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
                     >
                       <defs>
                         <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={gradientStartColor} stopOpacity={1} />
-                          <stop offset="95%" stopColor={gradientEndColor} stopOpacity={1} />
+                          <stop offset="5%" stopColor={gradientStartColor} stopOpacity={0.2} />
+                          <stop offset="95%" stopColor={gradientEndColor} stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid 
@@ -660,38 +679,23 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         minTickGap={30}
                       />
                       
-                      {/* Left Y-axis for stock price */}
+                      {/* Single Y-axis for percentage returns */}
                       <YAxis 
-                        yAxisId="left"
                         domain={['auto', 'auto']}
                         axisLine={false}
                         tickLine={false}
                         tick={{ fontSize: 12, fill: '#6b7280' }}
-                        tickFormatter={(value) => `$${value.toFixed(0)}`}
+                        tickFormatter={(value) => `${value}%`}
                         tickMargin={8}
                       />
                       
-                      {/* Right Y-axis for S&P 500 percentage return */}
-                      {showBenchmarks && (
-                        <YAxis 
-                          yAxisId="right"
-                          orientation="right"
-                          domain={['auto', 'auto']}
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fontSize: 12, fill: '#6b7280' }}
-                          tickFormatter={(value) => `${value}%`}
-                          tickMargin={8}
-                        />
-                      )}
+                      <Tooltip content={<ComparisonTooltip />}
+                      />
                       
-                      <Tooltip content={<CustomTooltip />} />
-                      
-                      {/* Main stock line with gradient area */}
+                      {/* Stock percentage line with light fill */}
                       <Area
-                        yAxisId="left"
                         type="monotone"
-                        dataKey="value"
+                        dataKey="stockReturn"
                         name={companyName || symbol}
                         stroke={stockColor}
                         strokeWidth={2}
@@ -703,9 +707,8 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                       {/* S&P 500 percentage line */}
                       {showBenchmarks && (
                         <Line
-                          yAxisId="right"
                           type="monotone"
-                          dataKey="sp500"
+                          dataKey="benchmarkReturn"
                           name="S&P 500"
                           stroke={sp500Color}
                           strokeWidth={1.5}
@@ -713,7 +716,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                           activeDot={{ r: 4, strokeWidth: 0 }}
                         />
                       )}
-                    </ComposedChart>
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
               )}
@@ -724,7 +727,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                   <div className="flex items-center">
                     <span className="inline-block w-3 h-3 bg-blue-600 rounded-full mr-2"></span>
                     <span className="text-sm text-gray-700">
-                      {companyName || symbol} {chartType === 'line' ? '(Price in $)' : '(% Return)'}
+                      {companyName || symbol} (% Return)
                     </span>
                   </div>
                   
