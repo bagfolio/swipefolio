@@ -542,7 +542,9 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         tick={{ fontSize: 12, fill: '#6b7280' }}
                         tickFormatter={(value) => `${value}%`}
                         tickMargin={8}
-                        domain={['auto', 'auto']}
+                        // Calculate domain with padding for bar chart
+                        domain={[(dataMin: number) => Math.floor(dataMin * 1.1), 
+                                (dataMax: number) => Math.ceil(dataMax * 1.1)]}
                       />
                       <Tooltip 
                         content={({ active, payload, label }) => {
@@ -623,6 +625,9 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         tick={{ fontSize: 12, fill: '#6b7280' }}
                         tickFormatter={(value) => `${value}%`}
                         tickMargin={8}
+                        // Add padding to ensure all monthly return bars are visible
+                        domain={[(dataMin: number) => Math.floor(dataMin * 1.1), 
+                                (dataMax: number) => Math.ceil(dataMax * 1.1)]}
                       />
                       <Tooltip content={<MonthlyReturnsTooltip />} />
                       <Bar 
@@ -681,7 +686,16 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                       
                       {/* Single Y-axis for percentage returns */}
                       <YAxis 
-                        domain={['auto', 'auto']}
+                        // Calculate domain with padding to ensure all data is visible
+                        domain={[(dataMin: number) => {
+                          // Find the minimum value between stock and benchmark
+                          // Add 10% padding below lowest point
+                          return Math.floor(dataMin * 1.1);
+                        }, 
+                        (dataMax: number) => {
+                          // Add 10% padding above highest point
+                          return Math.ceil(dataMax * 1.1);
+                        }]}
                         axisLine={false}
                         tickLine={false}
                         tick={{ fontSize: 12, fill: '#6b7280' }}
@@ -796,7 +810,8 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                       tick={{ fontSize: 12, fill: '#6b7280' }}
                     />
                     <YAxis 
-                      domain={['dataMin', 'dataMax']}
+                      domain={[(dataMin: number) => Math.floor(dataMin * 0.9), 
+                              (dataMax: number) => Math.ceil(dataMax * 1.1)]}
                       axisLine={false}
                       tickLine={false}
                       tick={{ fontSize: 12, fill: '#6b7280' }}
@@ -872,7 +887,8 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                       tick={{ fontSize: 12, fill: '#6b7280' }}
                     />
                     <YAxis 
-                      domain={['dataMin - 0.5', 'dataMax + 0.5']}
+                      domain={[(dataMin: number) => Math.floor(dataMin * 0.9), 
+                              (dataMax: number) => Math.ceil(dataMax * 1.1)]}
                       axisLine={false}
                       tickLine={false}
                       tick={{ fontSize: 12, fill: '#6b7280' }}
