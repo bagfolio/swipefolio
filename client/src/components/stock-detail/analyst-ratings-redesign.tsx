@@ -188,8 +188,8 @@ const AnalystGauge: React.FC<{ score: number | null }> = ({ score }) => {
 // Rating Distribution Bar Chart
 const RatingDistributionBars: React.FC<{ 
   distribution: DistributionData,
-  previousDistribution?: DistributionData 
-}> = ({ distribution, previousDistribution }) => {
+  currentDistribution?: DistributionData 
+}> = ({ distribution, currentDistribution }) => {
   // Calculate total analysts
   const total = Object.values(distribution).reduce((sum, count) => sum + count, 0);
   
@@ -211,13 +211,14 @@ const RatingDistributionBars: React.FC<{
       {ratingData.map((rating, index) => {
         const percentage = total > 0 ? (rating.count / total) * 100 : 0;
         
-        // Calculate change if previous distribution is available
+        // Calculate change compared to current distribution (0m)
         let changeText = null;
         let changeColor = '';
         
-        if (previousDistribution) {
-          const prevCount = previousDistribution[rating.key];
-          const diff = rating.count - prevCount;
+        if (currentDistribution && distribution !== currentDistribution) {
+          const currentCount = currentDistribution[rating.key];
+          // Diff is current - historical (to show how it changed from historical to current)
+          const diff = currentCount - rating.count;
           
           if (diff !== 0) {
             changeColor = diff > 0 ? 'text-green-500' : 'text-red-500';
@@ -254,6 +255,11 @@ const RatingDistributionBars: React.FC<{
       
       <div className="text-sm text-center text-gray-500 mt-2">
         Based on {total} analyst ratings
+        {currentDistribution && distribution !== currentDistribution && (
+          <span className="text-xs ml-1 text-gray-400">
+            (compared to current)
+          </span>
+        )}
       </div>
     </div>
   );
@@ -466,8 +472,8 @@ export const AnalystRatingsRedesign: React.FC<AnalystRatingsProps> = ({ symbol, 
             <h4 className="text-sm font-medium mb-2">Rating Distribution</h4>
             <RatingDistributionBars 
               distribution={currentDistribution} 
-              previousDistribution={selectedPeriod !== '0m' && availablePeriods.includes('-1m') ? 
-                analystData?.distributionOverTime?.['-1m'] : undefined}
+              currentDistribution={availablePeriods.includes('0m') ? 
+                analystData?.distributionOverTime?.['0m'] : undefined}
             />
           </div>
         </div>
