@@ -4,28 +4,31 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { useYahooChartData, timeFrameToRange } from '@/lib/yahoo-finance-client';
+import { useYahooChartData, useSP500ChartData, timeFrameToRange } from '@/lib/yahoo-finance-client';
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line, LineChart, Bar, BarChart } from 'recharts';
 import { ChevronDown, Calendar, BarChart as BarChartIcon, LineChart as LineChartIcon, TrendingUp, DollarSign } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-// Sample market benchmarks data (S&P 500, Industry average)
-const getBenchmarkData = (timeFrame: string, stockData: any[] = []) => {
-  // This would normally come from an API
-  if (!stockData.length) return [];
+// Helper to combine stock data with S&P 500 data
+const combineChartData = (stockData: any[] = [], sp500Data: any = null) => {
+  if (!stockData.length || !sp500Data?.quotes) return stockData;
   
-  // Create synthetic benchmark data based on the stock's performance
-  // In a real app, you would fetch actual benchmark data
-  return stockData.map((point, i) => {
-    // Adjust the values to create slightly different benchmark lines
-    const sp500Value = point.value * (0.9 + Math.sin(i * 0.1) * 0.1);
-    const industryValue = point.value * (0.8 + Math.cos(i * 0.1) * 0.2);
+  // Map to convert date string to timestamp for easier comparison
+  const sp500DateMap = new Map();
+  sp500Data.quotes.forEach((quote: any) => {
+    const date = new Date(quote.date);
+    sp500DateMap.set(date.getTime(), quote.close);
+  });
+  
+  // Combine data with normalized values for fair comparison
+  return stockData.map((point) => {
+    const timestamp = new Date(point.rawDate).getTime();
+    const sp500Value = sp500DateMap.get(timestamp);
     
     return {
       ...point,
-      sp500: sp500Value,
-      industry: industryValue
+      sp500: sp500Value
     };
   });
 };
@@ -94,6 +97,25 @@ interface HistoricalPerformanceChartProps {
   companyName?: string;
 }
 
+// Define chart data types for type safety
+interface ProcessedDataPoint {
+  date: string;
+  rawDate: string;
+  value: string; // percentage return
+  originalValue: number; // actual price
+  timestamp: number;
+}
+
+interface CombinedDataPoint extends ProcessedDataPoint {
+  sp500?: string; // S&P 500 percentage return
+}
+
+interface PercentageReturnPoint {
+  date: string;
+  stockReturn: string;
+  benchmarkReturn?: string;
+}
+
 const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({ 
   symbol,
   companyName
@@ -102,35 +124,99 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
   const [showMonthlyReturns, setShowMonthlyReturns] = useState(false);
   const [activeDataTab, setActiveDataTab] = useState('main');
   const [showBenchmarks, setShowBenchmarks] = useState(true);
+  const [chartType, setChartType] = useState<'line' | 'bar'>('line');
   
   // Fetch stock chart data
   const { 
     data: chartData, 
-    isLoading, 
-    error 
+    isLoading: stockLoading, 
+    error: stockError 
   } = useYahooChartData(symbol, timeFrame);
   
+  // Fetch S&P 500 data
+  const {
+    data: sp500Data,
+    isLoading: sp500Loading,
+    error: sp500Error
+  } = useSP500ChartData(timeFrame);
+  
+  const isLoading = stockLoading || sp500Loading;
+  const error = stockError || sp500Error;
+  
   // Process chart data for display
-  const processedData = useMemo(() => {
+  const processedData: ProcessedDataPoint[] = useMemo(() => {
     if (!chartData?.quotes || chartData.quotes.length === 0) {
       return [];
     }
     
-    return chartData.quotes.map(quote => ({
-      date: new Date(quote.date).toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric',
-        year: timeFrame === '1Y' || timeFrame === '5Y' || timeFrame === 'MAX' ? 'numeric' : undefined
-      }),
-      value: quote.close,
-      timestamp: new Date(quote.date).getTime()
-    }));
+    // Get initial price for calculating returns
+    const initialStockPrice = chartData.quotes[0].close;
+    
+    return chartData.quotes.map(quote => {
+      // Calculate % return from starting point
+      const stockReturn = ((quote.close - initialStockPrice) / initialStockPrice) * 100;
+      
+      return {
+        date: new Date(quote.date).toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: timeFrame === '1Y' || timeFrame === '5Y' || timeFrame === 'MAX' ? 'numeric' : undefined
+        }),
+        rawDate: quote.date,
+        value: stockReturn.toFixed(2), // Store as % return
+        originalValue: quote.close,  // Keep original price for reference
+        timestamp: new Date(quote.date).getTime()
+      };
+    });
   }, [chartData, timeFrame]);
   
-  // Get benchmark data
-  const benchmarkData = useMemo(() => {
-    return getBenchmarkData(timeFrame, processedData);
-  }, [timeFrame, processedData]);
+  // Process and combine with S&P 500 data
+  const combinedData: CombinedDataPoint[] = useMemo(() => {
+    if (!sp500Data?.quotes || sp500Data.quotes.length === 0 || !processedData.length) {
+      return processedData;
+    }
+    
+    // Get initial price for calculating returns
+    const initialSP500Price = sp500Data.quotes[0].close;
+    
+    // Create a map for easier matching by date
+    const sp500ReturnsByDate = new Map();
+    
+    sp500Data.quotes.forEach(quote => {
+      const date = new Date(quote.date);
+      const spReturn = ((quote.close - initialSP500Price) / initialSP500Price) * 100;
+      sp500ReturnsByDate.set(date.getTime(), spReturn.toFixed(2));
+    });
+    
+    // Combine the data
+    return processedData.map(point => {
+      const timestamp = new Date(point.rawDate).getTime();
+      const sp500Return = sp500ReturnsByDate.get(timestamp);
+      
+      return {
+        ...point,
+        sp500: sp500Return
+      };
+    });
+  }, [processedData, sp500Data]);
+  
+  // Create data specifically for bar chart view comparison  
+  const percentageReturnData: PercentageReturnPoint[] = useMemo(() => {
+    if (!combinedData.length) return [];
+    
+    // Filter out incomplete data points and create bar chart data
+    return combinedData
+      .filter(point => {
+        return point && (!showBenchmarks || point.sp500 !== undefined);
+      })
+      .map(point => {
+        return {
+          date: point.date,
+          stockReturn: point.value, // Already percentage from processedData
+          benchmarkReturn: point.sp500, // Already percentage from sp500ReturnsByDate
+        };
+      });
+  }, [combinedData, showBenchmarks]);
   
   // Calculate monthly returns
   const monthlyReturnsData = useMemo(() => {
@@ -148,8 +234,15 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
   }, [symbol]);
   
   // Format tooltip values with null safety
-  const formatTooltipValue = (value: number | null | undefined) => {
+  const formatTooltipValue = (value: number | string | null | undefined) => {
     if (value === null || value === undefined) return 'N/A';
+    
+    // Parse string values to numbers if needed
+    if (typeof value === 'string') {
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? value : parsed.toFixed(2);
+    }
+    
     return value.toFixed(2);
   };
   
@@ -165,7 +258,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
     setTimeFrame(newTimeFrame);
   };
   
-  // Custom tooltip component
+  // Custom tooltip component for line chart (percentage return view)
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -175,22 +268,53 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
             <p className="flex items-center">
               <span className="w-3 h-3 inline-block bg-blue-600 rounded-full mr-2"></span>
               <span className="text-gray-700">{companyName || symbol}: </span>
-              <span className="ml-1 font-medium">${formatTooltipValue(payload[0].value)}</span>
+              <span className="ml-1 font-medium">
+                {formatTooltipValue(payload[0]?.value)}%
+              </span>
             </p>
-            {showBenchmarks && (
-              <>
-                <p className="flex items-center mt-1">
-                  <span className="w-3 h-3 inline-block bg-emerald-500 rounded-full mr-2"></span>
-                  <span className="text-gray-700">S&P 500: </span>
-                  <span className="ml-1 font-medium">${formatTooltipValue(payload[1]?.value)}</span>
-                </p>
-                <p className="flex items-center mt-1">
-                  <span className="w-3 h-3 inline-block bg-violet-500 rounded-full mr-2"></span>
-                  <span className="text-gray-700">Industry: </span>
-                  <span className="ml-1 font-medium">${formatTooltipValue(payload[2]?.value)}</span>
-                </p>
-              </>
+            {showBenchmarks && payload[1] && (
+              <p className="flex items-center mt-1">
+                <span className="w-3 h-3 inline-block bg-emerald-500 rounded-full mr-2"></span>
+                <span className="text-gray-700">S&P 500: </span>
+                <span className="ml-1 font-medium">
+                  {formatTooltipValue(payload[1]?.value)}%
+                </span>
+              </p>
             )}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+  
+  // Custom tooltip component for bar chart (comparison view)
+  const ComparisonTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border rounded-md shadow-md text-xs">
+          <p className="font-semibold text-gray-800">{label}</p>
+          <div className="mt-1">
+            {payload.map((entry: any, index: number) => (
+              <p 
+                key={`tooltip-${index}`} 
+                className="flex items-center mt-1"
+              >
+                <span 
+                  className={`w-3 h-3 inline-block rounded-full mr-2 ${
+                    entry.name === 'stock' ? 'bg-blue-600' : 'bg-emerald-500'
+                  }`}
+                />
+                <span className="text-gray-700">
+                  {entry.name === 'stock' ? companyName || symbol : 'S&P 500'}:
+                </span>
+                <span className={`ml-1 font-medium ${
+                  parseFloat(entry.value) >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {parseFloat(entry.value) >= 0 ? '+' : ''}{formatTooltipValue(entry.value)}%
+                </span>
+              </p>
+            ))}
           </div>
         </div>
       );
@@ -288,7 +412,36 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                 
                 {/* Toggle controls */}
                 <div className="flex space-x-4">
-                  {/* Benchmarks toggle */}
+                  {/* Chart type toggle */}
+                  <div className="flex items-center space-x-2">
+                    <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                      <button
+                        onClick={() => setChartType('line')}
+                        className={cn(
+                          "p-1.5 rounded-md",
+                          chartType === 'line' ? "bg-white shadow-sm" : "text-gray-600"
+                        )}
+                        title="Line chart"
+                      >
+                        <LineChartIcon className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setChartType('bar')}
+                        className={cn(
+                          "p-1.5 rounded-md",
+                          chartType === 'bar' ? "bg-white shadow-sm" : "text-gray-600"
+                        )}
+                        title="Bar chart"
+                      >
+                        <BarChartIcon className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <Label className="text-sm text-gray-700">
+                      Chart Type
+                    </Label>
+                  </div>
+                  
+                  {/* S&P 500 comparison toggle */}
                   <div className="flex items-center space-x-2">
                     <Switch
                       id="benchmark-toggle"
@@ -299,29 +452,58 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                       htmlFor="benchmark-toggle"
                       className="text-sm text-gray-700 cursor-pointer"
                     >
-                      Benchmarks
-                    </Label>
-                  </div>
-                  
-                  {/* Monthly returns toggle */}
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="monthly-toggle"
-                      checked={showMonthlyReturns}
-                      onCheckedChange={setShowMonthlyReturns}
-                    />
-                    <Label
-                      htmlFor="monthly-toggle"
-                      className="text-sm text-gray-700 cursor-pointer"
-                    >
-                      Return per Month
+                      Compare with S&P 500
                     </Label>
                   </div>
                 </div>
               </div>
               
               {/* Chart area */}
-              {showMonthlyReturns ? (
+              {chartType === 'bar' ? (
+                // Comparison bar chart
+                <div className="w-full h-[350px] mt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={percentageReturnData}
+                      margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
+                      barSize={24}
+                      barGap={4}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis 
+                        dataKey="date"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        tickMargin={8}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        tickFormatter={(value) => `${value}%`}
+                        tickMargin={8}
+                      />
+                      <Tooltip content={<ComparisonTooltip />} />
+                      <Legend />
+                      <Bar 
+                        name={companyName || symbol}
+                        dataKey="stockReturn" 
+                        fill={stockColor}
+                        radius={[4, 4, 0, 0]}
+                      />
+                      {showBenchmarks && (
+                        <Bar 
+                          name="S&P 500"
+                          dataKey="benchmarkReturn" 
+                          fill={sp500Color}
+                          radius={[4, 4, 0, 0]}
+                        />
+                      )}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : showMonthlyReturns ? (
                 // Monthly returns bar chart
                 <div className="w-full h-[350px] mt-2">
                   <ResponsiveContainer width="100%" height="100%">
@@ -381,7 +563,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                 <div className="w-full h-[350px] mt-2">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart
-                      data={benchmarkData}
+                      data={combinedData}
                       margin={{ top: 10, right: 10, left: 0, bottom: 20 }}
                     >
                       <defs>

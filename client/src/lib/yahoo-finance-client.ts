@@ -102,6 +102,21 @@ export function useYahooChartData(symbol: string, timeFrame: string) {
 }
 
 /**
+ * Hook to fetch S&P 500 data (^GSPC)
+ */
+export function useSP500ChartData(timeFrame: string) {
+  // Map timeFrame to corresponding Yahoo Finance range
+  const range = timeFrameToRange[timeFrame] || "1mo";
+  
+  // Get S&P 500 data using the ^GSPC symbol
+  return useQuery<YahooChartResponse>({
+    queryKey: ['/api/yahoo-finance/chart', '^GSPC', range],
+    queryFn: async () => fetchStockChartData('^GSPC', range),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+/**
  * Extract and format chart data from Yahoo Finance response
  * Returns an array of close prices for simplified chart view
  */
