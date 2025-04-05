@@ -542,7 +542,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         tick={{ fontSize: 12, fill: '#6b7280' }}
                         tickFormatter={(value) => `${value}%`}
                         tickMargin={8}
-                        domain={['auto', 'auto']}
+                        domain={[(dataMin) => Math.floor(dataMin * 1.1), (dataMax) => Math.ceil(dataMax * 1.1)]}
                       />
                       <Tooltip 
                         content={({ active, payload, label }) => {
@@ -681,7 +681,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                       
                       {/* Single Y-axis for percentage returns */}
                       <YAxis 
-                        domain={['auto', 'auto']}
+                        domain={[(dataMin) => Math.floor(dataMin * 1.1), (dataMax) => Math.ceil(dataMax * 1.1)]}
                         axisLine={false}
                         tickLine={false}
                         tick={{ fontSize: 12, fill: '#6b7280' }}
