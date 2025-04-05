@@ -1,442 +1,460 @@
-import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import React, { useState, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
 import { 
-  useAnalystRecommendations, 
-  useUpgradeHistory,
-  type AnalystRecommendation,
-  type UpgradeHistoryItem
-} from "@/lib/yahoo-finance-client";
-import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
-import { 
-  ArrowDownIcon, 
-  ArrowUpIcon, 
-  InfoIcon, 
-  Loader2Icon,
-  BarChart2Icon,
-  TrendingUpIcon
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { motion, AnimatePresence } from "framer-motion";
+  BarChart2, ArrowRight, InfoIcon, Loader2, 
+  TrendingUp, TrendingDown, RotateCcw, Calendar 
+} from 'lucide-react';
 
+// UI Components
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+import { 
+  Tabs, 
+  TabsContent, 
+  TabsList, 
+  TabsTrigger 
+} from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+// Types
 interface AnalystRatingsProps {
   symbol: string;
-  companyName?: string;
+  className?: string;
 }
 
-const AnalystRatingsRedesign: React.FC<AnalystRatingsProps> = ({ symbol, companyName }) => {
-  const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
-  
-  // Fetch analyst recommendations data
-  const { 
-    data: recommendationsData, 
-    isLoading: isRecommendationsLoading,
-    error: recommendationsError
-  } = useAnalystRecommendations(symbol);
-  
-  // Fetch upgrade/downgrade history
-  const {
-    data: upgradeHistoryData,
-    isLoading: isHistoryLoading,
-    error: historyError
-  } = useUpgradeHistory(symbol);
-  
-  const isLoading = isRecommendationsLoading || isHistoryLoading;
-  const hasError = recommendationsError || historyError;
-  
-  // Derived data for visualizations
-  const ratingSummary = useMemo(() => {
-    if (!recommendationsData) return null;
+// Rating data types
+interface DistributionData {
+  strongBuy: number;
+  buy: number;
+  hold: number;
+  sell: number;
+  strongSell: number;
+}
+
+interface AnalystData {
+  consensusKey: string;
+  consensusMean: number | null;
+  numberOfAnalysts: number;
+  gaugeScore: number | null;
+  distributionOverTime: Record<string, DistributionData>;
+  ratingHistoryForChart: Array<{
+    date: Date | null;
+    firm: string;
+    displayDate: string;
+    actionType: string;
+    standardizedToGrade: string;
+    standardizedFromGrade: string;
+  }>;
+}
+
+// Style constants - rating colors
+const ratingColors = {
+  'Strong Buy': 'bg-emerald-500',
+  'Buy': 'bg-green-500',
+  'Hold': 'bg-amber-400',
+  'Sell': 'bg-red-500',
+  'Strong Sell': 'bg-red-700',
+  'N/A': 'bg-gray-400',
+};
+
+const ratingTextColors = {
+  'Strong Buy': 'text-emerald-500',
+  'Buy': 'text-green-500',
+  'Hold': 'text-amber-500',
+  'Sell': 'text-red-500',
+  'Strong Sell': 'text-red-700',
+  'N/A': 'text-gray-500',
+};
+
+const actionColors = {
+  'upgrade': 'text-green-500 bg-green-50',
+  'downgrade': 'text-red-500 bg-red-50',
+  'maintain': 'text-amber-500 bg-amber-50',
+  'init': 'text-blue-500 bg-blue-50',
+};
+
+const periodLabels: Record<string, string> = {
+  '0m': 'Current',
+  '-1m': '1 Month Ago',
+  '-2m': '2 Months Ago',
+  '-3m': '3 Months Ago',
+};
+
+// Fetch analyst data
+async function fetchAnalystData(symbol: string): Promise<AnalystData | null> {
+  try {
+    const response = await fetch(`/api/yahoo-finance/analyst-data/${symbol}`);
     
-    const buyPercentage = recommendationsData.buyPercentage || 0;
-    const holdPercentage = recommendationsData.holdPercentage || 0;
-    const sellPercentage = recommendationsData.sellPercentage || 0;
-    
-    const buyCount = recommendationsData.strongBuy + recommendationsData.buy;
-    const holdCount = recommendationsData.hold;
-    const sellCount = recommendationsData.strongSell + recommendationsData.sell;
-    
-    // Calculate consensus score (1-5 scale, 1=Strong Sell, 5=Strong Buy)
-    // This gives us a normalized score for the gauge
-    const consensusScore = recommendationsData.averageRating || 3;
-    const normalizedScore = ((consensusScore - 1) / 4) * 100; // Convert to 0-100 for the gauge
-    
-    return {
-      buyPercentage,
-      holdPercentage,
-      sellPercentage,
-      buyCount,
-      holdCount,
-      sellCount,
-      consensusScore,
-      normalizedScore,
-      consensus: recommendationsData.consensus,
-      total: recommendationsData.total,
-      lastUpdated: recommendationsData.lastUpdated
-    };
-  }, [recommendationsData]);
-  
-  // Format label for consensus score
-  const getConsensusLabel = (score?: number): string => {
-    if (!score) return 'Neutral';
-    
-    if (score > 4.5) return 'Strong Buy';
-    if (score > 3.75) return 'Buy';
-    if (score > 3.25) return 'Outperform';
-    if (score > 2.75) return 'Hold';
-    if (score > 2.25) return 'Underperform';
-    if (score > 1.5) return 'Sell';
-    return 'Strong Sell';
-  };
-  
-  // Get color for ratings based on consensus
-  const getConsensusColor = (consensus?: string): string => {
-    if (!consensus) return 'text-gray-500';
-    
-    switch (consensus) {
-      case 'buy':
-        return 'text-green-600';
-      case 'sell':
-        return 'text-red-600';
-      case 'hold':
-        return 'text-amber-500';
-      default:
-        return 'text-blue-500';
+    if (!response.ok) {
+      throw new Error(`Failed to fetch analyst data: ${response.statusText}`);
     }
-  };
-  
-  // Get background color for gauge
-  const getGaugeColor = (score?: number): string => {
-    if (!score) return 'bg-gray-300';
     
-    if (score > 4) return 'bg-green-500';
-    if (score > 3) return 'bg-green-400';
-    if (score > 2.75) return 'bg-amber-400';
-    if (score > 2) return 'bg-amber-500';
-    return 'bg-red-500';
-  };
+    const data = await response.json();
+    console.log(`Received analyst data for ${symbol}:`, data);
+    return data;
+  } catch (error) {
+    console.error(`Error fetching analyst data for ${symbol}:`, error);
+    throw error;
+  }
+}
+
+// Calculate gauge score color
+function getGaugeColor(score: number | null): string {
+  if (!score) return 'bg-gray-300';
   
-  // Get icon and style for action type
-  const getActionDetails = (action: string) => {
-    switch (action) {
-      case 'upgrade':
-        return {
-          icon: <ArrowUpIcon className="h-4 w-4" />,
-          badge: 'bg-green-100 text-green-800 border-green-300',
-          text: 'Upgrade'
-        };
-      case 'downgrade':
-        return {
-          icon: <ArrowDownIcon className="h-4 w-4" />,
-          badge: 'bg-red-100 text-red-800 border-red-300',
-          text: 'Downgrade'
-        };
-      case 'init':
-        return {
-          icon: <InfoIcon className="h-4 w-4" />,
-          badge: 'bg-blue-100 text-blue-800 border-blue-300',
-          text: 'New Coverage'
-        };
-      case 'reiterated':
-        return {
-          icon: null,
-          badge: 'bg-gray-100 text-gray-600 border-gray-300',
-          text: 'Reiterated'
-        };
-      default:
-        return {
-          icon: null,
-          badge: 'bg-gray-100 text-gray-600 border-gray-300',
-          text: action.charAt(0).toUpperCase() + action.slice(1)
-        };
+  if (score > 4) return 'bg-emerald-500'; // Strong Buy
+  if (score > 3) return 'bg-green-500';   // Buy
+  if (score > 2.5) return 'bg-amber-400'; // Hold
+  if (score > 2) return 'bg-orange-500';  // Sell
+  return 'bg-red-500';                    // Strong Sell
+}
+
+// Determine consensus text from score
+function getConsensusText(score: number | null): string {
+  if (!score) return 'N/A';
+  
+  if (score > 4.5) return 'Strong Buy';
+  if (score > 3.5) return 'Buy';
+  if (score > 2.5) return 'Hold';
+  if (score > 1.5) return 'Sell';
+  return 'Strong Sell';
+}
+
+// Gauge Chart Component
+const AnalystGauge: React.FC<{ score: number | null }> = ({ score }) => {
+  if (!score) return <div className="h-32 flex items-center justify-center text-gray-400">No score available</div>;
+  
+  // Normalize score to percentage (1-5 scale to 0-100%)
+  const normalizedScore = ((score - 1) / 4) * 100;
+  const consensus = getConsensusText(score);
+  const gaugeColor = getGaugeColor(score);
+  const textColor = ratingTextColors[consensus as keyof typeof ratingTextColors] || 'text-gray-500';
+  
+  return (
+    <div className="flex flex-col items-center my-2">
+      <div className="relative w-full h-6 px-6 mb-3">
+        {/* Gauge track */}
+        <div className="absolute top-0 left-0 w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+          {/* Gauge fill */}
+          <motion.div 
+            className={cn("h-full", gaugeColor)}
+            initial={{ width: "0%" }}
+            animate={{ width: `${normalizedScore}%` }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+          />
+        </div>
+        
+        {/* Pointer */}
+        <motion.div 
+          className="absolute top-0 w-2 h-6 -ml-1"
+          initial={{ left: "0%" }}
+          animate={{ left: `${normalizedScore}%` }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+        >
+          <div className="w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-gray-700"></div>
+        </motion.div>
+        
+        {/* Scale markers */}
+        <div className="absolute top-5 left-0 w-full flex justify-between mt-2">
+          {['Sell', 'Hold', 'Buy'].map((label, i) => (
+            <div key={i} className="text-xs text-gray-500">{label}</div>
+          ))}
+        </div>
+      </div>
+      
+      {/* Score and consensus display */}
+      <div className="text-center mt-2">
+        <div className={cn("text-lg font-semibold", textColor)}>{consensus}</div>
+        <div className="text-sm text-gray-500">Score: {score.toFixed(1)}/5</div>
+      </div>
+    </div>
+  );
+};
+
+// Rating Distribution Bar Chart
+const RatingDistributionBars: React.FC<{ distribution: DistributionData }> = ({ distribution }) => {
+  // Calculate total analysts
+  const total = Object.values(distribution).reduce((sum, count) => sum + count, 0);
+  
+  if (total === 0) {
+    return <div className="h-32 flex items-center justify-center text-gray-400">No ratings data available</div>;
+  }
+  
+  // Format data for visualization
+  const ratingData = [
+    { label: 'Strong Buy', count: distribution.strongBuy, color: 'bg-emerald-500' },
+    { label: 'Buy', count: distribution.buy, color: 'bg-green-500' },
+    { label: 'Hold', count: distribution.hold, color: 'bg-amber-400' },
+    { label: 'Sell', count: distribution.sell, color: 'bg-red-500' },
+    { label: 'Strong Sell', count: distribution.strongSell, color: 'bg-red-700' },
+  ];
+  
+  return (
+    <div className="space-y-3 my-4">
+      {ratingData.map((rating, index) => {
+        const percentage = total > 0 ? (rating.count / total) * 100 : 0;
+        
+        return (
+          <div key={index} className="space-y-1">
+            <div className="flex justify-between text-sm">
+              <span>{rating.label}</span>
+              <span className="font-medium">{rating.count} ({percentage.toFixed(0)}%)</span>
+            </div>
+            <div className="h-3 w-full bg-gray-200 rounded-full overflow-hidden">
+              <motion.div 
+                className={cn("h-full", rating.color)}
+                initial={{ width: "0%" }}
+                animate={{ width: `${percentage}%` }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+              />
+            </div>
+          </div>
+        );
+      })}
+      
+      <div className="text-sm text-center text-gray-500 mt-2">
+        Based on {total} analyst ratings
+      </div>
+    </div>
+  );
+};
+
+// Rating History Timeline Component
+const RatingHistoryTimeline: React.FC<{ history: AnalystData['ratingHistoryForChart'] }> = ({ history }) => {
+  if (!history || history.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-gray-400">
+        <RotateCcw className="h-8 w-8 mb-2 opacity-50" />
+        <p>No rating history available</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-4 my-2 max-h-[400px] overflow-y-auto pr-2">
+      {history.slice(0, 10).map((item, index) => (
+        <motion.div 
+          key={index}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.05 }}
+          className="p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex justify-between items-start">
+            <div>
+              <div className="flex items-center">
+                <span className="font-medium">{item.firm}</span>
+                <span className="text-xs text-gray-500 ml-2">{item.displayDate}</span>
+              </div>
+              
+              <div className="flex items-center mt-1.5 text-sm">
+                <Badge className={cn("mr-2", actionColors[item.actionType as keyof typeof actionColors] || 'bg-gray-100')}>
+                  {item.actionType === 'init' ? 'New Coverage' : item.actionType}
+                </Badge>
+                
+                {/* Rating change indication */}
+                {item.actionType !== 'init' && item.standardizedFromGrade !== 'N/A' && (
+                  <div className="flex items-center">
+                    <span className={ratingTextColors[item.standardizedFromGrade as keyof typeof ratingTextColors] || 'text-gray-500'}>
+                      {item.standardizedFromGrade}
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 mx-1 text-gray-400" />
+                    <span className={ratingTextColors[item.standardizedToGrade as keyof typeof ratingTextColors] || 'text-gray-500'}>
+                      {item.standardizedToGrade}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Initial rating display */}
+                {item.actionType === 'init' && (
+                  <span className={ratingTextColors[item.standardizedToGrade as keyof typeof ratingTextColors] || 'text-gray-500'}>
+                    {item.standardizedToGrade}
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            {/* Action icon */}
+            <div>
+              {item.actionType === 'upgrade' && <TrendingUp className="h-5 w-5 text-green-500" />}
+              {item.actionType === 'downgrade' && <TrendingDown className="h-5 w-5 text-red-500" />}
+              {item.actionType === 'maintain' && <BarChart2 className="h-5 w-5 text-amber-500" />}
+              {item.actionType === 'init' && <InfoIcon className="h-5 w-5 text-blue-500" />}
+            </div>
+          </div>
+        </motion.div>
+      ))}
+      
+      {history.length > 10 && (
+        <div className="text-center text-sm text-gray-500">
+          Showing 10 of {history.length} rating changes
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Period Selector for Historical Data
+const PeriodSelector: React.FC<{ 
+  periods: string[],
+  selectedPeriod: string,
+  onChange: (period: string) => void
+}> = ({ periods, selectedPeriod, onChange }) => {
+  return (
+    <div className="flex items-center space-x-2 mb-4">
+      <Calendar className="h-4 w-4 text-gray-500" />
+      <span className="text-sm text-gray-500 mr-2">Period:</span>
+      <div className="flex space-x-1">
+        {periods.map((period) => (
+          <Button 
+            key={period}
+            size="sm"
+            variant={selectedPeriod === period ? "default" : "outline"}
+            className="h-7 px-2 text-xs"
+            onClick={() => onChange(period)}
+          >
+            {periodLabels[period] || period}
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Main Component
+export const AnalystRatingsRedesign: React.FC<AnalystRatingsProps> = ({ symbol, className }) => {
+  const [activeTab, setActiveTab] = useState<'snapshot' | 'history'>('snapshot');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('0m');
+  
+  // Fetch analyst data
+  const { data: analystData, isLoading, error } = useQuery<AnalystData | null>({
+    queryKey: ['analystData', symbol],
+    queryFn: () => fetchAnalystData(symbol),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: false,
+  });
+  
+  // Get available periods from data
+  const availablePeriods = useMemo(() => {
+    if (!analystData?.distributionOverTime) return ['0m'];
+    return Object.keys(analystData.distributionOverTime).sort((a, b) => {
+      // Sort '0m' first, then '-1m', '-2m', etc.
+      const numA = parseInt(a.replace('m', ''), 10);
+      const numB = parseInt(b.replace('m', ''), 10);
+      return numA - numB;
+    });
+  }, [analystData?.distributionOverTime]);
+  
+  // Ensure selected period is valid
+  React.useEffect(() => {
+    if (availablePeriods && !availablePeriods.includes(selectedPeriod)) {
+      setSelectedPeriod(availablePeriods[0] || '0m');
     }
-  };
+  }, [availablePeriods, selectedPeriod]);
   
-  // Get color for rating grade
-  const getRatingColor = (rating: string): string => {
-    rating = rating.toLowerCase();
-    
-    if (rating.includes('buy') || rating.includes('outperform') || rating.includes('overweight')) {
-      return 'text-green-600';
-    } else if (rating.includes('sell') || rating.includes('underperform') || rating.includes('underweight')) {
-      return 'text-red-600';
-    } else if (rating.includes('neutral') || rating.includes('hold') || rating.includes('equal')) {
-      return 'text-amber-500';
-    } else {
-      return 'text-gray-600';
-    }
-  };
+  // Get current distribution data based on selected period
+  const currentDistribution = useMemo(() => {
+    return analystData?.distributionOverTime?.[selectedPeriod] || 
+           analystData?.distributionOverTime?.['0m'] || 
+           { strongBuy: 0, buy: 0, hold: 0, sell: 0, strongSell: 0 };
+  }, [analystData?.distributionOverTime, selectedPeriod]);
   
-  // Render loading state
+  // Loading state
   if (isLoading) {
     return (
-      <Card className="w-full my-3 overflow-hidden">
-        <CardContent className="p-4 flex items-center justify-center h-64">
-          <Loader2Icon className="h-8 w-8 text-primary animate-spin" />
+      <Card className={cn("overflow-hidden", className)}>
+        <CardContent className="p-6 flex items-center justify-center h-60">
+          <Loader2 className="h-8 w-8 text-primary animate-spin" />
           <span className="ml-2">Loading analyst data...</span>
         </CardContent>
       </Card>
     );
   }
   
-  // Render error state
-  if (hasError) {
+  // Error state
+  if (error || !analystData) {
     return (
-      <Card className="w-full my-3 overflow-hidden">
-        <CardContent className="p-4">
-          <div className="text-center text-red-500">
-            <p>Error loading analyst data</p>
-            <p className="text-sm text-gray-500 mt-1">
-              {recommendationsError?.toString() || historyError?.toString()}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-  
-  // Render no data state
-  if (!recommendationsData && !upgradeHistoryData) {
-    return (
-      <Card className="w-full my-3 overflow-hidden">
-        <CardContent className="p-4">
-          <div className="text-center text-gray-500">
-            <p>No analyst data available for {companyName || symbol}</p>
-          </div>
+      <Card className={cn("overflow-hidden", className)}>
+        <CardContent className="p-6 text-center">
+          <div className="text-red-500 font-medium">Unable to load analyst data</div>
+          <p className="text-sm text-gray-500 mt-1">
+            {error instanceof Error ? error.message : 'Could not retrieve analyst recommendations'}
+          </p>
         </CardContent>
       </Card>
     );
   }
   
   return (
-    <Card className="w-full my-3 overflow-hidden">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Analyst Ratings</h3>
+    <Card className={cn("overflow-hidden", className)}>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg font-semibold flex items-center">
+          Analyst Ratings
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <InfoIcon className="h-4 w-4 ml-2 text-gray-400 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>Recommendations from {analystData.numberOfAnalysts} financial analysts covering this stock</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </CardTitle>
+        <CardDescription>
+          Based on {analystData.numberOfAnalysts} analyst ratings
+        </CardDescription>
+      </CardHeader>
+      
+      <CardContent className="pt-0 pb-4">
+        <Tabs defaultValue="snapshot" value={activeTab} onValueChange={(val) => setActiveTab(val as 'snapshot' | 'history')}>
+          <TabsList className="w-full mb-4">
+            <TabsTrigger value="snapshot" className="flex-1">Current Snapshot</TabsTrigger>
+            <TabsTrigger value="history" className="flex-1">Rating History</TabsTrigger>
+          </TabsList>
           
-          {/* Tab toggle - styled as a modern switch */}
-          <div className="relative flex items-center space-x-1 bg-gray-100 p-1 rounded-full">
-            <button
-              onClick={() => setActiveTab('current')}
-              className={cn(
-                "relative flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none",
-                activeTab === 'current' ? "text-white" : "text-gray-500 hover:text-gray-900"
-              )}
-            >
-              <BarChart2Icon className="h-4 w-4 mr-1.5" />
-              <span>Current</span>
-              {activeTab === 'current' && (
-                <motion.div
-                  className="absolute inset-0 bg-primary rounded-full"
-                  layoutId="active-tab"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  style={{ zIndex: -1 }}
-                />
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={cn(
-                "relative flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none",
-                activeTab === 'history' ? "text-white" : "text-gray-500 hover:text-gray-900"
-              )}
-            >
-              <TrendingUpIcon className="h-4 w-4 mr-1.5" />
-              <span>History</span>
-              {activeTab === 'history' && (
-                <motion.div
-                  className="absolute inset-0 bg-primary rounded-full"
-                  layoutId="active-tab"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  style={{ zIndex: -1 }}
-                />
-              )}
-            </button>
-          </div>
-        </div>
-        
-        <AnimatePresence mode="wait">
-          {activeTab === 'current' ? (
-            <motion.div 
-              key="current-view"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-6"
-            >
-              {ratingSummary ? (
-                <>
-                  {/* Consensus Gauge */}
-                  <div className="flex flex-col items-center justify-center pt-2">
-                    <div className="relative w-44 h-22 flex flex-col items-center justify-center">
-                      {/* Gauge background */}
-                      <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className={cn("h-full transition-all duration-700 ease-out", getGaugeColor(ratingSummary.consensusScore))}
-                          style={{ width: `${ratingSummary.normalizedScore}%` }}
-                        />
-                      </div>
-                      
-                      {/* Gauge markers */}
-                      <div className="w-full flex justify-between mt-1 px-1">
-                        <div className="h-1.5 w-0.5 bg-gray-300" />
-                        <div className="h-1.5 w-0.5 bg-gray-300" />
-                        <div className="h-1.5 w-0.5 bg-gray-300" />
-                        <div className="h-1.5 w-0.5 bg-gray-300" />
-                        <div className="h-1.5 w-0.5 bg-gray-300" />
-                      </div>
-                      
-                      {/* Consensus text */}
-                      <div className="mt-3 text-center">
-                        <p className={cn("text-xl font-bold leading-none", getConsensusColor(ratingSummary.consensus))}>
-                          {getConsensusLabel(ratingSummary.consensusScore)}
-                        </p>
-                        <p className="text-sm text-gray-500 mt-1">
-                          Score: {ratingSummary.consensusScore.toFixed(1)}/5
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* Label scale */}
-                    <div className="w-full flex justify-between text-xs text-gray-500 mt-1 px-1">
-                      <span>Sell</span>
-                      <span>Hold</span>
-                      <span>Buy</span>
-                    </div>
-                  </div>
-                  
-                  {/* Distribution visualization */}
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-medium text-gray-700">Rating Distribution</h4>
-                    
-                    {/* Buy group */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-green-600">Buy</span>
-                        <span className="text-sm font-medium">{ratingSummary.buyCount} ({Math.round(ratingSummary.buyPercentage)}%)</span>
-                      </div>
-                      <Progress value={ratingSummary.buyPercentage} className="h-2" indicatorClassName="bg-green-500" />
-                    </div>
-                    
-                    {/* Hold group */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-amber-500">Hold</span>
-                        <span className="text-sm font-medium">{ratingSummary.holdCount} ({Math.round(ratingSummary.holdPercentage)}%)</span>
-                      </div>
-                      <Progress value={ratingSummary.holdPercentage} className="h-2" indicatorClassName="bg-amber-400" />
-                    </div>
-                    
-                    {/* Sell group */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-red-600">Sell</span>
-                        <span className="text-sm font-medium">{ratingSummary.sellCount} ({Math.round(ratingSummary.sellPercentage)}%)</span>
-                      </div>
-                      <Progress value={ratingSummary.sellPercentage} className="h-2" indicatorClassName="bg-red-500" />
-                    </div>
-                  </div>
-                  
-                  {/* Summary stats */}
-                  <div className="flex justify-between text-sm text-gray-500 pt-2">
-                    <span>Based on {ratingSummary.total} analyst ratings</span>
-                    <span>Updated: {ratingSummary.lastUpdated}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="py-8 text-center text-gray-500">
-                  No analyst recommendations available for {symbol}
-                </div>
-              )}
-            </motion.div>
-          ) : (
-            <motion.div 
-              key="history-view"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-4"
-            >
-              {upgradeHistoryData && upgradeHistoryData.length > 0 ? (
-                <>
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-sm font-medium text-gray-700">Recent Rating Changes</h4>
-                    <span className="text-xs text-gray-500">
-                      Showing {Math.min(upgradeHistoryData.length, 8)} of {upgradeHistoryData.length}
-                    </span>
-                  </div>
-                  
-                  <div className="space-y-0 max-h-[350px] overflow-y-auto pr-1">
-                    {upgradeHistoryData.slice(0, 8).map((item, index) => {
-                      const actionDetails = getActionDetails(item.action);
-                      
-                      return (
-                        <motion.div 
-                          key={index}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ 
-                            opacity: 1, 
-                            y: 0,
-                            transition: { delay: index * 0.05 }
-                          }}
-                          className="p-3 hover:bg-gray-50 rounded-lg transition-colors"
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <div className="flex items-center">
-                                <span className="font-medium">{item.firm}</span>
-                                <span className="text-xs text-gray-500 ml-2">
-                                  {item.date}
-                                </span>
-                              </div>
-                              
-                              <div className="flex items-center mt-1 text-sm">
-                                {item.action !== 'init' && (
-                                  <>
-                                    <span className={cn("font-medium", getRatingColor(item.fromGrade))}>
-                                      {item.fromGrade === "New Coverage" ? "New" : item.fromGrade}
-                                    </span>
-                                    <span className="mx-1.5 text-gray-400">→</span>
-                                  </>
-                                )}
-                                <span className={cn("font-medium", getRatingColor(item.toGrade))}>
-                                  {item.toGrade}
-                                </span>
-                              </div>
-                            </div>
-                            
-                            <Badge 
-                              variant="outline" 
-                              className={cn(
-                                "text-xs px-2 py-0.5 flex items-center", 
-                                actionDetails.badge
-                              )}
-                            >
-                              {actionDetails.icon && <span className="mr-1">{actionDetails.icon}</span>}
-                              {actionDetails.text}
-                            </Badge>
-                          </div>
-                          
-                          {index < upgradeHistoryData.slice(0, 8).length - 1 && (
-                            <Separator className="mt-3" />
-                          )}
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                </>
-              ) : (
-                <div className="py-8 text-center text-gray-500">
-                  No analyst upgrade/downgrade history available
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+          <TabsContent value="snapshot" className="space-y-4">
+            {/* Period selector for snapshot tab */}
+            <PeriodSelector 
+              periods={availablePeriods}
+              selectedPeriod={selectedPeriod}
+              onChange={setSelectedPeriod}
+            />
+            
+            {/* Consensus gauge */}
+            <div className="mb-4">
+              <h4 className="text-sm font-medium mb-2">Consensus Rating</h4>
+              <AnalystGauge score={analystData.gaugeScore} />
+            </div>
+            
+            {/* Rating distribution */}
+            <div>
+              <h4 className="text-sm font-medium mb-2">Rating Distribution</h4>
+              <RatingDistributionBars distribution={currentDistribution} />
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="history">
+            <div>
+              <h4 className="text-sm font-medium mb-3">Recent Rating Changes</h4>
+              <RatingHistoryTimeline history={analystData.ratingHistoryForChart} />
+            </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );

@@ -29,8 +29,9 @@ import ComparativeAnalysis from "@/components/comparative-analysis";
 import AskAI from "./ask-ai";
 import { getIndustryAverages } from "@/lib/industry-data";
 import StockNewsSection from "@/components/stock-news/StockNewsSection"; // Ensure import
-import AnalystRatings from "@/components/stock-detail/analyst-ratings"; // Import AnalystRatings
-import ModernAnalystRatings from "@/components/stock-detail/modern-analyst-ratings"; // Import ModernAnalystRatings
+import AnalystRatings from "@/components/stock-detail/analyst-ratings"; // Legacy Analyst Ratings
+import ModernAnalystRatings from "@/components/stock-detail/modern-analyst-ratings"; // Modern Analyst Ratings
+import AnalystRatingsRedesign from "@/components/stock-detail/analyst-ratings-redesign"; // New Redesigned Analyst Ratings
 import HistoricalPerformanceChart from "@/components/stock-detail/historical-performance-chart"; // Import HistoricalPerformanceChart
 import {
   useYahooChartData,
@@ -864,7 +865,7 @@ export default function StockCard({
 
        {/* --- Analyst Ratings Section --- */}
         <div className="bg-white border-t border-slate-100 mb-4 mx-4 rounded-xl shadow-md overflow-hidden">
-            <ModernAnalystRatings symbol={stock.ticker} companyName={stock.name} />
+            <AnalystRatingsRedesign symbol={stock.ticker} className="mb-4" />
         </div>
         
         {/* --- Historical Performance Chart --- */}
