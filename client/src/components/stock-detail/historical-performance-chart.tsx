@@ -4,9 +4,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { useYahooChartData, useSP500ChartData, timeFrameToRange } from '@/lib/yahoo-finance-client';
+import { 
+  useYahooChartData, 
+  useSP500ChartData, 
+  useYahooDividendEvents,
+  useYahooDividendComparison,
+  timeFrameToRange 
+} from '@/lib/yahoo-finance-client';
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line, LineChart, Bar, BarChart, ComposedChart } from 'recharts';
-import { ChevronDown, Calendar, BarChart as BarChartIcon, LineChart as LineChartIcon, TrendingUp, DollarSign } from 'lucide-react';
+import { ChevronDown, Calendar, BarChart as BarChartIcon, LineChart as LineChartIcon, TrendingUp, DollarSign, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -294,10 +300,30 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
     return calculateMonthlyReturns(processedData);
   }, [processedData]);
   
-  // Get dividend data
+  // Fetch real dividend data from Yahoo Finance
+  const { 
+    data: dividendEvents, 
+    isLoading: dividendsLoading 
+  } = useYahooDividendEvents(symbol, timeFrame);
+  
+  // Fetch dividend comparison data between stock and S&P 500
+  const {
+    data: dividendComparisonData,
+    isLoading: dividendComparisonLoading
+  } = useYahooDividendComparison(symbol, timeFrame);
+  
+  // Get dividend data with fallback for compatibility
   const dividendData = useMemo(() => {
-    return getDividendData(symbol);
-  }, [symbol]);
+    if (dividendEvents && dividendEvents.length > 0) {
+      return dividendEvents.map(event => ({
+        date: event.name,
+        amount: event.value,
+        yield: "~" // Yield isn't directly available from the event data
+      }));
+    }
+    // If no real data is available, return empty array
+    return [];
+  }, [dividendEvents, timeFrame]);
   
   // Get earnings data
   const earningsData = useMemo(() => {
@@ -782,69 +808,169 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               transition={{ duration: 0.3 }}
               className="space-y-4"
             >
-              <div className="overflow-hidden rounded-lg border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yield</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {dividendData.map((dividend, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dividend.date}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${dividend.amount.toFixed(2)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dividend.yield}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              {/* Time frame controls for dividends */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                  {['1Y', '3Y', '5Y', 'MAX'].map((frame) => (
+                    <button
+                      key={frame}
+                      onClick={() => handleTimeFrameChange(frame)}
+                      className={cn(
+                        "px-3 py-1 text-sm rounded-md transition-colors",
+                        timeFrame === frame
+                          ? "bg-white text-blue-600 shadow-sm"
+                          : "text-gray-600 hover:text-gray-900"
+                      )}
+                    >
+                      {frame}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-sm text-gray-500">
+                  {dividendsLoading || dividendComparisonLoading ? (
+                    <span className="flex items-center">
+                      <RefreshCw className="animate-spin h-3 w-3 mr-2" />
+                      Loading dividend data...
+                    </span>
+                  ) : !dividendData.length ? (
+                    <span>No dividend data found for {symbol}</span>
+                  ) : null}
+                </div>
               </div>
               
-              {/* Dividend trend chart */}
-              <div className="w-full h-[200px] mt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={dividendData.slice().reverse()}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
-                  >
-                    <defs>
-                      <linearGradient id="colorDividend" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="rgba(16, 185, 129, 0.2)" stopOpacity={1} />
-                        <stop offset="95%" stopColor="rgba(16, 185, 129, 0)" stopOpacity={1} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis 
-                      dataKey="date" 
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 12, fill: '#6b7280' }}
-                    />
-                    <YAxis 
-                      domain={[(dataMin: number) => Math.floor(dataMin * 0.9), 
-                              (dataMax: number) => Math.ceil(dataMax * 1.1)]}
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 12, fill: '#6b7280' }}
-                      tickFormatter={(value) => `$${value.toFixed(2)}`}
-                    />
-                    <Tooltip 
-                      formatter={(value: number) => [`$${value.toFixed(2)}`, 'Dividend']}
-                      labelFormatter={(label) => `Date: ${label}`}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="amount"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      fill="url(#colorDividend)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+              {/* Dividend data table */}
+              {dividendData.length > 0 && (
+                <div className="overflow-hidden rounded-lg border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yield</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {dividendData.map((dividend, index) => (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dividend.date}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${dividend.amount.toFixed(2)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dividend.yield}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              
+              {/* Dividend payments bar chart */}
+              {dividendData.length > 0 && (
+                <div className="w-full h-[240px] mt-6">
+                  <h4 className="text-sm font-medium mb-2">Dividend Payment History</h4>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={dividendData.slice().reverse()}
+                      margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
+                      barSize={20}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis 
+                        dataKey="date" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 10, fill: '#6b7280' }}
+                        angle={-30}
+                        textAnchor="end"
+                        height={50}
+                      />
+                      <YAxis 
+                        domain={[(dataMin: number) => Math.floor(dataMin * 0.9), 
+                                (dataMax: number) => Math.ceil(dataMax * 1.1)]}
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        tickFormatter={(value) => `$${value.toFixed(2)}`}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Dividend']}
+                        labelFormatter={(label) => `Date: ${label}`}
+                      />
+                      <Bar
+                        name={`${symbol} Dividends`}
+                        dataKey="amount"
+                        fill={stockColor}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+              
+              {/* Dividend comparison with S&P 500 */}
+              {dividendComparisonData && dividendComparisonData.quarters && dividendComparisonData.quarters.length > 0 && (
+                <div className="w-full h-[280px] mt-8">
+                  <h4 className="text-sm font-medium mb-2">Dividend Comparison with S&P 500</h4>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={dividendComparisonData.quarters.map((quarter, index) => ({
+                        quarter,
+                        stockDividend: dividendComparisonData.stockDividends[index] || 0,
+                        sp500Dividend: dividendComparisonData.sp500Dividends[index] || 0
+                      }))}
+                      margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+                      barSize={20}
+                      barGap={5}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis 
+                        dataKey="quarter" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 10, fill: '#6b7280' }}
+                        angle={-30}
+                        textAnchor="end"
+                        height={50}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        tickFormatter={(value) => `$${value.toFixed(2)}`}
+                      />
+                      <Tooltip 
+                        formatter={(value: number, name: string) => {
+                          let label = name === 'stockDividend' ? `${symbol} Dividend` : 'S&P 500 Dividend';
+                          return [`$${value.toFixed(2)}`, label];
+                        }}
+                        labelFormatter={(label) => `Quarter: ${label}`}
+                      />
+                      <Legend />
+                      <Bar
+                        name={`${symbol}`}
+                        dataKey="stockDividend"
+                        fill={stockColor}
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        name="S&P 500"
+                        dataKey="sp500Dividend"
+                        fill={sp500Color}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+              
+              {/* Empty state - show when no dividend data is available */}
+              {!dividendsLoading && !dividendComparisonLoading && dividendData.length === 0 && (
+                <div className="flex flex-col items-center justify-center p-8 text-center bg-gray-50 rounded-lg mt-4">
+                  <DollarSign className="h-12 w-12 text-gray-300 mb-2" />
+                  <h3 className="text-lg font-medium text-gray-600 mb-1">No Dividend Data</h3>
+                  <p className="text-sm text-gray-500 max-w-md">
+                    {symbol} does not appear to pay dividends or no dividend data was found for the selected time period.
+                  </p>
+                </div>
+              )}
             </motion.div>
           )}
           
