@@ -994,15 +994,15 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                           dividendComparisonData && dividendComparisonData.quarters ? 
                           dividendComparisonData.quarters.map((quarter, index) => ({
                             quarter,
-                            [symbol]: dividendComparisonData.stockDividends[index] || 0,
-                            'S&P 500': dividendComparisonData.sp500Dividends[index] || 0
+                            stockYield: dividendComparisonData.stockYields[index] || 0,
+                            sp500Yield: dividendComparisonData.sp500Yields[index] || 0
                           })) : 
                           [
-                            { quarter: 'Q1 2023', [symbol]: 0.85, 'S&P 500': 0.63 },
-                            { quarter: 'Q2 2023', [symbol]: 0.87, 'S&P 500': 0.65 },
-                            { quarter: 'Q3 2023', [symbol]: 0.88, 'S&P 500': 0.66 },
-                            { quarter: 'Q4 2023', [symbol]: 0.90, 'S&P 500': 0.67 },
-                            { quarter: 'Q1 2024', [symbol]: 0.92, 'S&P 500': 0.69 }
+                            { quarter: 'Q1 2023', stockYield: 0.85, sp500Yield: 0.63 },
+                            { quarter: 'Q2 2023', stockYield: 0.87, sp500Yield: 0.65 },
+                            { quarter: 'Q3 2023', stockYield: 0.88, sp500Yield: 0.66 },
+                            { quarter: 'Q4 2023', stockYield: 0.90, sp500Yield: 0.67 },
+                            { quarter: 'Q1 2024', stockYield: 0.92, sp500Yield: 0.69 }
                           ]
                         }
                         margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
@@ -1061,11 +1061,11 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                           sp500Dividend: dividendComparisonData.sp500Dividends[index] || 0
                         })) : 
                         [
-                          { quarter: 'Q1 2023', [symbol]: 0.85, 'S&P 500': 0.63 },
-                          { quarter: 'Q2 2023', [symbol]: 0.87, 'S&P 500': 0.65 },
-                          { quarter: 'Q3 2023', [symbol]: 0.88, 'S&P 500': 0.66 },
-                          { quarter: 'Q4 2023', [symbol]: 0.90, 'S&P 500': 0.67 },
-                          { quarter: 'Q1 2024', [symbol]: 0.92, 'S&P 500': 0.69 }
+                          { quarter: 'Q1 2023', stockDividend: 0.85, sp500Dividend: 0.63 },
+                          { quarter: 'Q2 2023', stockDividend: 0.87, sp500Dividend: 0.65 },
+                          { quarter: 'Q3 2023', stockDividend: 0.88, sp500Dividend: 0.66 },
+                          { quarter: 'Q4 2023', stockDividend: 0.90, sp500Dividend: 0.67 },
+                          { quarter: 'Q1 2024', stockDividend: 0.92, sp500Dividend: 0.69 }
                         ]
                       }
                         margin={{ top: 10, right: 30, left: 0, bottom: 20 }}

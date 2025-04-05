@@ -330,34 +330,72 @@ export function formatDividendEventsForChart(dividendEvents: YahooDividendEvent[
 }
 
 function parseSafeDividendDate(dateInput: string | number): Date {
+  // Always try to use current time for logging purposes
+  const currentYear = new Date().getFullYear();
+  const fallbackDate = new Date();
+  
+  // Handle numeric timestamps
   if (typeof dateInput === 'number' || !isNaN(parseInt(String(dateInput), 10))) {
     const timestamp = typeof dateInput === 'number' ? dateInput : parseInt(String(dateInput), 10);
+    
+    // Unix timestamp (seconds since epoch)
     if (timestamp < 10000000000) {
-      return new Date(timestamp * 1000);
+      const date = new Date(timestamp * 1000);
+      
+      // Validate the resulting year is reasonable (within 5 years of current date)
+      if (date.getFullYear() >= (currentYear - 5) && date.getFullYear() <= (currentYear + 1)) {
+        console.log(`Valid date from seconds: ${timestamp} → ${date.toISOString()}`);
+        return date;
+      } else {
+        console.log(`Invalid year (${date.getFullYear()}) from seconds timestamp: ${timestamp}`);
+        // For dividend data, recent dates are more important, so we'll adjust
+        return fallbackDate;
+      }
     } else {
-      return new Date(timestamp);
+      // JavaScript timestamp (milliseconds since epoch)
+      const date = new Date(timestamp);
+      if (date.getFullYear() >= (currentYear - 5) && date.getFullYear() <= (currentYear + 1)) {
+        console.log(`Valid date from ms: ${timestamp} → ${date.toISOString()}`);
+        return date;
+      } else {
+        console.log(`Invalid year (${date.getFullYear()}) from ms timestamp: ${timestamp}`);
+        return fallbackDate;
+      }
     }
   }
 
+  // Handle string dates
   if (typeof dateInput === 'string') {
+    // Try direct parsing
     const directDate = new Date(dateInput);
     if (!isNaN(directDate.getTime())) {
-      return directDate;
+      // Validate the year is reasonable
+      if (directDate.getFullYear() >= (currentYear - 5) && directDate.getFullYear() <= (currentYear + 1)) {
+        return directDate;
+      }
     }
 
+    // Try to match date patterns
     const datePattern = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/;
     const match = dateInput.match(datePattern);
     if (match) {
       const [_, month, day, year] = match;
-      return new Date(
+      const parsedDate = new Date(
         parseInt(year.length === 2 ? `20${year}` : year, 10),
         parseInt(month, 10) - 1,
         parseInt(day, 10)
       );
+      
+      // Validate the year
+      if (parsedDate.getFullYear() >= (currentYear - 5) && parsedDate.getFullYear() <= (currentYear + 1)) {
+        return parsedDate;
+      }
     }
   }
 
-  return new Date();
+  // If we get here, we couldn't parse a reasonable date
+  console.log(`Could not parse date: ${dateInput}, using current date`);
+  return fallbackDate;
 }
 
 export function calculateDividendYield(currentPrice: number, annualDividend: number): number {

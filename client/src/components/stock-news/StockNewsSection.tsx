@@ -44,41 +44,33 @@ const formatNewsDate = (dateValue: number | string): string => {
   
   try {
     let date: Date;
-    let useRelativeDates = false;
+    const currentYear = new Date().getFullYear();
     
-    // For Yahoo Finance, we need to determine the correct interpretation of the timestamp
+    // Yahoo Finance always uses Unix timestamps in seconds since epoch
     if (typeof dateValue === 'number') {
-      // Yahoo Finance uses Unix timestamps (seconds since epoch)
-      // The current Unix timestamp for 2025 is around 1743 million
-      // If it's a 10-digit number around this magnitude, it's likely a Unix timestamp in seconds
+      // Convert seconds to milliseconds for JavaScript Date
+      date = new Date(dateValue * 1000);
       
-      // Convert to milliseconds for JavaScript Date
-      const timestampMs = dateValue * 1000;
-      date = new Date(timestampMs);
-      
-      // Check if this is a valid date within a realistic range (2000-2030)
+      // Validate year is reasonable (between 2020 and current year)
       const year = date.getFullYear();
-      if (year >= 2000 && year <= 2030) {
-        // Valid date - no adjustments needed
-        console.log(`Using valid date conversion for timestamp ${dateValue} → ${date.toISOString()}`);
-      } else {
-        // Might be a different format or corrupt data - use relative date instead
-        useRelativeDates = true;
-        console.log(`Invalid year ${year} from timestamp ${dateValue}, using relative time`);
+      if (year < 2020 || year > currentYear) {
+        console.warn(`Invalid news date year ${year} from timestamp ${dateValue}, using current date`);
+        return 'Recent';
       }
     } else if (typeof dateValue === 'string') {
       // If it's a string, parse as ISO date
       date = new Date(dateValue);
       if (isNaN(date.getTime())) {
-        useRelativeDates = true;
+        return 'Recent';
+      }
+      
+      // Validate year is reasonable
+      const year = date.getFullYear();
+      if (year < 2020 || year > currentYear) {
+        return 'Recent';
       }
     } else {
       console.warn('Unexpected date format:', dateValue);
-      return 'Recent';
-    }
-    
-    // If date validation failed, use a relative time description
-    if (useRelativeDates) {
       return 'Recent';
     }
     
@@ -224,23 +216,24 @@ export const StockNewsSection: React.FC<StockNewsSectionProps> = ({ stock }) => 
       newsItems.forEach((item, index) => {
         const timestamp = item.providerPublishTime;
         
-        // Try both ways of interpreting the timestamp
-        const dateFromDirect = new Date(timestamp);
-        const dateFromSeconds = new Date(timestamp * 1000);
+        // ALWAYS interpret as seconds since epoch (Unix timestamp)
+        // Yahoo Finance consistently uses Unix timestamps in seconds not JS milliseconds
+        const currentYear = new Date().getFullYear();
+        const date = new Date(timestamp * 1000);
+        
+        // Validate if the year is reasonable
+        const year = date.getFullYear();
+        const formattedDate = year >= 2020 && year <= currentYear 
+          ? date.toLocaleString() 
+          : '(Invalid date)';
         
         console.log(`News #${index + 1} RAW Timestamp:`, timestamp);
         console.log(`News #${index + 1}:`, {
           title: item.title.substring(0, 40) + '...',
           timestamp: timestamp,
-          directDate: dateFromDirect.toLocaleString(),
-          secondsMultiplied: dateFromSeconds.toLocaleString(),
+          correctDate: formattedDate, 
+          year: year,
           publisher: item.publisher
-        });
-        
-        // Check validity
-        console.log(`News #${index + 1} Date validity:`, {
-          direct: !isNaN(dateFromDirect.getTime()),
-          seconds: !isNaN(dateFromSeconds.getTime())
         });
       });
     }
