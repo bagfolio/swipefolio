@@ -12,7 +12,7 @@ export interface YahooChartQuote {
 }
 
 export interface YahooDividendEvent {
-  date: string;   // Date of dividend
+  date: string | number;   // Date of dividend (can be string or Unix timestamp)
   amount: number; // Dividend amount
 }
 
@@ -33,7 +33,6 @@ export interface YahooChartResponse {
   };
 }
 
-// Analyst recommendation types
 export interface AnalystRecommendation {
   buy: number;
   hold: number;
@@ -51,7 +50,6 @@ export interface AnalystRecommendation {
   averageRating: number; // 1-5 scale (1=Strong Sell, 5=Strong Buy)
 }
 
-// Analyst upgrade/downgrade history item
 export interface UpgradeHistoryItem {
   firm: string;
   toGrade: string;
@@ -61,7 +59,6 @@ export interface UpgradeHistoryItem {
   epochGradeDate: number;
 }
 
-// Map TimeFrame to Yahoo Finance range parameter
 export const timeFrameToRange: Record<string, string> = {
   "1D": "1d",
   "5D": "5d",
@@ -73,20 +70,17 @@ export const timeFrameToRange: Record<string, string> = {
   "MAX": "max"
 };
 
-/**
- * Fetch chart data for a stock symbol with the given time range
- */
 export async function fetchStockChartData(symbol: string, range: string = "1mo", interval: string = "1d"): Promise<YahooChartResponse> {
   try {
     const response = await fetch(`/api/yahoo-finance/chart/${symbol}?interval=${interval}&range=${range}`);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
         errorData.message || `Failed to fetch chart data for ${symbol}`
       );
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error(`Error fetching chart data for ${symbol}:`, error);
@@ -94,14 +88,8 @@ export async function fetchStockChartData(symbol: string, range: string = "1mo",
   }
 }
 
-/**
- * Hook to query Yahoo Finance chart data
- */
 export function useYahooChartData(symbol: string, timeFrame: string) {
-  // Map timeFrame to corresponding Yahoo Finance range
   const range = timeFrameToRange[timeFrame] || "1mo";
-  
-  // Get primary chart data
   return useQuery<YahooChartResponse>({
     queryKey: ['/api/yahoo-finance/chart', symbol, range],
     queryFn: async () => fetchStockChartData(symbol, range),
@@ -110,14 +98,8 @@ export function useYahooChartData(symbol: string, timeFrame: string) {
   });
 }
 
-/**
- * Hook to fetch S&P 500 data (^GSPC)
- */
 export function useSP500ChartData(timeFrame: string) {
-  // Map timeFrame to corresponding Yahoo Finance range
   const range = timeFrameToRange[timeFrame] || "1mo";
-  
-  // Get S&P 500 data using the ^GSPC symbol
   return useQuery<YahooChartResponse>({
     queryKey: ['/api/yahoo-finance/chart', '^GSPC', range],
     queryFn: async () => fetchStockChartData('^GSPC', range),
@@ -125,56 +107,38 @@ export function useSP500ChartData(timeFrame: string) {
   });
 }
 
-/**
- * Extract and format chart data from Yahoo Finance response
- * Returns an array of close prices for simplified chart view
- */
 export function extractChartPrices(chartData?: YahooChartResponse): number[] {
   if (!chartData?.quotes || chartData.quotes.length === 0) {
     return [];
   }
-  
-  // Extract close prices
   return chartData.quotes.map(quote => quote.close);
 }
 
-/**
- * Get appropriate time scale labels based on the time frame
- */
 export function getYahooTimeScaleLabels(timeFrame: string, chartData?: YahooChartResponse): string[] {
   if (!chartData?.quotes || chartData.quotes.length === 0) {
-    // Fallback labels if no data
     return ["", "", "", "", ""];
   }
-  
-  // Determine how many labels to show (avoid overcrowding)
   const maxLabels = 5;
   const quotes = chartData.quotes;
   const labelCount = Math.min(maxLabels, quotes.length);
-  
+
   if (labelCount <= 1) return [formatDateByTimeFrame(quotes[0].date, timeFrame)];
-  
-  // Create evenly spaced labels
+
   const result: string[] = [];
   const step = Math.floor(quotes.length / (labelCount - 1));
-  
+
   for (let i = 0; i < labelCount - 1; i++) {
     const index = i * step;
     result.push(formatDateByTimeFrame(quotes[index].date, timeFrame));
   }
-  
-  // Always add the most recent date as the last label
   result.push(formatDateByTimeFrame(quotes[quotes.length - 1].date, timeFrame));
-  
+
   return result;
 }
 
-/**
- * Format date according to timeframe
- */
 function formatDateByTimeFrame(dateStr: string, timeFrame: string): string {
   const date = new Date(dateStr);
-  
+
   switch (timeFrame) {
     case "1D":
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -195,20 +159,17 @@ function formatDateByTimeFrame(dateStr: string, timeFrame: string): string {
   }
 }
 
-/**
- * Fetch analyst recommendations for a stock symbol
- */
 export async function fetchAnalystRecommendations(symbol: string): Promise<AnalystRecommendation> {
   try {
     const response = await fetch(`/api/yahoo-finance/recommendations/${symbol}`);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
         errorData.message || `Failed to fetch recommendations for ${symbol}`
       );
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error(`Error fetching recommendations for ${symbol}:`, error);
@@ -216,9 +177,6 @@ export async function fetchAnalystRecommendations(symbol: string): Promise<Analy
   }
 }
 
-/**
- * Hook to query Yahoo Finance analyst recommendations
- */
 export function useAnalystRecommendations(symbol: string) {
   return useQuery<AnalystRecommendation>({
     queryKey: ['/api/yahoo-finance/recommendations', symbol],
@@ -228,20 +186,17 @@ export function useAnalystRecommendations(symbol: string) {
   });
 }
 
-/**
- * Fetch analyst upgrade/downgrade history for a stock symbol
- */
 export async function fetchUpgradeHistory(symbol: string): Promise<UpgradeHistoryItem[]> {
   try {
     const response = await fetch(`/api/yahoo-finance/upgrade-history/${symbol}`);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(
         errorData.message || `Failed to fetch upgrade/downgrade history for ${symbol}`
       );
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error(`Error fetching upgrade history for ${symbol}:`, error);
@@ -249,9 +204,6 @@ export async function fetchUpgradeHistory(symbol: string): Promise<UpgradeHistor
   }
 }
 
-/**
- * Hook to query Yahoo Finance analyst upgrade/downgrade history
- */
 export function useUpgradeHistory(symbol: string) {
   return useQuery<UpgradeHistoryItem[]>({
     queryKey: ['/api/yahoo-finance/upgrade-history', symbol],
@@ -261,7 +213,6 @@ export function useUpgradeHistory(symbol: string) {
   });
 }
 
-// Interface for dividend data
 export interface DividendData {
   symbol: string;
   dividendYield: number;
@@ -271,14 +222,12 @@ export interface DividendData {
   lastPaidDate: string;
 }
 
-// Interface for formatted dividend chart data
 export interface DividendChartData {
   name: string;
   value: number;
   type: string;
 }
 
-// Interface for dividend comparison data
 export interface DividendComparisonData {
   quarters: string[];
   stockDividends: number[];
@@ -288,7 +237,6 @@ export interface DividendComparisonData {
   stockSymbol: string;
 }
 
-// Interface for earnings data
 export interface EarningsData {
   quarter: string;
   actual: number;
@@ -297,63 +245,72 @@ export interface EarningsData {
   date: string;
 }
 
-// Interface for revenue data
 export interface RevenueData {
   year: string;
   value: number;
   growth?: string;
 }
 
-/**
- * Extract dividend events from chart data
- */
 export function extractDividendEvents(chartData?: YahooChartResponse): YahooDividendEvent[] {
   if (!chartData?.events?.dividends || !Array.isArray(chartData.events.dividends)) {
     return [];
   }
-  
+
   return chartData.events.dividends.map(div => ({
-    date: new Date(div.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }),
+    date: div.date, // Preserve original date format for safe parsing later
     amount: div.amount
-  })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  })).sort((a, b) => {
+    const dateA = parseSafeDividendDate(a.date);
+    const dateB = parseSafeDividendDate(b.date);
+    return dateB.getTime() - dateA.getTime(); // Descending order
+  });
 }
 
-/**
- * Format dividend events for visualization in a bar chart
- */
 export function formatDividendEventsForChart(dividendEvents: YahooDividendEvent[], spYield: number = 1.5): { name: string; value: number; type: string }[] {
   if (!dividendEvents || dividendEvents.length === 0) {
     return [];
   }
-  
-  // Sort chronologically (oldest to newest)
-  const sortedEvents = [...dividendEvents].sort((a, b) => 
-    new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
-  
-  // Create data points for the bar chart
+
+  const sortedEvents = [...dividendEvents].sort((a, b) => {
+    const dateA = parseSafeDividendDate(a.date);
+    const dateB = parseSafeDividendDate(b.date);
+    return dateA.getTime() - dateB.getTime();
+  });
+
   return sortedEvents.map((div, index) => {
     let formattedDate = "Unknown";
     try {
-      // Parse the date from the dividend object
-      const date = new Date(div.date);
-      
-      // Check for invalid years (1970 indicates a timestamp issue)
+      const date = parseSafeDividendDate(div.date);
       const year = date.getFullYear();
-      if (year < 2000 || year > new Date().getFullYear()) {
-        // Try to extract quarter/month info from the original string
-        const parts = div.date.split(' ');
-        if (parts.length > 1) {
-          // Try to preserve month/quarter information if available
-          formattedDate = `${parts[0]} ${new Date().getFullYear()}`;
+      const currentYear = new Date().getFullYear();
+
+      if (year < 2000 || year > currentYear) {
+        if (typeof div.date === 'string' && !isNaN(parseInt(div.date, 10))) {
+          const timestamp = parseInt(div.date, 10) * 1000;
+          const timestampDate = new Date(timestamp);
+
+          if (timestampDate.getFullYear() >= 2000 && timestampDate.getFullYear() <= currentYear) {
+            formattedDate = timestampDate.toLocaleDateString(undefined, { 
+              month: 'short', 
+              year: 'numeric' 
+            });
+            console.log(`Using valid date conversion for timestamp ${div.date} → ${timestampDate.toISOString()}`);
+          } else {
+            const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+            const currentQuarter = Math.floor((new Date().getMonth() / 3));
+            formattedDate = `${quarters[currentQuarter]} ${currentYear}`;
+          }
         } else {
-          // Default to a recent quarter if we can't extract useful information
-          const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
-          const currentQuarter = Math.floor((new Date().getMonth() / 3));
-          formattedDate = `${quarters[currentQuarter]} ${new Date().getFullYear()}`;
+          const parts = typeof div.date === 'string' ? div.date.split(' ') : [];
+          if (parts.length > 1) {
+            formattedDate = `${parts[0]} ${currentYear}`;
+          } else {
+            const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+            const currentQuarter = Math.floor((new Date().getMonth() / 3));
+            formattedDate = `${quarters[currentQuarter]} ${currentYear}`;
+          }
         }
       } else {
-        // Valid date, format it nicely
         formattedDate = date.toLocaleDateString(undefined, { 
           month: 'short', 
           year: 'numeric' 
@@ -363,7 +320,7 @@ export function formatDividendEventsForChart(dividendEvents: YahooDividendEvent[
       console.error("Error formatting dividend date:", e);
       formattedDate = `Payment ${index + 1}`;
     }
-    
+
     return {
       name: formattedDate,
       value: div.amount,
@@ -372,77 +329,83 @@ export function formatDividendEventsForChart(dividendEvents: YahooDividendEvent[
   });
 }
 
-/**
- * Calculate dividend yield from price and annual dividends
- */
+function parseSafeDividendDate(dateInput: string | number): Date {
+  if (typeof dateInput === 'number' || !isNaN(parseInt(String(dateInput), 10))) {
+    const timestamp = typeof dateInput === 'number' ? dateInput : parseInt(String(dateInput), 10);
+    if (timestamp < 10000000000) {
+      return new Date(timestamp * 1000);
+    } else {
+      return new Date(timestamp);
+    }
+  }
+
+  if (typeof dateInput === 'string') {
+    const directDate = new Date(dateInput);
+    if (!isNaN(directDate.getTime())) {
+      return directDate;
+    }
+
+    const datePattern = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/;
+    const match = dateInput.match(datePattern);
+    if (match) {
+      const [_, month, day, year] = match;
+      return new Date(
+        parseInt(year.length === 2 ? `20${year}` : year, 10),
+        parseInt(month, 10) - 1,
+        parseInt(day, 10)
+      );
+    }
+  }
+
+  return new Date();
+}
+
 export function calculateDividendYield(currentPrice: number, annualDividend: number): number {
   if (!currentPrice || !annualDividend || currentPrice <= 0) {
     return 0;
   }
-  return (annualDividend / currentPrice) * 100; // Convert to percentage
+  return (annualDividend / currentPrice) * 100;
 }
 
-/**
- * Hook to query Yahoo Finance dividend data
- * Uses dividend events from chart data (1Y timeframe)
- */
 export function useYahooDividendData(symbol: string, timeFrame: string = '1Y') {
   const range = timeFrameToRange[timeFrame] || "1y";
-  
-  // First, get the chart data that includes dividends
   const chartDataQuery = useQuery<YahooChartResponse>({
     queryKey: ['/api/yahoo-finance/chart', symbol, range, 'dividends'],
     queryFn: async () => fetchStockChartData(symbol, range),
     staleTime: 60 * 60 * 1000, // 1 hour
     enabled: !!symbol,
   });
-  
-  // Extract and process dividend data
+
   return useQuery<DividendData>({
     queryKey: ['/api/yahoo-finance/dividend', symbol, range],
     queryFn: async () => {
       const chartData = chartDataQuery.data;
-      
+
       if (!chartData) {
         throw new Error('Chart data not available');
       }
-      
-      // Get dividend events
+
       const dividendEvents = extractDividendEvents(chartData);
-      
-      // Calculate current price
       const currentPrice = chartData.meta.regularMarketPrice || 
                           (chartData.quotes && chartData.quotes.length > 0 
                             ? chartData.quotes[chartData.quotes.length - 1].close 
                             : 0);
-      
-      // Calculate annual dividend (sum of the most recent up to 4 dividends)
       const recentDividends = dividendEvents.slice(0, 4);
-      const totalDividends = recentDividends.reduce((sum, div) => sum + div.amount, 0);
-      
-      // Adjust for frequency (quarterly, monthly, etc.)
+      let totalDividends = recentDividends.reduce((sum, div) => sum + div.amount, 0);
       let annualDividend = totalDividends;
       if (recentDividends.length > 0 && recentDividends.length < 4) {
-        // Estimate annual dividend based on available data
         annualDividend = (totalDividends / recentDividends.length) * 4;
       }
-      
-      // Calculate dividend yield
+
       const dividendYield = calculateDividendYield(currentPrice, annualDividend);
-      
-      // Get last paid date
       const lastPaidDate = dividendEvents.length > 0 ? dividendEvents[0].date : 'N/A';
-      
-      // Get payout amount (most recent dividend)
       const payoutAmount = dividendEvents.length > 0 ? dividendEvents[0].amount : 0;
-      
-      // For the sector and market median, we would ideally get this from another source
-      // For now, we'll use placeholder values that are realistic
+
       return {
         symbol,
         dividendYield,
-        sectorMedian: 2.1, // Industry average placeholder
-        marketMedian: 1.5, // S&P 500 average placeholder
+        sectorMedian: 2.1,
+        marketMedian: 1.5,
         payoutAmount,
         lastPaidDate
       };
@@ -452,16 +415,10 @@ export function useYahooDividendData(symbol: string, timeFrame: string = '1Y') {
   });
 }
 
-/**
- * Hook to query Yahoo Finance earnings data
- * Currently returns mock data - will be replaced with actual API data
- */
 export function useYahooEarningsData(symbol: string) {
   return useQuery<EarningsData[]>({
     queryKey: ['/api/yahoo-finance/earnings', symbol],
     queryFn: async () => {
-      // This will be replaced with actual API data when endpoint is available
-      // For now, return test data
       const mockEarnings: EarningsData[] = [
         { 
           quarter: 'Q1 2024', 
@@ -492,7 +449,7 @@ export function useYahooEarningsData(symbol: string) {
           date: 'Jul 21, 2023'
         },
       ];
-      
+
       return mockEarnings;
     },
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
@@ -500,32 +457,24 @@ export function useYahooEarningsData(symbol: string) {
   });
 }
 
-/**
- * Hook to get dividend events for chart visualization
- * This fetches data in the specified timeframe and formats it for a bar chart
- */
 export function useYahooDividendEvents(symbol: string, timeFrame: string) {
   const range = timeFrameToRange[timeFrame] || "1y";
-  
-  // Get the chart data with dividend events
   const chartDataQuery = useQuery<YahooChartResponse>({
     queryKey: ['/api/yahoo-finance/chart', symbol, range, 'dividends'],
     queryFn: async () => fetchStockChartData(symbol, range),
     staleTime: 60 * 60 * 1000, // 1 hour
     enabled: !!symbol,
   });
-  
-  // Format the dividend events for visualization
+
   return useQuery<DividendChartData[]>({
     queryKey: ['/api/yahoo-finance/dividend-events', symbol, range],
     queryFn: async () => {
       const chartData = chartDataQuery.data;
-      
+
       if (!chartData) {
         return [];
       }
-      
-      // Extract and format dividend events
+
       const dividendEvents = extractDividendEvents(chartData);
       return formatDividendEventsForChart(dividendEvents);
     },
@@ -534,55 +483,38 @@ export function useYahooDividendEvents(symbol: string, timeFrame: string) {
   });
 }
 
-/**
- * Hook to compare dividend data between a stock and S&P 500
- * Returns quarterly dividend data for both the stock and the S&P 500
- */
 export function useYahooDividendComparison(symbol: string, timeFrame: string) {
   const range = timeFrameToRange[timeFrame] || "1y";
-  
-  // Get the stock dividend data
   const stockChartQuery = useQuery<YahooChartResponse>({
     queryKey: ['/api/yahoo-finance/chart', symbol, range, 'dividends'],
     queryFn: async () => fetchStockChartData(symbol, range),
     staleTime: 60 * 60 * 1000, // 1 hour
     enabled: !!symbol,
   });
-  
-  // Get the S&P 500 dividend data
   const sp500ChartQuery = useQuery<YahooChartResponse>({
     queryKey: ['/api/yahoo-finance/chart', '^GSPC', range, 'dividends'],
     queryFn: async () => fetchStockChartData('^GSPC', range),
     staleTime: 60 * 60 * 1000, // 1 hour
     enabled: !!symbol,
   });
-  
-  // Process and compare the dividend data
+
   return useQuery<DividendComparisonData>({
     queryKey: ['/api/yahoo-finance/dividend-comparison', symbol, '^GSPC', range],
     queryFn: async () => {
       const stockData = stockChartQuery.data;
       const sp500Data = sp500ChartQuery.data;
-      
+
       if (!stockData || !sp500Data) {
         throw new Error('Chart data not available');
       }
-      
-      // Extract dividend events
+
       const stockDividends = extractDividendEvents(stockData);
       const sp500Dividends = extractDividendEvents(sp500Data);
-      
-      // Group by quarter for comparison
-      // First, create a combined timeline of quarters
-      const allDates = [...stockDividends, ...sp500Dividends].map(div => new Date(div.date));
-      
-      // Sort dates chronologically
+      const allDates = [...stockDividends, ...sp500Dividends].map(div => parseSafeDividendDate(div.date));
       const sortedDates = allDates.sort((a, b) => a.getTime() - b.getTime());
-      
-      // Get unique quarters represented in the data
       const quarters: string[] = [];
       const seenQuarters = new Set<string>();
-      
+
       sortedDates.forEach(date => {
         const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${date.getFullYear()}`;
         if (!seenQuarters.has(quarter)) {
@@ -590,103 +522,78 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
           quarters.push(quarter);
         }
       });
-      
-      // If we have more than 8 quarters, just take the most recent 8
+
       const recentQuarters = quarters.slice(-8);
-      
-      // Create arrays for stock and SP500 dividend values
       const stockDividendValues: number[] = [];
       const sp500DividendValues: number[] = [];
-      
-      // For each quarter, find the corresponding dividend amount
+
       recentQuarters.forEach(quarter => {
-        // Parse quarter string (e.g., "Q1 2023")
         const [q, year] = quarter.split(' ');
-        const quarterNum = parseInt(q.substring(1)) - 1; // Q1 -> 0, Q2 -> 1, etc.
+        const quarterNum = parseInt(q.substring(1)) - 1;
         const yearNum = parseInt(year);
-        
-        // Calculate start and end dates for this quarter
         const startMonth = quarterNum * 3;
         const endMonth = startMonth + 3;
         const startDate = new Date(yearNum, startMonth, 1);
-        const endDate = new Date(yearNum, endMonth, 0); // Last day of the end month
-        
-        // Find stock dividend in this quarter
+        const endDate = new Date(yearNum, endMonth, 0);
+
         const stockDiv = stockDividends.find(div => {
-          const divDate = new Date(div.date);
+          const divDate = parseSafeDividendDate(div.date);
           return divDate >= startDate && divDate <= endDate;
         });
-        
-        // Find S&P 500 dividend in this quarter
         const sp500Div = sp500Dividends.find(div => {
-          const divDate = new Date(div.date);
+          const divDate = parseSafeDividendDate(div.date);
           return divDate >= startDate && divDate <= endDate;
         });
-        
-        // Add to arrays (use 0 if no dividend found)
+
         stockDividendValues.push(stockDiv ? stockDiv.amount : 0);
         sp500DividendValues.push(sp500Div ? sp500Div.amount : 0);
       });
-      
-      // Calculate yield data for each quarter
-      // For this, we need the stock price at each quarter end
+
       const stockYields: number[] = [];
       const sp500Yields: number[] = [];
-      
+
       recentQuarters.forEach((quarter, index) => {
         const stockDiv = stockDividendValues[index];
         const sp500Div = sp500DividendValues[index];
-        
-        // Parse quarter string (e.g., "Q1 2023")
         const [q, year] = quarter.split(' ');
-        const quarterNum = parseInt(q.substring(1)) - 1; // Q1 -> 0, Q2 -> 1, etc.
+        const quarterNum = parseInt(q.substring(1)) - 1;
         const yearNum = parseInt(year);
-        
-        // Get the month at the end of the quarter
-        const endMonth = (quarterNum * 3) + 2; // Last month of quarter
-        
-        // Find the last quote before the end of the quarter
-        const endDate = new Date(yearNum, endMonth, 31); // Last possible day
-        
-        // Try to find a quote close to the end of the quarter for the stock
+        const endMonth = (quarterNum * 3) + 2;
+        const endDate = new Date(yearNum, endMonth, 31);
+
         let stockPrice = 0;
         if (stockData.quotes && stockData.quotes.length > 0) {
           const lastQuoteBeforeEnd = stockData.quotes
             .filter(quote => new Date(quote.date) <= endDate)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-          
+
           if (lastQuoteBeforeEnd) {
             stockPrice = lastQuoteBeforeEnd.close;
           } else {
-            // Fall back to the last quote
             stockPrice = stockData.quotes[stockData.quotes.length - 1].close;
           }
         }
-        
-        // Do the same for S&P 500
+
         let sp500Price = 0;
         if (sp500Data.quotes && sp500Data.quotes.length > 0) {
           const lastQuoteBeforeEnd = sp500Data.quotes
             .filter(quote => new Date(quote.date) <= endDate)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-          
+
           if (lastQuoteBeforeEnd) {
             sp500Price = lastQuoteBeforeEnd.close;
           } else {
-            // Fall back to the last quote
             sp500Price = sp500Data.quotes[sp500Data.quotes.length - 1].close;
           }
         }
-        
-        // Calculate quarterly dividend yield
+
         const stockQuarterlyYield = stockPrice > 0 ? (stockDiv / stockPrice) * 100 : 0;
         const sp500QuarterlyYield = sp500Price > 0 ? (sp500Div / sp500Price) * 100 : 0;
-        
-        // Annualize the yield (multiply by 4 for quarterly)
+
         stockYields.push(stockQuarterlyYield * 4);
         sp500Yields.push(sp500QuarterlyYield * 4);
       });
-      
+
       return {
         quarters: recentQuarters,
         stockDividends: stockDividendValues,
@@ -705,11 +612,8 @@ export function useYahooRevenueData(symbol: string) {
   return useQuery<RevenueData[]>({
     queryKey: ['/api/yahoo-finance/revenue', symbol],
     queryFn: async () => {
-      // This will be replaced with actual API data when endpoint is available
-      
-      // Different revenue data based on the symbol
       let mockRevenue: RevenueData[];
-      
+
       if (symbol === 'AAPL') {
         mockRevenue = [
           { year: '2020', value: 274.5, growth: '+5.5%' },
@@ -735,7 +639,7 @@ export function useYahooRevenueData(symbol: string) {
           { year: '2024', value: 168.4, growth: '+7.4%' },
         ];
       }
-      
+
       return mockRevenue;
     },
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
