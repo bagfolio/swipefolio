@@ -235,6 +235,13 @@ export interface DividendComparisonData {
   stockYields: number[];
   sp500Yields: number[]; // Actually VOO yields but kept for backwards compatibility
   stockSymbol: string;
+  summary?: {
+    timeFrameYears: number;
+    totalStockDividend: number;
+    totalVooDividend: number;
+    avgStockYield: number;
+    avgVooYield: number;
+  };
 }
 
 export interface EarningsData {

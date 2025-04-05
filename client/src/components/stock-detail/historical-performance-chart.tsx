@@ -307,10 +307,12 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
   } = useYahooDividendEvents(symbol, timeFrame);
 
   // Fetch dividend comparison data between stock and VOO (Vanguard S&P 500 ETF)
+  // Always use at least 3Y for dividend comparison to ensure we have enough data
+  const dividendTimeFrame = timeFrame === '1Y' ? '3Y' : timeFrame;
   const {
     data: dividendComparisonData,
     isLoading: dividendComparisonLoading
-  } = useYahooDividendComparison(symbol, timeFrame);
+  } = useYahooDividendComparison(symbol, dividendTimeFrame);
 
   // Get dividend data with fallback for compatibility
   const dividendData = useMemo(() => {
@@ -860,8 +862,16 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         <div className="text-lg font-semibold text-blue-600">
                           ${dividendComparisonData.summary.totalStockDividend.toFixed(2)}
                         </div>
-                        <div className="flex justify-between text-xs text-gray-700 mt-1">
-                          <span>vs. VOO (S&P 500 ETF):</span>
+                        <div className="flex items-center text-xs text-gray-700 mt-1">
+                          <div className="flex items-center gap-1 mr-2">
+                            <span className="inline-block w-3 h-3 bg-blue-600 rounded-full"></span>
+                            <span>{symbol}:</span>
+                          </div>
+                          <span className="font-medium">${dividendComparisonData.summary.totalStockDividend.toFixed(2)}</span>
+                          <div className="flex items-center gap-1 ml-4 mr-2">
+                            <span className="inline-block w-3 h-3 bg-emerald-600 rounded-full"></span>
+                            <span>VOO:</span>
+                          </div>
                           <span className="font-medium">${dividendComparisonData.summary.totalVooDividend.toFixed(2)}</span>
                         </div>
                       </div>
@@ -871,8 +881,16 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         <div className="text-lg font-semibold text-emerald-600">
                           {dividendComparisonData.summary.avgStockYield.toFixed(2)}%
                         </div>
-                        <div className="flex justify-between text-xs text-gray-700 mt-1">
-                          <span>vs. VOO (S&P 500 ETF):</span>
+                        <div className="flex items-center text-xs text-gray-700 mt-1">
+                          <div className="flex items-center gap-1 mr-2">
+                            <span className="inline-block w-3 h-3 bg-blue-600 rounded-full"></span>
+                            <span>{symbol}:</span>
+                          </div>
+                          <span className="font-medium">{dividendComparisonData.summary.avgStockYield.toFixed(2)}%</span>
+                          <div className="flex items-center gap-1 ml-4 mr-2">
+                            <span className="inline-block w-3 h-3 bg-emerald-600 rounded-full"></span>
+                            <span>VOO:</span>
+                          </div>
                           <span className="font-medium">{dividendComparisonData.summary.avgVooYield.toFixed(2)}%</span>
                         </div>
                       </div>
