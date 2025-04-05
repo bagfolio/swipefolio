@@ -363,33 +363,21 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
         <div className="bg-white p-3 border rounded-md shadow-md text-xs">
           <p className="font-semibold text-gray-800">{label}</p>
           <div className="mt-1">
-            {payload.map((entry: any, index: number) => {
-              // Determine if this is the stock or VOO entry
-              const isStockEntry = entry.dataKey === "value" || 
-                                entry.name === companyName || 
-                                entry.name === symbol;
-              
-              // Create proper display name
-              const displayName = isStockEntry 
-                ? (companyName || symbol) 
-                : "VOO (S&P 500 ETF)";
-              
-              return (
-                <p key={`tooltip-entry-${index}`} className="flex items-center">
-                  <span 
-                    className={`w-3 h-3 inline-block rounded-full mr-2 ${
-                      isStockEntry ? "bg-blue-600" : "bg-emerald-500"
-                    }`}
-                  ></span>
-                  <span className="text-gray-700">{displayName}: </span>
-                  <span className="ml-1 font-medium">
-                    {isStockEntry && entry.dataKey === "value" ? "$" : ""}
-                    {formatTooltipValue(entry.value)}
-                    {!isStockEntry && entry.dataKey === "sp500" ? "%" : ""}
-                  </span>
-                </p>
-              );
-            })}
+            {payload.map((entry: any, index: number) => (
+              <p key={`tooltip-entry-${index}`} className="flex items-center">
+                <span 
+                  className={`w-3 h-3 inline-block rounded-full mr-2 ${
+                    entry.name === companyName || entry.name === symbol || entry.dataKey === "value" 
+                      ? "bg-blue-600" 
+                      : "bg-emerald-500"
+                  }`}
+                ></span>
+                <span className="text-gray-700">{entry.name || (entry.dataKey === "value" ? (companyName || symbol) : "VOO (S&P 500 ETF)")}: </span>
+                <span className="ml-1 font-medium">
+                  {entry.dataKey === "value" ? "$" : ""}{formatTooltipValue(entry.value)}{entry.dataKey === "sp500" ? "%" : ""}
+                </span>
+              </p>
+            ))}
           </div>
         </div>
       );
@@ -503,7 +491,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 {/* Time frame buttons */}
                 <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-                  {['1M', '3M', '6M', '1Y', '3Y', '5Y'].map((frame) => (
+                  {['1M', '3M', '6M', '1Y', '5Y'].map((frame) => (
                     <button
                       key={frame}
                       onClick={() => handleTimeFrameChange(frame)}
@@ -825,7 +813,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               {/* Time frame controls for dividends */}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-                  {['1Y', '3Y', '5Y'].map((frame) => (
+                  {['1Y', '3Y', '5Y', 'MAX'].map((frame) => (
                     <button
                       key={frame}
                       onClick={() => handleTimeFrameChange(frame)}
@@ -871,29 +859,39 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                     <>
                       <div className="flex-1 min-w-[160px]">
                         <h5 className="text-xs text-gray-500 mb-1">Total Dividend ({dividendComparisonData.summary.timeFrameYears}Y Period)</h5>
-                        <div className="flex items-center text-sm text-gray-700 mt-3 justify-between">
-                          <div className="flex items-center gap-2 mr-2">
-                            <span className="inline-block w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs">${dividendComparisonData.summary.totalStockDividend.toFixed(2)}</span>
-                            <span className="font-medium">{symbol}</span>
+                        <div className="text-lg font-semibold text-blue-600">
+                          ${dividendComparisonData.summary.totalStockDividend.toFixed(2)}
+                        </div>
+                        <div className="flex items-center text-xs text-gray-700 mt-1">
+                          <div className="flex items-center gap-1 mr-2">
+                            <span className="inline-block w-3 h-3 bg-blue-600 rounded-full"></span>
+                            <span>{symbol}:</span>
                           </div>
-                          <div className="flex items-center gap-2 mr-2">
-                            <span className="inline-block w-6 h-6 bg-emerald-600 rounded-full flex items-center justify-center text-white text-xs">${dividendComparisonData.summary.totalVooDividend.toFixed(2)}</span>
-                            <span className="font-medium">VOO</span>
+                          <span className="font-medium">${dividendComparisonData.summary.totalStockDividend.toFixed(2)}</span>
+                          <div className="flex items-center gap-1 ml-4 mr-2">
+                            <span className="inline-block w-3 h-3 bg-emerald-600 rounded-full"></span>
+                            <span>VOO:</span>
                           </div>
+                          <span className="font-medium">${dividendComparisonData.summary.totalVooDividend.toFixed(2)}</span>
                         </div>
                       </div>
 
                       <div className="flex-1 min-w-[160px]">
                         <h5 className="text-xs text-gray-500 mb-1">Avg. Annual Yield</h5>
-                        <div className="flex items-center text-sm text-gray-700 mt-3 justify-between">
-                          <div className="flex items-center gap-2 mr-2">
-                            <span className="inline-block w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs">{dividendComparisonData.summary.avgStockYield.toFixed(2)}%</span>
-                            <span className="font-medium">{symbol}</span>
+                        <div className="text-lg font-semibold text-emerald-600">
+                          {dividendComparisonData.summary.avgStockYield.toFixed(2)}%
+                        </div>
+                        <div className="flex items-center text-xs text-gray-700 mt-1">
+                          <div className="flex items-center gap-1 mr-2">
+                            <span className="inline-block w-3 h-3 bg-blue-600 rounded-full"></span>
+                            <span>{symbol}:</span>
                           </div>
-                          <div className="flex items-center gap-2 mr-2">
-                            <span className="inline-block w-6 h-6 bg-emerald-600 rounded-full flex items-center justify-center text-white text-xs">{dividendComparisonData.summary.avgVooYield.toFixed(2)}%</span>
-                            <span className="font-medium">VOO</span>
+                          <span className="font-medium">{dividendComparisonData.summary.avgStockYield.toFixed(2)}%</span>
+                          <div className="flex items-center gap-1 ml-4 mr-2">
+                            <span className="inline-block w-3 h-3 bg-emerald-600 rounded-full"></span>
+                            <span>VOO:</span>
                           </div>
+                          <span className="font-medium">{dividendComparisonData.summary.avgVooYield.toFixed(2)}%</span>
                         </div>
                       </div>
                     </>
