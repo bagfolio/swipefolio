@@ -69,7 +69,7 @@ function processAnalystData(result: any, symbol: string) {
           // Yahoo provides epochGradeDate in seconds - CONVERT TO MILLISECONDS 
           const timestampInMillis = item.epochGradeDate * 1000;
           const potentialDate = new Date(timestampInMillis);
-
+          
           if (isValid(potentialDate)) {
             dateObject = potentialDate;
             const year = dateObject.getFullYear();
@@ -151,8 +151,7 @@ function processAnalystData(result: any, symbol: string) {
     ratingHistoryForChart: processedHistory,
   };
 
-  console.log(`[${symbol}] Processed Analyst Data:`, JSON.stringify(output, null, 2)); // Added logging of the final output
-
+  // console.log(`[${symbol}] Processed Analyst Data:`, JSON.stringify(output, null, 2)); // Optional: Log final structure
   return output;
 }
 

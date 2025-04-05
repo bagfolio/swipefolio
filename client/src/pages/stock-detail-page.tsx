@@ -352,7 +352,7 @@ const handlePreviousStock = useCallback(() => {
        </div>
       {/* Analyst Sentiment Panel */}
       {currentStockData && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 w-full p-4 bg-black bg-opacity-80 backdrop-blur-sm">
+        <div className="absolute bottom-16 right-4 z-20 w-64">
           <AnalystSentiment symbol={currentStockData.symbol} />
         </div>
       )}
