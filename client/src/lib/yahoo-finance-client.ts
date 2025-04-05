@@ -11,6 +11,11 @@ export interface YahooChartQuote {
   adjclose: number;
 }
 
+export interface YahooDividendEvent {
+  date: string;   // Date of dividend
+  amount: number; // Dividend amount
+}
+
 export interface YahooChartResponse {
   meta: {
     currency: string;
@@ -22,6 +27,10 @@ export interface YahooChartResponse {
     range: string;
   };
   quotes: YahooChartQuote[];
+  events?: {
+    dividends?: YahooDividendEvent[];
+    splits?: any[];
+  };
 }
 
 // Analyst recommendation types
@@ -262,6 +271,13 @@ export interface DividendData {
   lastPaidDate: string;
 }
 
+// Interface for formatted dividend chart data
+export interface DividendChartData {
+  name: string;
+  value: number;
+  type: string;
+}
+
 // Interface for earnings data
 export interface EarningsData {
   quarter: string;
@@ -279,31 +295,125 @@ export interface RevenueData {
 }
 
 /**
- * Hook to query Yahoo Finance dividend data
- * Currently returns mock data - will be replaced with actual API data
+ * Extract dividend events from chart data
  */
-export function useYahooDividendData(symbol: string) {
-  return useQuery<DividendData>({
-    queryKey: ['/api/yahoo-finance/dividend', symbol],
-    queryFn: async () => {
-      // This will be replaced with actual API data when endpoint is available
-      // For now, return test data based on the symbol
-      const mockResponse: DividendData = {
-        symbol,
-        dividendYield: symbol === 'AAPL' ? 0.5 : 
-                       symbol === 'MSFT' ? 0.8 : 
-                       symbol === 'GOOGL' ? 0.0 : 0.4,
-        sectorMedian: 2.1,
-        marketMedian: 3.9,
-        payoutAmount: symbol === 'AAPL' ? 0.24 : 
-                      symbol === 'MSFT' ? 0.68 : 0.0,
-        lastPaidDate: 'Aug 11, 2023'
-      };
-      
-      return mockResponse;
-    },
-    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+export function extractDividendEvents(chartData?: YahooChartResponse): YahooDividendEvent[] {
+  if (!chartData?.events?.dividends || !Array.isArray(chartData.events.dividends)) {
+    return [];
+  }
+  
+  return chartData.events.dividends.map(div => ({
+    date: new Date(div.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }),
+    amount: div.amount
+  })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+/**
+ * Format dividend events for visualization in a bar chart
+ */
+export function formatDividendEventsForChart(dividendEvents: YahooDividendEvent[], spYield: number = 1.5): { name: string; value: number; type: string }[] {
+  if (!dividendEvents || dividendEvents.length === 0) {
+    return [];
+  }
+  
+  // Sort chronologically (oldest to newest)
+  const sortedEvents = [...dividendEvents].sort((a, b) => 
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  
+  // Create data points for the bar chart
+  return sortedEvents.map((div, index) => {
+    const date = new Date(div.date);
+    const formattedDate = date.toLocaleDateString(undefined, { 
+      month: 'short', 
+      year: '2-digit' 
+    });
+    
+    return {
+      name: formattedDate,
+      value: div.amount,
+      type: 'Dividend Payment'
+    };
+  });
+}
+
+/**
+ * Calculate dividend yield from price and annual dividends
+ */
+export function calculateDividendYield(currentPrice: number, annualDividend: number): number {
+  if (!currentPrice || !annualDividend || currentPrice <= 0) {
+    return 0;
+  }
+  return (annualDividend / currentPrice) * 100; // Convert to percentage
+}
+
+/**
+ * Hook to query Yahoo Finance dividend data
+ * Uses dividend events from chart data (1Y timeframe)
+ */
+export function useYahooDividendData(symbol: string, timeFrame: string = '1Y') {
+  const range = timeFrameToRange[timeFrame] || "1y";
+  
+  // First, get the chart data that includes dividends
+  const chartDataQuery = useQuery<YahooChartResponse>({
+    queryKey: ['/api/yahoo-finance/chart', symbol, range, 'dividends'],
+    queryFn: async () => fetchStockChartData(symbol, range),
+    staleTime: 60 * 60 * 1000, // 1 hour
     enabled: !!symbol,
+  });
+  
+  // Extract and process dividend data
+  return useQuery<DividendData>({
+    queryKey: ['/api/yahoo-finance/dividend', symbol, range],
+    queryFn: async () => {
+      const chartData = chartDataQuery.data;
+      
+      if (!chartData) {
+        throw new Error('Chart data not available');
+      }
+      
+      // Get dividend events
+      const dividendEvents = extractDividendEvents(chartData);
+      
+      // Calculate current price
+      const currentPrice = chartData.meta.regularMarketPrice || 
+                          (chartData.quotes && chartData.quotes.length > 0 
+                            ? chartData.quotes[chartData.quotes.length - 1].close 
+                            : 0);
+      
+      // Calculate annual dividend (sum of the most recent up to 4 dividends)
+      const recentDividends = dividendEvents.slice(0, 4);
+      const totalDividends = recentDividends.reduce((sum, div) => sum + div.amount, 0);
+      
+      // Adjust for frequency (quarterly, monthly, etc.)
+      let annualDividend = totalDividends;
+      if (recentDividends.length > 0 && recentDividends.length < 4) {
+        // Estimate annual dividend based on available data
+        annualDividend = (totalDividends / recentDividends.length) * 4;
+      }
+      
+      // Calculate dividend yield
+      const dividendYield = calculateDividendYield(currentPrice, annualDividend);
+      
+      // Get last paid date
+      const lastPaidDate = dividendEvents.length > 0 ? dividendEvents[0].date : 'N/A';
+      
+      // Get payout amount (most recent dividend)
+      const payoutAmount = dividendEvents.length > 0 ? dividendEvents[0].amount : 0;
+      
+      // For the sector and market median, we would ideally get this from another source
+      // For now, we'll use placeholder values that are realistic
+      return {
+        symbol,
+        dividendYield,
+        sectorMedian: 2.1, // Industry average placeholder
+        marketMedian: 1.5, // S&P 500 average placeholder
+        payoutAmount,
+        lastPaidDate
+      };
+    },
+    staleTime: 60 * 60 * 1000, // 1 hour
+    enabled: !!symbol && chartDataQuery.isSuccess,
   });
 }
 
@@ -352,6 +462,40 @@ export function useYahooEarningsData(symbol: string) {
     },
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
     enabled: !!symbol,
+  });
+}
+
+/**
+ * Hook to get dividend events for chart visualization
+ * This fetches data in the specified timeframe and formats it for a bar chart
+ */
+export function useYahooDividendEvents(symbol: string, timeFrame: string) {
+  const range = timeFrameToRange[timeFrame] || "1y";
+  
+  // Get the chart data with dividend events
+  const chartDataQuery = useQuery<YahooChartResponse>({
+    queryKey: ['/api/yahoo-finance/chart', symbol, range, 'dividends'],
+    queryFn: async () => fetchStockChartData(symbol, range),
+    staleTime: 60 * 60 * 1000, // 1 hour
+    enabled: !!symbol,
+  });
+  
+  // Format the dividend events for visualization
+  return useQuery<DividendChartData[]>({
+    queryKey: ['/api/yahoo-finance/dividend-events', symbol, range],
+    queryFn: async () => {
+      const chartData = chartDataQuery.data;
+      
+      if (!chartData) {
+        return [];
+      }
+      
+      // Extract and format dividend events
+      const dividendEvents = extractDividendEvents(chartData);
+      return formatDividendEventsForChart(dividendEvents);
+    },
+    staleTime: 60 * 60 * 1000, // 1 hour
+    enabled: !!symbol && chartDataQuery.isSuccess,
   });
 }
 

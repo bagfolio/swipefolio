@@ -8,14 +8,16 @@ import {
   useYahooDividendData, 
   useYahooEarningsData, 
   useYahooRevenueData,
+  useYahooDividendEvents,
   DividendData,
+  DividendChartData,
   EarningsData,
   RevenueData
 } from '@/lib/yahoo-finance-client';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ScatterChart, Scatter, ZAxis } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ScatterChart, Scatter, ZAxis, ComposedChart, Line } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { ArrowRight, BarChart as BarChartIcon, DollarSign, TrendingUp } from 'lucide-react';
+import { ArrowRight, BarChart as BarChartIcon, DollarSign, TrendingUp, Calendar } from 'lucide-react';
 
 interface ImprovedPerformanceChartProps {
   symbol: string;
@@ -27,14 +29,24 @@ const ImprovedPerformanceChart: React.FC<ImprovedPerformanceChartProps> = ({
   companyName
 }) => {
   const [activeView, setActiveView] = useState<string | null>(null);
+  const [timeFrame, setTimeFrame] = useState<string>('1Y'); // Default time frame
   
   // Fetch data using the Yahoo Finance hooks
-  const { data: dividendInfo, isLoading: isLoadingDividends } = useYahooDividendData(symbol);
+  const { data: dividendInfo, isLoading: isLoadingDividends } = useYahooDividendData(symbol, timeFrame);
+  const { data: dividendEvents, isLoading: isLoadingDividendEvents } = useYahooDividendEvents(symbol, timeFrame);
   const { data: earningsInfo, isLoading: isLoadingEarnings } = useYahooEarningsData(symbol);
   const { data: revenueInfo, isLoading: isLoadingRevenue } = useYahooRevenueData(symbol);
   
-  // Transform dividend data for the chart
-  const dividendData = useMemo(() => {
+  // Time frame options for charts
+  const timeFrameOptions = [
+    { value: '1Y', label: '1Y' },
+    { value: '3Y', label: '3Y' },
+    { value: '5Y', label: '5Y' },
+    { value: 'MAX', label: 'MAX' }
+  ];
+  
+  // Transform dividend data for the yield comparison chart
+  const dividendYieldData = useMemo(() => {
     if (!dividendInfo) return [];
     
     return [
@@ -56,6 +68,11 @@ const ImprovedPerformanceChart: React.FC<ImprovedPerformanceChartProps> = ({
     ];
   }, [dividendInfo, symbol]);
   
+  // Transform dividend events for the payments chart
+  const dividendPaymentsData = useMemo(() => {
+    return dividendEvents || [];
+  }, [dividendEvents]);
+  
   // Use earnings data from the hook
   const earningsData = useMemo(() => {
     return earningsInfo || [];
@@ -72,6 +89,10 @@ const ImprovedPerformanceChart: React.FC<ImprovedPerformanceChartProps> = ({
     } else {
       setActiveView(view); // Set new active view
     }
+  };
+  
+  const handleTimeFrameChange = (newTimeFrame: string) => {
+    setTimeFrame(newTimeFrame);
   };
   
   // Formatter for tooltip values
@@ -141,27 +162,104 @@ const ImprovedPerformanceChart: React.FC<ImprovedPerformanceChartProps> = ({
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
             >
+              {/* Time frame selector for dividends */}
               <div className="mb-4">
-                <h4 className="text-base font-medium mb-2">Dividend Yield Comparison</h4>
+                <Tabs 
+                  defaultValue={timeFrame}
+                  className="w-full" 
+                  onValueChange={handleTimeFrameChange}
+                >
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-base font-medium">Dividend History</h4>
+                    <TabsList className="grid grid-cols-4 h-8">
+                      {timeFrameOptions.map(option => (
+                        <TabsTrigger
+                          key={option.value}
+                          value={option.value}
+                          className="text-xs px-2"
+                        >
+                          {option.label}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </div>
+                </Tabs>
+
                 {dividendInfo ? (
-                  <div className="text-sm text-gray-500 mb-2">
+                  <div className="text-sm text-gray-500 mb-4">
                     <span className="font-medium">${dividendInfo.payoutAmount.toFixed(2)}</span> per share
                     <span className="mx-1">•</span>
                     <span className="text-gray-400">Last paid: {dividendInfo.lastPaidDate}</span>
+                    <span className="mx-1">•</span>
+                    <span className="text-gray-400">Yield: {dividendInfo.dividendYield.toFixed(2)}%</span>
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-500 mb-2">
+                  <div className="text-sm text-gray-500 mb-4">
                     Loading dividend information...
                   </div>
                 )}
               </div>
               
-              {/* Dividend yield bar chart */}
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  {dividendData.length > 0 ? (
+              {/* Dividend payments over time */}
+              <div className="h-64 w-full mb-6">
+                <h5 className="text-sm font-medium mb-2">Dividend Payments Over Time</h5>
+                <ResponsiveContainer width="100%" height="90%">
+                  {dividendPaymentsData.length > 0 ? (
                     <BarChart
-                      data={dividendData}
+                      data={dividendPaymentsData}
+                      margin={{ top: 10, right: 10, left: 10, bottom: 30 }}
+                      barGap={10}
+                      barCategoryGap="20%"
+                    >
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        interval={0}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#6b7280' }}
+                        tickFormatter={(value) => `$${value.toFixed(2)}`}
+                        domain={[0, 'dataMax * 1.2']}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Dividend Amount']}
+                        labelStyle={{ color: '#374151' }}
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '0.375rem',
+                          padding: '0.5rem'
+                        }}
+                      />
+                      <Bar 
+                        dataKey="value" 
+                        name="Dividend Payment"
+                        radius={[4, 4, 0, 0]}
+                        fill="#10b981"
+                        animationDuration={750}
+                      />
+                    </BarChart>
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center">
+                      <p className="text-gray-500">
+                        {isLoadingDividendEvents ? 'Loading dividend data...' : 'No dividend data available for this time period'}
+                      </p>
+                    </div>
+                  )}
+                </ResponsiveContainer>
+              </div>
+              
+              {/* Dividend yield comparison bar chart */}
+              <div className="h-64 w-full">
+                <h5 className="text-sm font-medium mb-2">Dividend Yield Comparison</h5>
+                <ResponsiveContainer width="100%" height="90%">
+                  {dividendYieldData.length > 0 ? (
+                    <BarChart
+                      data={dividendYieldData}
                       margin={{ top: 10, right: 10, left: 10, bottom: 30 }}
                       barGap={10}
                       barCategoryGap="20%"
@@ -181,7 +279,7 @@ const ImprovedPerformanceChart: React.FC<ImprovedPerformanceChartProps> = ({
                         domain={[0, 'dataMax + 1']}
                       />
                       <Tooltip 
-                        formatter={(value: number) => [`${value}%`, 'Dividend Yield']}
+                        formatter={(value: number) => [`${value.toFixed(2)}%`, 'Dividend Yield']}
                         labelStyle={{ color: '#374151' }}
                         contentStyle={{ 
                           backgroundColor: 'white', 
@@ -200,14 +298,14 @@ const ImprovedPerformanceChart: React.FC<ImprovedPerformanceChartProps> = ({
                     </BarChart>
                   ) : (
                     <div className="h-full w-full flex items-center justify-center">
-                      <p className="text-gray-500">Loading dividend data...</p>
+                      <p className="text-gray-500">Loading yield data...</p>
                     </div>
                   )}
                 </ResponsiveContainer>
               </div>
               
               <div className="mt-2 text-xs text-gray-500">
-                <p>Morningstar calculates dividend yield based on distributions. It measures the income generated by investing in the stock.</p>
+                <p>Dividend data sourced from Yahoo Finance. Historical payment amounts are shown as reported by the company.</p>
               </div>
             </motion.div>
           ) : activeView === 'earnings' ? (

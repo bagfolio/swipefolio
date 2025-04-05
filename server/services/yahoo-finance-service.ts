@@ -77,6 +77,7 @@ class YahooFinanceService {
           period1: this.getDateFromRange(range),
           interval: intradayInterval as any,
           includePrePost: true,
+          events: 'div,split', // Include dividend and split events
         });
         
         return result;
@@ -88,6 +89,7 @@ class YahooFinanceService {
           period1: this.getDateFromRange(range),
           interval: validInterval,
           includePrePost: true,
+          events: 'div,split', // Include dividend and split events
         });
         
         return result;
@@ -343,6 +345,10 @@ class YahooFinanceService {
       
       // Map and process the history items
       const historyItems = quoteSummary.upgradeDowngradeHistory.history.map(item => {
+        // Ensure epochGradeDate is a number
+        const epochGradeDate = typeof item.epochGradeDate === 'number' ? 
+          item.epochGradeDate : 
+          (item.epochGradeDate ? Number(item.epochGradeDate) : 0);
         // Determine action type based on from/to grades
         let action: 'upgrade' | 'downgrade' | 'maintain' | 'init' | 'reiterated' = 'maintain';
         
@@ -382,10 +388,10 @@ class YahooFinanceService {
         // The epochGradeDate is provided directly by Yahoo Finance API, so we use it as-is
         // without any fallbacks to ensure data integrity
         let date = 'Unknown';
-        if (item.epochGradeDate) {
+        if (epochGradeDate) {
           try {
             // Convert timestamp (seconds) to milliseconds for JavaScript Date
-            const timestamp = item.epochGradeDate * 1000;
+            const timestamp = epochGradeDate * 1000;
             const dateObj = new Date(timestamp);
             
             // Format the date string using standard formatting
@@ -396,7 +402,7 @@ class YahooFinanceService {
             });
             
             // Log the raw date information for debugging
-            console.log(`Analyst rating date for ${item.firm}: raw=${item.epochGradeDate}, formatted=${date}`);
+            console.log(`Analyst rating date for ${item.firm}: raw=${epochGradeDate}, formatted=${date}`);
           } catch (err) {
             console.error(`Error formatting date for ${item.firm}:`, err);
             // Keep the default "Unknown" in case of error
@@ -409,12 +415,12 @@ class YahooFinanceService {
           fromGrade: item.fromGrade || 'New Coverage',
           action,
           date,
-          epochGradeDate: item.epochGradeDate || 0
+          epochGradeDate
         };
       });
       
       // Sort by date (newest first)
-      return historyItems.sort((a, b) => b.epochGradeDate - a.epochGradeDate);
+      return historyItems.sort((a, b) => Number(b.epochGradeDate) - Number(a.epochGradeDate));
     } catch (error) {
       console.error(`Error fetching upgrade/downgrade history for ${symbol}:`, error);
       return null;
