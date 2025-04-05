@@ -7,6 +7,11 @@ interface AnalystSentimentProps {
 }
 
 export function AnalystSentiment({ symbol }: AnalystSentimentProps) {
+  // Only render if we have a valid symbol
+  if (!symbol) {
+    return null;
+  }
+  
   return (
     <div className="w-full max-w-3xl">
       <AnalystRatingsRedesign 
