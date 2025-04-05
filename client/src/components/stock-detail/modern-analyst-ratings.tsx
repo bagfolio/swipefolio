@@ -1,16 +1,30 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  BarChart2, TrendingUp, TrendingDown, ArrowUpRight, 
-  InfoIcon, RotateCcw, Calendar, Loader2 
+  BarChart2, Info, Loader2, ArrowRight,
+  HelpCircle, RotateCcw, ArrowUpRight, 
+  TrendingUp, TrendingDown, Calendar, 
+  InfoIcon
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { format, isValid, parseISO } from 'date-fns';
+import { format, isValid, parseISO, sub } from 'date-fns';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  Cell,
+  LabelList
+} from 'recharts';
 
 // Components for visualization
 import { 
   Card, 
-  CardContent 
+  CardContent,
+  CardHeader,
+  CardTitle
 } from '@/components/ui/card';
 import { 
   Tooltip,
@@ -18,7 +32,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
