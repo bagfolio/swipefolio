@@ -219,7 +219,7 @@ export interface DividendData {
   sectorMedian: number;
   marketMedian: number;
   payoutAmount: number;
-  lastPaidDate: string;
+  lastPaidDate: string | number;
 }
 
 export interface DividendChartData {
@@ -551,6 +551,13 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
 
       const stockYields: number[] = [];
       const sp500Yields: number[] = [];
+      
+      console.log(`[DEBUG] Calculating dividend yields for ${symbol} vs S&P 500`);
+      console.log(`[DEBUG] Stock dividend events:`, stockData.events?.dividends);
+      console.log(`[DEBUG] S&P 500 dividend events:`, sp500Data.events?.dividends);
+      console.log(`[DEBUG] Recent quarters:`, recentQuarters);
+      console.log(`[DEBUG] Stock dividend values:`, stockDividendValues);
+      console.log(`[DEBUG] S&P 500 dividend values:`, sp500DividendValues);
 
       recentQuarters.forEach((quarter, index) => {
         const stockDiv = stockDividendValues[index];
@@ -560,38 +567,59 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
         const yearNum = parseInt(year);
         const endMonth = (quarterNum * 3) + 2;
         const endDate = new Date(yearNum, endMonth, 31);
+        console.log(`[DEBUG] Quarter: ${quarter}, End date: ${endDate.toISOString()}`);
 
+        // Try to find a quote close to the end of the quarter for the stock
         let stockPrice = 0;
         if (stockData.quotes && stockData.quotes.length > 0) {
           const lastQuoteBeforeEnd = stockData.quotes
             .filter(quote => new Date(quote.date) <= endDate)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-
+          
           if (lastQuoteBeforeEnd) {
             stockPrice = lastQuoteBeforeEnd.close;
+            console.log(`[DEBUG] ${symbol} price for ${quarter}: $${stockPrice.toFixed(2)} (${lastQuoteBeforeEnd.date})`);
           } else {
+            // Fall back to the last quote
             stockPrice = stockData.quotes[stockData.quotes.length - 1].close;
+            console.log(`[DEBUG] ${symbol} fallback price: $${stockPrice.toFixed(2)}`);
           }
+        } else {
+          console.log(`[DEBUG] No quote data available for ${symbol}`);
         }
-
+        
+        // Do the same for S&P 500
         let sp500Price = 0;
         if (sp500Data.quotes && sp500Data.quotes.length > 0) {
           const lastQuoteBeforeEnd = sp500Data.quotes
             .filter(quote => new Date(quote.date) <= endDate)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-
+          
           if (lastQuoteBeforeEnd) {
             sp500Price = lastQuoteBeforeEnd.close;
+            console.log(`[DEBUG] S&P 500 price for ${quarter}: $${sp500Price.toFixed(2)} (${lastQuoteBeforeEnd.date})`);
           } else {
+            // Fall back to the last quote
             sp500Price = sp500Data.quotes[sp500Data.quotes.length - 1].close;
+            console.log(`[DEBUG] S&P 500 fallback price: $${sp500Price.toFixed(2)}`);
           }
+        } else {
+          console.log(`[DEBUG] No quote data available for S&P 500`);
         }
-
+        
+        // Calculate quarterly dividend yield
         const stockQuarterlyYield = stockPrice > 0 ? (stockDiv / stockPrice) * 100 : 0;
         const sp500QuarterlyYield = sp500Price > 0 ? (sp500Div / sp500Price) * 100 : 0;
-
-        stockYields.push(stockQuarterlyYield * 4);
-        sp500Yields.push(sp500QuarterlyYield * 4);
+        
+        // Annualize the yield (multiply by 4 for quarterly)
+        const annualizedStockYield = stockQuarterlyYield * 4;
+        const annualizedSP500Yield = sp500QuarterlyYield * 4;
+        
+        console.log(`[DEBUG] ${quarter} - ${symbol} div: $${stockDiv.toFixed(4)}, yield: ${annualizedStockYield.toFixed(2)}%`);
+        console.log(`[DEBUG] ${quarter} - S&P 500 div: $${sp500Div.toFixed(4)}, yield: ${annualizedSP500Yield.toFixed(2)}%`);
+        
+        stockYields.push(annualizedStockYield);
+        sp500Yields.push(annualizedSP500Yield);
       });
 
       return {
