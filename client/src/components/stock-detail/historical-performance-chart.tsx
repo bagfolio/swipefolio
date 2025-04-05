@@ -838,126 +838,259 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                 </div>
               </div>
               
-              {/* Dividend data table */}
+              {/* Summary statistics for dividends */}
               {dividendData.length > 0 && (
-                <div className="overflow-hidden rounded-lg border border-gray-200">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yield</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {dividendData.map((dividend, index) => (
-                        <tr key={index} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dividend.date}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${dividend.amount.toFixed(2)}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dividend.yield}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="flex flex-wrap gap-4 p-4 bg-gray-50 rounded-lg mt-4">
+                  <div className="flex-1 min-w-[160px]">
+                    <h5 className="text-xs text-gray-500 mb-1">Latest Dividend</h5>
+                    <div className="text-xl font-semibold text-blue-600">
+                      ${dividendData[0]?.amount.toFixed(2)}
+                    </div>
+                    <div className="text-xs text-gray-700 mt-1">
+                      {dividendData[0]?.date}
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 min-w-[160px]">
+                    <h5 className="text-xs text-gray-500 mb-1">Annual Yield</h5>
+                    <div className="text-xl font-semibold text-emerald-600">
+                      {dividendData.length >= 4 ? 
+                        `${((dividendData.slice(0, 4).reduce((sum, div) => sum + div.amount, 0) / 
+                        (chartData?.quotes?.[chartData.quotes.length - 1]?.close || 100)) * 100).toFixed(2)}%` : 
+                        'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-700 mt-1">
+                      Based on current price
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 min-w-[160px]">
+                    <h5 className="text-xs text-gray-500 mb-1">Payment Frequency</h5>
+                    <div className="text-xl font-semibold text-gray-700">
+                      {dividendData.length >= 3 ? 'Quarterly' : 'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-700 mt-1">
+                      {dividendData.length} payment(s) found
+                    </div>
+                  </div>
                 </div>
               )}
               
-              {/* Dividend payments bar chart */}
+              {/* Dividend payment history button */}
               {dividendData.length > 0 && (
-                <div className="w-full h-[240px] mt-6">
-                  <h4 className="text-sm font-medium mb-2">Dividend Payment History</h4>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={dividendData.slice().reverse()}
-                      margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
-                      barSize={20}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis 
-                        dataKey="date" 
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 10, fill: '#6b7280' }}
-                        angle={-30}
-                        textAnchor="end"
-                        height={50}
-                      />
-                      <YAxis 
-                        domain={[(dataMin: number) => Math.floor(dataMin * 0.9), 
-                                (dataMax: number) => Math.ceil(dataMax * 1.1)]}
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 12, fill: '#6b7280' }}
-                        tickFormatter={(value) => `$${value.toFixed(2)}`}
-                      />
-                      <Tooltip 
-                        formatter={(value: number) => [`$${value.toFixed(2)}`, 'Dividend']}
-                        labelFormatter={(label) => `Date: ${label}`}
-                      />
-                      <Bar
-                        name={`${symbol} Dividends`}
-                        dataKey="amount"
-                        fill={stockColor}
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div className="mt-6">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="w-full border-dashed"
+                    onClick={() => {
+                      const element = document.getElementById('dividend-history-details');
+                      if (element) {
+                        element.style.display = element.style.display === 'none' ? 'block' : 'none';
+                      }
+                    }}
+                  >
+                    <DollarSign className="h-4 w-4 mr-1.5" />
+                    <span>Show Dividend History Details</span>
+                  </Button>
+                  
+                  <div id="dividend-history-details" className="mt-4 space-y-6" style={{ display: 'none' }}>
+                    {/* Dividend payment history bar chart */}
+                    <div className="w-full h-[240px]">
+                      <h4 className="text-sm font-medium mb-2">Dividend Payment History</h4>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={dividendData.slice().reverse()}
+                          margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
+                          barSize={20}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                          <XAxis 
+                            dataKey="date" 
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 10, fill: '#6b7280' }}
+                            angle={-30}
+                            textAnchor="end"
+                            height={50}
+                          />
+                          <YAxis 
+                            domain={[(dataMin: number) => Math.floor(dataMin * 0.9), 
+                                    (dataMax: number) => Math.ceil(dataMax * 1.1)]}
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fontSize: 12, fill: '#6b7280' }}
+                            tickFormatter={(value) => `$${value.toFixed(2)}`}
+                          />
+                          <Tooltip 
+                            formatter={(value: number) => [`$${value.toFixed(2)}`, 'Dividend']}
+                            labelFormatter={(label) => `Date: ${label}`}
+                          />
+                          <Bar
+                            name={`${symbol} Dividends`}
+                            dataKey="amount"
+                            fill={stockColor}
+                            radius={[4, 4, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    
+                    {/* Dividend data table */}
+                    <div className="overflow-hidden rounded-lg border border-gray-200">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Yield</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {dividendData.map((dividend, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dividend.date}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${dividend.amount.toFixed(2)}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{dividend.yield}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               )}
               
-              {/* Dividend comparison with S&P 500 */}
+              {/* Dividend payments bar chart - hidden inside history details */}
+              {/* Moved inside the history details section */}
+              
+              {/* Dividend payment amount comparison (hidden by default) */}
               {dividendComparisonData && dividendComparisonData.quarters && dividendComparisonData.quarters.length > 0 && (
-                <div className="w-full h-[280px] mt-8">
-                  <h4 className="text-sm font-medium mb-2">Dividend Comparison with S&P 500</h4>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={dividendComparisonData.quarters.map((quarter, index) => ({
-                        quarter,
-                        stockDividend: dividendComparisonData.stockDividends[index] || 0,
-                        sp500Dividend: dividendComparisonData.sp500Dividends[index] || 0
-                      }))}
-                      margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
-                      barSize={20}
-                      barGap={5}
+                <div className="space-y-2 mt-6">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Dividend Yield Comparison with S&P 500</h4>
+                    
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="text-xs h-8"
+                      onClick={() => {
+                        const element = document.getElementById('dividend-payment-details');
+                        if (element) {
+                          element.style.display = element.style.display === 'none' ? 'block' : 'none';
+                        }
+                      }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis 
-                        dataKey="quarter" 
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 10, fill: '#6b7280' }}
-                        angle={-30}
-                        textAnchor="end"
-                        height={50}
-                      />
-                      <YAxis 
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 12, fill: '#6b7280' }}
-                        tickFormatter={(value) => `$${value.toFixed(2)}`}
-                      />
-                      <Tooltip 
-                        formatter={(value: number, name: string) => {
-                          let label = name === 'stockDividend' ? `${symbol} Dividend` : 'S&P 500 Dividend';
-                          return [`$${value.toFixed(2)}`, label];
-                        }}
-                        labelFormatter={(label) => `Quarter: ${label}`}
-                      />
-                      <Legend />
-                      <Bar
-                        name={`${symbol}`}
-                        dataKey="stockDividend"
-                        fill={stockColor}
-                        radius={[4, 4, 0, 0]}
-                      />
-                      <Bar
-                        name="S&P 500"
-                        dataKey="sp500Dividend"
-                        fill={sp500Color}
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
+                      Payment Details
+                    </Button>
+                  </div>
+                  
+                  {/* Dividend Yield Comparison Chart - ALWAYS SHOWN */}
+                  <div className="w-full h-[220px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={dividendComparisonData.quarters.map((quarter, index) => ({
+                          quarter,
+                          stockYield: dividendComparisonData.stockYields[index] || 0,
+                          sp500Yield: dividendComparisonData.sp500Yields[index] || 0
+                        }))}
+                        margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+                        barSize={20}
+                        barGap={5}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                        <XAxis 
+                          dataKey="quarter" 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 10, fill: '#6b7280' }}
+                          angle={-30}
+                          textAnchor="end"
+                          height={50}
+                        />
+                        <YAxis 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 12, fill: '#6b7280' }}
+                          tickFormatter={(value) => `${value.toFixed(2)}%`}
+                        />
+                        <Tooltip 
+                          formatter={(value: number, name: string) => {
+                            let label = name === 'stockYield' ? `${symbol} Yield` : 'S&P 500 Yield';
+                            return [`${value.toFixed(2)}%`, label];
+                          }}
+                          labelFormatter={(label) => `Quarter: ${label}`}
+                        />
+                        <Legend />
+                        <Bar
+                          name={`${symbol} Yield`}
+                          dataKey="stockYield"
+                          fill={stockColor}
+                          radius={[4, 4, 0, 0]}
+                        />
+                        <Bar
+                          name="S&P 500 Yield"
+                          dataKey="sp500Yield"
+                          fill={sp500Color}
+                          radius={[4, 4, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
+                  {/* Dividend Payment Amount Comparison Chart - HIDDEN BY DEFAULT */}
+                  <div id="dividend-payment-details" className="w-full h-[220px] mt-8" style={{ display: 'none' }}>
+                    <h4 className="text-sm font-medium mb-2">Dividend Payment Amounts</h4>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={dividendComparisonData.quarters.map((quarter, index) => ({
+                          quarter,
+                          stockDividend: dividendComparisonData.stockDividends[index] || 0,
+                          sp500Dividend: dividendComparisonData.sp500Dividends[index] || 0
+                        }))}
+                        margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
+                        barSize={20}
+                        barGap={5}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                        <XAxis 
+                          dataKey="quarter" 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 10, fill: '#6b7280' }}
+                          angle={-30}
+                          textAnchor="end"
+                          height={50}
+                        />
+                        <YAxis 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fontSize: 12, fill: '#6b7280' }}
+                          tickFormatter={(value) => `$${value.toFixed(2)}`}
+                        />
+                        <Tooltip 
+                          formatter={(value: number, name: string) => {
+                            let label = name === 'stockDividend' ? `${symbol} Dividend` : 'S&P 500 Dividend';
+                            return [`$${value.toFixed(2)}`, label];
+                          }}
+                          labelFormatter={(label) => `Quarter: ${label}`}
+                        />
+                        <Legend />
+                        <Bar
+                          name={`${symbol}`}
+                          dataKey="stockDividend"
+                          fill={stockColor}
+                          radius={[4, 4, 0, 0]}
+                        />
+                        <Bar
+                          name="S&P 500"
+                          dataKey="sp500Dividend"
+                          fill={sp500Color}
+                          radius={[4, 4, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               )}
               

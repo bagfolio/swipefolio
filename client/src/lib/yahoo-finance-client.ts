@@ -283,6 +283,8 @@ export interface DividendComparisonData {
   quarters: string[];
   stockDividends: number[];
   sp500Dividends: number[];
+  stockYields: number[];
+  sp500Yields: number[];
   stockSymbol: string;
 }
 
@@ -331,11 +333,36 @@ export function formatDividendEventsForChart(dividendEvents: YahooDividendEvent[
   
   // Create data points for the bar chart
   return sortedEvents.map((div, index) => {
-    const date = new Date(div.date);
-    const formattedDate = date.toLocaleDateString(undefined, { 
-      month: 'short', 
-      year: '2-digit' 
-    });
+    let formattedDate = "Unknown";
+    try {
+      // Parse the date from the dividend object
+      const date = new Date(div.date);
+      
+      // Check for invalid years (1970 indicates a timestamp issue)
+      const year = date.getFullYear();
+      if (year < 2000 || year > new Date().getFullYear()) {
+        // Try to extract quarter/month info from the original string
+        const parts = div.date.split(' ');
+        if (parts.length > 1) {
+          // Try to preserve month/quarter information if available
+          formattedDate = `${parts[0]} ${new Date().getFullYear()}`;
+        } else {
+          // Default to a recent quarter if we can't extract useful information
+          const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+          const currentQuarter = Math.floor((new Date().getMonth() / 3));
+          formattedDate = `${quarters[currentQuarter]} ${new Date().getFullYear()}`;
+        }
+      } else {
+        // Valid date, format it nicely
+        formattedDate = date.toLocaleDateString(undefined, { 
+          month: 'short', 
+          year: 'numeric' 
+        });
+      }
+    } catch (e) {
+      console.error("Error formatting dividend date:", e);
+      formattedDate = `Payment ${index + 1}`;
+    }
     
     return {
       name: formattedDate,
@@ -601,10 +628,71 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
         sp500DividendValues.push(sp500Div ? sp500Div.amount : 0);
       });
       
+      // Calculate yield data for each quarter
+      // For this, we need the stock price at each quarter end
+      const stockYields: number[] = [];
+      const sp500Yields: number[] = [];
+      
+      recentQuarters.forEach((quarter, index) => {
+        const stockDiv = stockDividendValues[index];
+        const sp500Div = sp500DividendValues[index];
+        
+        // Parse quarter string (e.g., "Q1 2023")
+        const [q, year] = quarter.split(' ');
+        const quarterNum = parseInt(q.substring(1)) - 1; // Q1 -> 0, Q2 -> 1, etc.
+        const yearNum = parseInt(year);
+        
+        // Get the month at the end of the quarter
+        const endMonth = (quarterNum * 3) + 2; // Last month of quarter
+        
+        // Find the last quote before the end of the quarter
+        const endDate = new Date(yearNum, endMonth, 31); // Last possible day
+        
+        // Try to find a quote close to the end of the quarter for the stock
+        let stockPrice = 0;
+        if (stockData.quotes && stockData.quotes.length > 0) {
+          const lastQuoteBeforeEnd = stockData.quotes
+            .filter(quote => new Date(quote.date) <= endDate)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+          
+          if (lastQuoteBeforeEnd) {
+            stockPrice = lastQuoteBeforeEnd.close;
+          } else {
+            // Fall back to the last quote
+            stockPrice = stockData.quotes[stockData.quotes.length - 1].close;
+          }
+        }
+        
+        // Do the same for S&P 500
+        let sp500Price = 0;
+        if (sp500Data.quotes && sp500Data.quotes.length > 0) {
+          const lastQuoteBeforeEnd = sp500Data.quotes
+            .filter(quote => new Date(quote.date) <= endDate)
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+          
+          if (lastQuoteBeforeEnd) {
+            sp500Price = lastQuoteBeforeEnd.close;
+          } else {
+            // Fall back to the last quote
+            sp500Price = sp500Data.quotes[sp500Data.quotes.length - 1].close;
+          }
+        }
+        
+        // Calculate quarterly dividend yield
+        const stockQuarterlyYield = stockPrice > 0 ? (stockDiv / stockPrice) * 100 : 0;
+        const sp500QuarterlyYield = sp500Price > 0 ? (sp500Div / sp500Price) * 100 : 0;
+        
+        // Annualize the yield (multiply by 4 for quarterly)
+        stockYields.push(stockQuarterlyYield * 4);
+        sp500Yields.push(sp500QuarterlyYield * 4);
+      });
+      
       return {
         quarters: recentQuarters,
         stockDividends: stockDividendValues,
         sp500Dividends: sp500DividendValues,
+        stockYields: stockYields,
+        sp500Yields: sp500Yields,
         stockSymbol: symbol
       };
     },
