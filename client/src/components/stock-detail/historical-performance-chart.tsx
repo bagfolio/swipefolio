@@ -123,7 +123,8 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
   const [timeFrame, setTimeFrame] = useState('1Y');
   const [showMonthlyReturns, setShowMonthlyReturns] = useState(false);
   const [activeDataTab, setActiveDataTab] = useState('main');
-  const [showBenchmarks, setShowBenchmarks] = useState(true);
+  // S&P 500 comparison is always shown by default
+  const showBenchmarks = true;
   const [chartType, setChartType] = useState<'line' | 'bar'>('line');
   
   // Fetch stock chart data
@@ -249,7 +250,6 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
   // Set up chart colors
   const stockColor = '#2563eb'; // blue-600
   const sp500Color = '#10b981'; // emerald-500
-  const industryColor = '#8b5cf6'; // violet-500
   const gradientStartColor = 'rgba(37, 99, 235, 0.2)'; // blue-600 with alpha
   const gradientEndColor = 'rgba(37, 99, 235, 0)'; // transparent
   
@@ -441,20 +441,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                     </Label>
                   </div>
                   
-                  {/* S&P 500 comparison toggle */}
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="benchmark-toggle"
-                      checked={showBenchmarks}
-                      onCheckedChange={setShowBenchmarks}
-                    />
-                    <Label
-                      htmlFor="benchmark-toggle"
-                      className="text-sm text-gray-700 cursor-pointer"
-                    >
-                      Compare with S&P 500
-                    </Label>
-                  </div>
+                  {/* Chart type label only */}
                 </div>
               </div>
               
@@ -617,14 +604,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                             dot={false}
                             activeDot={{ r: 4, strokeWidth: 0 }}
                           />
-                          <Line
-                            type="monotone"
-                            dataKey="industry"
-                            stroke={industryColor}
-                            strokeWidth={1.5}
-                            dot={false}
-                            activeDot={{ r: 4, strokeWidth: 0 }}
-                          />
+
                         </>
                       )}
                     </LineChart>
@@ -646,10 +626,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         <span className="inline-block w-3 h-3 bg-emerald-500 rounded-full mr-2"></span>
                         <span className="text-sm text-gray-700">S&P 500</span>
                       </div>
-                      <div className="flex items-center">
-                        <span className="inline-block w-3 h-3 bg-violet-500 rounded-full mr-2"></span>
-                        <span className="text-sm text-gray-700">Industry Average</span>
-                      </div>
+
                     </>
                   )}
                 </div>
