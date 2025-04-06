@@ -611,12 +611,7 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
       const stockYields: number[] = [];
       const vooYields: number[] = [];
       
-      console.log(`[DEBUG] Calculating dividend yields for ${symbol} vs VOO (S&P 500 ETF)`);
-      console.log(`[DEBUG] Stock dividend events:`, stockData.events?.dividends);
-      console.log(`[DEBUG] VOO dividend events:`, vooData.events?.dividends);
-      console.log(`[DEBUG] Recent quarters:`, recentQuarters);
-      console.log(`[DEBUG] Stock dividend values:`, stockDividendValues);
-      console.log(`[DEBUG] VOO dividend values:`, vooDividendValues);
+      // Dividend calculations complete
 
       recentQuarters.forEach((quarter, index) => {
         const stockDiv = stockDividendValues[index];
