@@ -66,7 +66,6 @@ export const timeFrameToRange: Record<string, string> = {
   "3M": "3mo",
   "6M": "6mo",
   "1Y": "1y",
-  "3Y": "3y",
   "5Y": "5y",
   "MAX": "max"
 };
@@ -152,8 +151,6 @@ function formatDateByTimeFrame(dateStr: string, timeFrame: string): string {
       return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
     case "1Y":
       return date.toLocaleDateString([], { month: 'short' });
-    case "3Y":
-      return date.toLocaleDateString([], { month: 'short', year: '2-digit' });
     case "5Y":
     case "MAX":
       return date.getFullYear().toString();
@@ -611,7 +608,12 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
       const stockYields: number[] = [];
       const vooYields: number[] = [];
       
-      // Dividend calculations complete
+      console.log(`[DEBUG] Calculating dividend yields for ${symbol} vs VOO (S&P 500 ETF)`);
+      console.log(`[DEBUG] Stock dividend events:`, stockData.events?.dividends);
+      console.log(`[DEBUG] VOO dividend events:`, vooData.events?.dividends);
+      console.log(`[DEBUG] Recent quarters:`, recentQuarters);
+      console.log(`[DEBUG] Stock dividend values:`, stockDividendValues);
+      console.log(`[DEBUG] VOO dividend values:`, vooDividendValues);
 
       recentQuarters.forEach((quarter, index) => {
         const stockDiv = stockDividendValues[index];

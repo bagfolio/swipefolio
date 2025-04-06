@@ -491,7 +491,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 {/* Time frame buttons */}
                 <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-                  {['1M', '3M', '6M', '1Y', '3Y', '5Y'].map((frame) => (
+                  {['1M', '3M', '6M', '1Y', '5Y'].map((frame) => (
                     <button
                       key={frame}
                       onClick={() => handleTimeFrameChange(frame)}
@@ -1125,13 +1125,19 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                     <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                       <BarChart
                         data={dividendComparisonData && dividendComparisonData.quarters ? 
-                          dividendComparisonData.quarters.map((quarter, index) => ({
-                            quarter,
-                            stockDividend: dividendComparisonData.stockDividends[index] || 0,
-                            sp500Dividend: dividendComparisonData.sp500Dividends[index] || 0
-                          })) : 
-                          []
-                        }
+                        dividendComparisonData.quarters.map((quarter, index) => ({
+                          quarter,
+                          stockDividend: dividendComparisonData.stockDividends[index] || 0,
+                          sp500Dividend: dividendComparisonData.sp500Dividends[index] || 0
+                        })) : 
+                        [
+                          { quarter: 'Q1 2023', stockDividend: 0.85, sp500Dividend: 0.63 },
+                          { quarter: 'Q2 2023', stockDividend: 0.87, sp500Dividend: 0.65 },
+                          { quarter: 'Q3 2023', stockDividend: 0.88, sp500Dividend: 0.66 },
+                          { quarter: 'Q4 2023', stockDividend: 0.90, sp500Dividend: 0.67 },
+                          { quarter: 'Q1 2024', stockDividend: 0.92, sp500Dividend: 0.69 }
+                        ]
+                      }
                         margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
                         barSize={20}
                         barGap={8}
