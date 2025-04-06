@@ -13,7 +13,7 @@ export default function AppHeader() {
         </div>
         
         <div className="absolute left-1/2 transform -translate-x-1/2 font-sans text-slate-800 text-xl font-semibold tracking-tight">
-          Swipefolio
+          Swipefolio<sup className="text-xs">™</sup>
         </div>
         
         <div className="flex space-x-2">

@@ -52,7 +52,7 @@ export default function QRCodeModal({ isOpen, onClose }: QRCodeModalProps) {
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md bg-gray-900 border-gray-800 text-white">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-center">Open Swipefolio on your phone</DialogTitle>
+          <DialogTitle className="text-xl font-bold text-center">Open Swipefolio<sup className="text-xs">™</sup> on your phone</DialogTitle>
           <DialogDescription className="text-gray-400 text-center">
             Scan this QR code with your phone's camera to open the app
           </DialogDescription>

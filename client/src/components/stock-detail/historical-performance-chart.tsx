@@ -170,7 +170,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
         date: new Date(quote.date).toLocaleDateString('en-US', { 
           month: 'short', 
           day: 'numeric',
-          year: timeFrame === '1Y' || timeFrame === '5Y' || timeFrame === 'MAX' ? 'numeric' : undefined
+          year: timeFrame === '1Y' || timeFrame =='3Y'|| timeFrame === '5Y' || timeFrame === 'MAX' ? 'numeric' : undefined
         }),
         rawDate: quote.date,
         value: quote.close, // Use actual price for the main chart
