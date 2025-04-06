@@ -66,6 +66,7 @@ export const timeFrameToRange: Record<string, string> = {
   "3M": "3mo",
   "6M": "6mo",
   "1Y": "1y",
+  "3Y": "3y",
   "5Y": "5y",
   "MAX": "max"
 };
@@ -151,6 +152,8 @@ function formatDateByTimeFrame(dateStr: string, timeFrame: string): string {
       return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
     case "1Y":
       return date.toLocaleDateString([], { month: 'short' });
+    case "3Y":
+      return date.toLocaleDateString([], { month: 'short', year: '2-digit' });
     case "5Y":
     case "MAX":
       return date.getFullYear().toString();

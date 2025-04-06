@@ -491,7 +491,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 {/* Time frame buttons */}
                 <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-                  {['1M', '3M', '6M', '1Y', '5Y'].map((frame) => (
+                  {['1M', '3M', '6M', '1Y', '3Y', '5Y'].map((frame) => (
                     <button
                       key={frame}
                       onClick={() => handleTimeFrameChange(frame)}
