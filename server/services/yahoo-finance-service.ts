@@ -547,6 +547,8 @@ class YahooFinanceService {
         return new Date(now.setFullYear(now.getFullYear() - 1));
       case '2y':
         return new Date(now.setFullYear(now.getFullYear() - 2));
+      case '3y': // Add explicit 3Y case
+        return new Date(now.setFullYear(now.getFullYear() - 3));
       case '5y':
         return new Date(now.setFullYear(now.getFullYear() - 5));
       case '10y':

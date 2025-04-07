@@ -66,6 +66,7 @@ export const timeFrameToRange: Record<string, string> = {
   "3M": "3mo",
   "6M": "6mo",
   "1Y": "1y",
+  "3Y": "3y", // Add 3Y mapping explicitly
   "5Y": "5y",
   "MAX": "max"
 };
@@ -151,6 +152,8 @@ function formatDateByTimeFrame(dateStr: string, timeFrame: string): string {
       return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
     case "1Y":
       return date.toLocaleDateString([], { month: 'short' });
+    case "3Y": // Add explicit 3Y case
+      return date.toLocaleDateString([], { month: 'short', year: 'numeric' });
     case "5Y":
     case "MAX":
       return date.getFullYear().toString();
@@ -340,6 +343,8 @@ function parseSafeDividendDate(dateInput: string | number): Date {
   // Always try to use current time for logging purposes
   const currentYear = new Date().getFullYear();
   const fallbackDate = new Date();
+  // Allow dates up to 20 years in the past for MAX timeframe support
+  const minYear = currentYear - 20;
   
   // Handle numeric timestamps
   if (typeof dateInput === 'number' || !isNaN(parseInt(String(dateInput), 10))) {
@@ -349,8 +354,8 @@ function parseSafeDividendDate(dateInput: string | number): Date {
     if (timestamp < 10000000000) {
       const date = new Date(timestamp * 1000);
       
-      // Validate the resulting year is reasonable (within 5 years of current date)
-      if (date.getFullYear() >= (currentYear - 5) && date.getFullYear() <= (currentYear + 1)) {
+      // Validate the resulting year is reasonable (within 20 years of current date)
+      if (date.getFullYear() >= minYear && date.getFullYear() <= (currentYear + 1)) {
         console.log(`Valid date from seconds: ${timestamp} → ${date.toISOString()}`);
         return date;
       } else {
@@ -361,7 +366,7 @@ function parseSafeDividendDate(dateInput: string | number): Date {
     } else {
       // JavaScript timestamp (milliseconds since epoch)
       const date = new Date(timestamp);
-      if (date.getFullYear() >= (currentYear - 5) && date.getFullYear() <= (currentYear + 1)) {
+      if (date.getFullYear() >= minYear && date.getFullYear() <= (currentYear + 1)) {
         console.log(`Valid date from ms: ${timestamp} → ${date.toISOString()}`);
         return date;
       } else {
@@ -377,7 +382,7 @@ function parseSafeDividendDate(dateInput: string | number): Date {
     const directDate = new Date(dateInput);
     if (!isNaN(directDate.getTime())) {
       // Validate the year is reasonable
-      if (directDate.getFullYear() >= (currentYear - 5) && directDate.getFullYear() <= (currentYear + 1)) {
+      if (directDate.getFullYear() >= minYear && directDate.getFullYear() <= (currentYear + 1)) {
         return directDate;
       }
     }
@@ -394,8 +399,23 @@ function parseSafeDividendDate(dateInput: string | number): Date {
       );
       
       // Validate the year
-      if (parsedDate.getFullYear() >= (currentYear - 5) && parsedDate.getFullYear() <= (currentYear + 1)) {
+      if (parsedDate.getFullYear() >= minYear && parsedDate.getFullYear() <= (currentYear + 1)) {
         return parsedDate;
+      }
+    }
+    
+    // Try to parse Unix timestamp in string format
+    if (/^\d+$/.test(dateInput)) {
+      const timestamp = parseInt(dateInput, 10);
+      if (!isNaN(timestamp)) {
+        // Determine if it's seconds or milliseconds
+        const date = timestamp < 10000000000 
+          ? new Date(timestamp * 1000) // seconds
+          : new Date(timestamp);       // milliseconds
+        
+        if (date.getFullYear() >= minYear && date.getFullYear() <= (currentYear + 1)) {
+          return date;
+        }
       }
     }
   }
@@ -553,164 +573,209 @@ export function useYahooDividendComparison(symbol: string, timeFrame: string) {
       if (!stockData || !vooData) {
         throw new Error('Chart data not available');
       }
-
-      const stockDividends = extractDividendEvents(stockData);
-      const vooDividends = extractDividendEvents(vooData);
-      const allDates = [...stockDividends, ...vooDividends].map(div => parseSafeDividendDate(div.date));
-      const sortedDates = allDates.sort((a, b) => a.getTime() - b.getTime());
-      const quarters: string[] = [];
-      const seenQuarters = new Set<string>();
-
-      sortedDates.forEach(date => {
-        const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${date.getFullYear()}`;
-        if (!seenQuarters.has(quarter)) {
-          seenQuarters.add(quarter);
-          quarters.push(quarter);
-        }
-      });
-
-      // Adjust the number of quarters to show based on the timeFrame
-      let numQuarters = 8; // Default for 1Y-2Y
       
-      if (timeFrame === '3Y') {
-        numQuarters = 12; // Show 3 years (12 quarters)
-      } else if (timeFrame === '5Y' || timeFrame === 'MAX') {
-        numQuarters = 20; // Show 5 years (20 quarters)
+      // Extract dividend events and convert to normal Date objects
+      const stockDividends = extractDividendEvents(stockData).map(div => ({
+        ...div,
+        dateObj: parseSafeDividendDate(div.date)
+      }));
+      
+      const vooDividends = extractDividendEvents(vooData).map(div => ({
+        ...div,
+        dateObj: parseSafeDividendDate(div.date)
+      }));
+      
+      console.log(`[DEBUG] Processing dividend data for timeFrame: ${timeFrame}`);
+      console.log(`[DEBUG] Stock dividend count: ${stockDividends.length}`);
+      console.log(`[DEBUG] VOO dividend count: ${vooDividends.length}`);
+      
+      // Determine the time range to use based on the timeFrame
+      const now = new Date();
+      let startDate: Date;
+      
+      // Set appropriate start date based on timeFrame
+      switch(timeFrame) {
+        case '1Y':
+          startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+          break;
+        case '3Y':
+          startDate = new Date(now.getFullYear() - 3, now.getMonth(), now.getDate());
+          break;
+        case '5Y':
+          startDate = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
+          break;
+        case 'MAX':
+          startDate = new Date(2000, 0, 1); // Reasonable starting point
+          break;
+        default:
+          startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
       }
       
-      // Get the most recent quarters based on the timeFrame
-      const recentQuarters = quarters.slice(-numQuarters);
+      console.log(`[DEBUG] Using start date: ${startDate.toISOString()} for timeFrame: ${timeFrame}`);
+      
+      // Filter dividends to the chosen time range
+      const filteredStockDividends = stockDividends
+        .filter(div => div.dateObj >= startDate)
+        .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+      
+      const filteredVooDividends = vooDividends
+        .filter(div => div.dateObj >= startDate)
+        .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime());
+      
+      console.log(`[DEBUG] Filtered stock dividend count: ${filteredStockDividends.length}`);
+      console.log(`[DEBUG] Filtered VOO dividend count: ${filteredVooDividends.length}`);
+      
+      // Generate a complete set of quarters for the time range
+      const quarters: string[] = [];
+      const startYear = startDate.getFullYear();
+      const startQuarter = Math.floor(startDate.getMonth() / 3) + 1;
+      const endYear = now.getFullYear();
+      const endQuarter = Math.floor(now.getMonth() / 3) + 1;
+      
+      // Generate all quarters in the range
+      for (let year = startYear; year <= endYear; year++) {
+        const startQ = (year === startYear) ? startQuarter : 1;
+        const endQ = (year === endYear) ? endQuarter : 4;
+        
+        for (let quarter = startQ; quarter <= endQ; quarter++) {
+          quarters.push(`Q${quarter} ${year}`);
+        }
+      }
+      
+      console.log(`[DEBUG] Generated ${quarters.length} quarters from ${quarters[0]} to ${quarters[quarters.length - 1]}`);
+      
+      // Calculate dividend values for each quarter
       const stockDividendValues: number[] = [];
       const vooDividendValues: number[] = [];
-
-      recentQuarters.forEach(quarter => {
-        const [q, year] = quarter.split(' ');
-        const quarterNum = parseInt(q.substring(1)) - 1;
-        const yearNum = parseInt(year);
-        const startMonth = quarterNum * 3;
-        const endMonth = startMonth + 3;
-        const startDate = new Date(yearNum, startMonth, 1);
-        const endDate = new Date(yearNum, endMonth, 0);
-
-        const stockDiv = stockDividends.find((div: YahooDividendEvent) => {
-          const divDate = parseSafeDividendDate(div.date);
-          return divDate >= startDate && divDate <= endDate;
-        });
-        const vooDiv = vooDividends.find((div: YahooDividendEvent) => {
-          const divDate = parseSafeDividendDate(div.date);
-          return divDate >= startDate && divDate <= endDate;
-        });
-
-        stockDividendValues.push(stockDiv ? stockDiv.amount : 0);
-        vooDividendValues.push(vooDiv ? vooDiv.amount : 0);
-      });
-
       const stockYields: number[] = [];
       const vooYields: number[] = [];
       
-      console.log(`[DEBUG] Calculating dividend yields for ${symbol} vs VOO (S&P 500 ETF)`);
-      console.log(`[DEBUG] Stock dividend events:`, stockData.events?.dividends);
-      console.log(`[DEBUG] VOO dividend events:`, vooData.events?.dividends);
-      console.log(`[DEBUG] Recent quarters:`, recentQuarters);
-      console.log(`[DEBUG] Stock dividend values:`, stockDividendValues);
-      console.log(`[DEBUG] VOO dividend values:`, vooDividendValues);
-
-      recentQuarters.forEach((quarter, index) => {
-        const stockDiv = stockDividendValues[index];
-        const vooDiv = vooDividendValues[index];
+      quarters.forEach((quarter, index) => {
         const [q, year] = quarter.split(' ');
-        const quarterNum = parseInt(q.substring(1)) - 1;
+        const quarterNum = parseInt(q.substring(1)) - 1; // Q1 -> 0, Q2 -> 1, etc.
         const yearNum = parseInt(year);
-        const endMonth = (quarterNum * 3) + 2;
-        const endDate = new Date(yearNum, endMonth, 31);
-        console.log(`[DEBUG] Quarter: ${quarter}, End date: ${endDate.toISOString()}`);
-
-        // Try to find a quote close to the end of the quarter for the stock
+        const startMonth = quarterNum * 3;
+        const endMonth = startMonth + 2; // End month is inclusive (0-2, 3-5, 6-8, 9-11)
+        const startDate = new Date(yearNum, startMonth, 1);
+        const endDate = new Date(yearNum, endMonth, 31); // Set to max day, Date() will adjust
+        
+        // Find dividend for this quarter
+        const stockDiv = filteredStockDividends.find(div => 
+          div.dateObj >= startDate && div.dateObj <= endDate
+        );
+        
+        const vooDiv = filteredVooDividends.find(div => 
+          div.dateObj >= startDate && div.dateObj <= endDate
+        );
+        
+        // Add the dividend amount for this quarter
+        const stockDivAmount = stockDiv ? stockDiv.amount : 0;
+        const vooDivAmount = vooDiv ? vooDiv.amount : 0;
+        
+        stockDividendValues.push(stockDivAmount);
+        vooDividendValues.push(vooDivAmount);
+        
+        // Find stock prices near end of quarter
         let stockPrice = 0;
-        if (stockData.quotes && stockData.quotes.length > 0) {
-          const lastQuoteBeforeEnd = stockData.quotes
-            .filter((quote: YahooChartQuote) => new Date(quote.date) <= endDate)
-            .sort((a: YahooChartQuote, b: YahooChartQuote) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-          
-          if (lastQuoteBeforeEnd) {
-            stockPrice = lastQuoteBeforeEnd.close;
-            console.log(`[DEBUG] ${symbol} price for ${quarter}: $${stockPrice.toFixed(2)} (${lastQuoteBeforeEnd.date})`);
-          } else {
-            // Fall back to the last quote
-            stockPrice = stockData.quotes[stockData.quotes.length - 1].close;
-            console.log(`[DEBUG] ${symbol} fallback price: $${stockPrice.toFixed(2)}`);
-          }
-        } else {
-          console.log(`[DEBUG] No quote data available for ${symbol}`);
-        }
-        
-        // Do the same for VOO
         let vooPrice = 0;
-        if (vooData.quotes && vooData.quotes.length > 0) {
-          const lastQuoteBeforeEnd = vooData.quotes
-            .filter((quote: YahooChartQuote) => new Date(quote.date) <= endDate)
-            .sort((a: YahooChartQuote, b: YahooChartQuote) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+        
+        // Try to find matching prices near the end of the quarter
+        if (stockData.quotes && stockData.quotes.length > 0) {
+          const quotesNearEnd = stockData.quotes.filter(quote => {
+            const quoteDate = new Date(quote.date);
+            // Include quotes within the quarter or slightly after
+            return quoteDate >= startDate && quoteDate <= new Date(endDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+          });
           
-          if (lastQuoteBeforeEnd) {
-            vooPrice = lastQuoteBeforeEnd.close;
-            console.log(`[DEBUG] VOO price for ${quarter}: $${vooPrice.toFixed(2)} (${lastQuoteBeforeEnd.date})`);
+          if (quotesNearEnd.length > 0) {
+            // Sort by date to find the closest to end of quarter
+            quotesNearEnd.sort((a, b) => 
+              Math.abs(new Date(b.date).getTime() - endDate.getTime()) - 
+              Math.abs(new Date(a.date).getTime() - endDate.getTime())
+            );
+            
+            stockPrice = quotesNearEnd[0].close;
+            console.log(`[DEBUG] ${symbol} price for ${quarter}: $${stockPrice.toFixed(2)} (${quotesNearEnd[0].date})`);
           } else {
-            // Fall back to the last quote
-            vooPrice = vooData.quotes[vooData.quotes.length - 1].close;
-            console.log(`[DEBUG] VOO fallback price: $${vooPrice.toFixed(2)}`);
+            // Fallback: use the last available quote
+            stockPrice = stockData.quotes[stockData.quotes.length - 1].close;
+            console.log(`[DEBUG] ${symbol} fallback price for ${quarter}: $${stockPrice.toFixed(2)}`);
           }
-        } else {
-          console.log(`[DEBUG] No quote data available for VOO`);
         }
         
-        // Calculate quarterly dividend yield
-        const stockQuarterlyYield = stockPrice > 0 ? (stockDiv / stockPrice) * 100 : 0;
-        const vooQuarterlyYield = vooPrice > 0 ? (vooDiv / vooPrice) * 100 : 0;
+        // Similarly for VOO
+        if (vooData.quotes && vooData.quotes.length > 0) {
+          const quotesNearEnd = vooData.quotes.filter(quote => {
+            const quoteDate = new Date(quote.date);
+            return quoteDate >= startDate && quoteDate <= new Date(endDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+          });
+          
+          if (quotesNearEnd.length > 0) {
+            quotesNearEnd.sort((a, b) => 
+              Math.abs(new Date(b.date).getTime() - endDate.getTime()) - 
+              Math.abs(new Date(a.date).getTime() - endDate.getTime())
+            );
+            
+            vooPrice = quotesNearEnd[0].close;
+            console.log(`[DEBUG] VOO price for ${quarter}: $${vooPrice.toFixed(2)} (${quotesNearEnd[0].date})`);
+          } else {
+            vooPrice = vooData.quotes[vooData.quotes.length - 1].close;
+            console.log(`[DEBUG] VOO fallback price for ${quarter}: $${vooPrice.toFixed(2)}`);
+          }
+        }
         
-        // Annualize the yield (multiply by 4 for quarterly)
+        // Calculate quarterly yields
+        const stockQuarterlyYield = stockPrice > 0 && stockDivAmount > 0 ? (stockDivAmount / stockPrice) * 100 : 0;
+        const vooQuarterlyYield = vooPrice > 0 && vooDivAmount > 0 ? (vooDivAmount / vooPrice) * 100 : 0;
+        
+        // Annualize the yields (multiply by 4 for quarterly dividends)
         const annualizedStockYield = stockQuarterlyYield * 4;
-        const annualizedVOOYield = vooQuarterlyYield * 4;
-        
-        console.log(`[DEBUG] ${quarter} - ${symbol} div: $${stockDiv.toFixed(4)}, yield: ${annualizedStockYield.toFixed(2)}%`);
-        console.log(`[DEBUG] ${quarter} - VOO div: $${vooDiv.toFixed(4)}, yield: ${annualizedVOOYield.toFixed(2)}%`);
+        const annualizedVooYield = vooQuarterlyYield * 4;
         
         stockYields.push(annualizedStockYield);
-        vooYields.push(annualizedVOOYield);
+        vooYields.push(annualizedVooYield);
+        
+        console.log(`[DEBUG] ${quarter} - ${symbol} div: $${stockDivAmount.toFixed(4)}, yield: ${annualizedStockYield.toFixed(2)}%`);
+        console.log(`[DEBUG] ${quarter} - VOO div: $${vooDivAmount.toFixed(4)}, yield: ${annualizedVooYield.toFixed(2)}%`);
       });
-
+      
       // Calculate summary statistics
       const totalStockDividend = stockDividendValues.reduce((sum, div) => sum + div, 0);
       const totalVooDividend = vooDividendValues.reduce((sum, div) => sum + div, 0);
       
-      const avgStockDividend = stockDividendValues.length > 0 
-        ? totalStockDividend / stockDividendValues.filter(div => div > 0).length 
-        : 0;
-      const avgVooDividend = vooDividendValues.length > 0 
-        ? totalVooDividend / vooDividendValues.filter(div => div > 0).length 
+      const nonZeroStockDividends = stockDividendValues.filter(div => div > 0);
+      const nonZeroVooDividends = vooDividendValues.filter(div => div > 0);
+      
+      const avgStockYield = stockYields.filter(y => y > 0).length > 0 
+        ? stockYields.filter(y => y > 0).reduce((sum, y) => sum + y, 0) / stockYields.filter(y => y > 0).length 
         : 0;
       
-      const avgStockYield = stockYields.length > 0 
-        ? stockYields.reduce((sum, yield_val) => sum + yield_val, 0) / stockYields.filter(yield_val => yield_val > 0).length 
-        : 0;
-      const avgVooYield = vooYields.length > 0 
-        ? vooYields.reduce((sum, yield_val) => sum + yield_val, 0) / vooYields.filter(yield_val => yield_val > 0).length 
+      const avgVooYield = vooYields.filter(y => y > 0).length > 0 
+        ? vooYields.filter(y => y > 0).reduce((sum, y) => sum + y, 0) / vooYields.filter(y => y > 0).length 
         : 0;
         
+      // Get time frame in years as a number
+      const timeFrameYears = timeFrame === '1Y' ? 1 : 
+                           timeFrame === '3Y' ? 3 : 
+                           timeFrame === '5Y' ? 5 : 
+                           timeFrame === 'MAX' ? 10 : 1;
+                           
+      console.log(`[DEBUG] Final summary: timeFrame=${timeFrameYears}yrs, total ${symbol}=${totalStockDividend.toFixed(2)}, total VOO=${totalVooDividend.toFixed(2)}`);
+      console.log(`[DEBUG] Yields: avg ${symbol}=${avgStockYield.toFixed(2)}%, avg VOO=${avgVooYield.toFixed(2)}%`);
+      
       return {
-        quarters: recentQuarters,
+        quarters,
         stockDividends: stockDividendValues,
         sp500Dividends: vooDividendValues, // Keep property name for backward compatibility
-        stockYields: stockYields,
+        stockYields,
         sp500Yields: vooYields, // Keep property name for backward compatibility
         stockSymbol: symbol,
         summary: {
+          timeFrameYears,
           totalStockDividend,
           totalVooDividend,
-          avgStockDividend,
-          avgVooDividend,
           avgStockYield,
-          avgVooYield,
-          timeFrameYears: timeFrame === '1Y' ? 1 : timeFrame === '2Y' ? 2 : timeFrame === '3Y' ? 3 : timeFrame === '5Y' ? 5 : 5
+          avgVooYield
         }
       };
     },
