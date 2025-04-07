@@ -1059,22 +1059,15 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                   {/* Dividend Yield Comparison Chart - ALWAYS SHOWN */}
                   <div className="w-full h-[250px]" style={{ minHeight: "250px" }}>
                     <ResponsiveContainer width="100%" height="100%" minHeight={200}>
-                      <BarChart
-                        data={
-                          dividendComparisonData && dividendComparisonData.quarters ? 
-                          dividendComparisonData.quarters.map((quarter, index) => ({
-                            quarter,
-                            stockYield: dividendComparisonData.stockYields[index] || 0,
-                            sp500Yield: dividendComparisonData.sp500Yields[index] || 0
-                          })) : 
-                          [
-                            { quarter: 'Q1 2023', stockYield: 0.85, sp500Yield: 0.63 },
-                            { quarter: 'Q2 2023', stockYield: 0.87, sp500Yield: 0.65 },
-                            { quarter: 'Q3 2023', stockYield: 0.88, sp500Yield: 0.66 },
-                            { quarter: 'Q4 2023', stockYield: 0.90, sp500Yield: 0.67 },
-                            { quarter: 'Q1 2024', stockYield: 0.92, sp500Yield: 0.69 }
-                          ]
-                        }
+                      {dividendComparisonData && dividendComparisonData.quarters && dividendComparisonData.quarters.length > 0 ? (
+                        <BarChart
+                          data={
+                            dividendComparisonData.quarters.map((quarter, index) => ({
+                              quarter,
+                              stockYield: dividendComparisonData.stockYields[index] || 0,
+                              sp500Yield: dividendComparisonData.sp500Yields[index] || 0
+                            }))
+                          }
                         margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
                         barSize={20}
                         barGap={8}
@@ -1116,6 +1109,11 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                           radius={[4, 4, 0, 0]}
                         />
                       </BarChart>
+                      ) : (
+                        <div className="flex h-full items-center justify-center flex-col">
+                          <p className="text-gray-500 text-sm">No dividend yield data available for this time period.</p>
+                        </div>
+                      )}
                     </ResponsiveContainer>
                   </div>
 
@@ -1123,21 +1121,15 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                   <div id="dividend-payment-details" className="w-full h-[250px] mt-8" style={{ display: 'none' }}>
                     <h4 className="text-sm font-medium mb-3">Dividend Payment Amounts</h4>
                     <ResponsiveContainer width="100%" height="100%" minHeight={200}>
-                      <BarChart
-                        data={dividendComparisonData && dividendComparisonData.quarters ? 
-                        dividendComparisonData.quarters.map((quarter, index) => ({
-                          quarter,
-                          stockDividend: dividendComparisonData.stockDividends[index] || 0,
-                          sp500Dividend: dividendComparisonData.sp500Dividends[index] || 0
-                        })) : 
-                        [
-                          { quarter: 'Q1 2023', stockDividend: 0.85, sp500Dividend: 0.63 },
-                          { quarter: 'Q2 2023', stockDividend: 0.87, sp500Dividend: 0.65 },
-                          { quarter: 'Q3 2023', stockDividend: 0.88, sp500Dividend: 0.66 },
-                          { quarter: 'Q4 2023', stockDividend: 0.90, sp500Dividend: 0.67 },
-                          { quarter: 'Q1 2024', stockDividend: 0.92, sp500Dividend: 0.69 }
-                        ]
-                      }
+                      {dividendComparisonData && dividendComparisonData.quarters && dividendComparisonData.quarters.length > 0 ? (
+                        <BarChart
+                          data={
+                            dividendComparisonData.quarters.map((quarter, index) => ({
+                              quarter,
+                              stockDividend: dividendComparisonData.stockDividends[index] || 0,
+                              sp500Dividend: dividendComparisonData.sp500Dividends[index] || 0
+                            }))
+                          }
                         margin={{ top: 10, right: 30, left: 0, bottom: 20 }}
                         barSize={20}
                         barGap={8}
@@ -1179,6 +1171,11 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                           radius={[4, 4, 0, 0]}
                         />
                       </BarChart>
+                      ) : (
+                        <div className="flex h-full items-center justify-center flex-col">
+                          <p className="text-gray-500 text-sm">No dividend payment data available for this time period.</p>
+                        </div>
+                      )}
                     </ResponsiveContainer>
                   </div>
                 </div>
