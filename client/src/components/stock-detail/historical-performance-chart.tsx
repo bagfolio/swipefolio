@@ -135,6 +135,8 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
   // VOO (S&P 500 ETF) comparison is always shown by default
   const showBenchmarks = true;
   const [chartType, setChartType] = useState<'line' | 'bar'>('bar');
+  // Add a manual loading state to control loading indicators during timeframe changes
+  const [manualDividendLoading, setManualDividendLoading] = useState(false);
 
   // Fetch stock chart data
   const { 
@@ -352,7 +354,20 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
 
   // Handle timeframe change
   const handleTimeFrameChange = (newTimeFrame: string) => {
-    setTimeFrame(newTimeFrame);
+    // Force loading state to true immediately when timeframe changes
+    // This prevents flickering of "no dividend data" message
+    if (activeDataTab === 'dividends') {
+      setManualDividendLoading(true);
+      setTimeFrame(newTimeFrame);
+      
+      // Reset the manual loading state after a delay to ensure the loading UI is shown
+      // This gives the data time to fetch before we stop showing loading indicators
+      setTimeout(() => {
+        setManualDividendLoading(false);
+      }, 1000);
+    } else {
+      setTimeFrame(newTimeFrame);
+    }
   };
 
   // Custom tooltip component for line chart (price view)
@@ -446,7 +461,16 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
           {/* Tab navigation for different views */}
           <Tabs
             value={activeDataTab}
-            onValueChange={setActiveDataTab}
+            onValueChange={(tab) => {
+              // If switching to dividends tab, set manual loading state to true briefly
+              if (tab === 'dividends') {
+                setManualDividendLoading(true);
+                setTimeout(() => {
+                  setManualDividendLoading(false);
+                }, 1000);
+              }
+              setActiveDataTab(tab);
+            }}
             className="w-auto"
           >
             <TabsList className="bg-gray-100">
@@ -828,7 +852,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                   ))}
                 </div>
                 <div className="text-sm text-gray-500">
-                  {dividendsLoading || dividendComparisonLoading ? (
+                  {manualDividendLoading || dividendsLoading || dividendComparisonLoading ? (
                     <span className="flex items-center">
                       <RefreshCw className="animate-spin h-3 w-3 mr-2" />
                       Loading dividend data...
@@ -840,7 +864,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               </div>
 
               {/* Enhanced summary statistics for dividends */}
-              {(dividendsLoading || dividendComparisonLoading) ? (
+              {(manualDividendLoading || dividendsLoading || dividendComparisonLoading) ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mt-4 animate-pulse">
                   {/* Skeleton for basic stats */}
                   <div className="flex-1 min-w-[160px]">
@@ -947,7 +971,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               )}
 
               {/* Dividend payment history button */}
-              {(dividendsLoading || dividendComparisonLoading) ? (
+              {(manualDividendLoading || dividendsLoading || dividendComparisonLoading) ? (
                 <div className="mt-6 animate-pulse">
                   <div className="h-10 bg-gray-300 rounded-md w-full"></div>
                 </div>
@@ -1061,7 +1085,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               {/* Moved inside the history details section */}
 
               {/* Dividend payment amount comparison (hidden by default) */}
-              {(dividendsLoading || dividendComparisonLoading) ? (
+              {(manualDividendLoading || dividendsLoading || dividendComparisonLoading) ? (
                 <div className="space-y-2 mt-6 animate-pulse">
                   <div className="flex items-center justify-between">
                     <div className="h-5 bg-gray-300 rounded w-64"></div>
@@ -1215,7 +1239,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               )}
 
               {/* Empty state - show when no dividend data is available */}
-              {!dividendsLoading && !dividendComparisonLoading && dividendData.length === 0 && (
+              {!manualDividendLoading && !dividendsLoading && !dividendComparisonLoading && dividendData.length === 0 && (
                 <div className="flex flex-col items-center justify-center p-8 text-center bg-gray-50 rounded-lg mt-4">
                   <DollarSign className="h-12 w-12 text-gray-300 mb-2" />
                   <h3 className="text-lg font-medium text-gray-600 mb-1">No Dividend Data</h3>
