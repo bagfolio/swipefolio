@@ -840,7 +840,29 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               </div>
 
               {/* Enhanced summary statistics for dividends */}
-              {dividendData.length > 0 && (
+              {(dividendsLoading || dividendComparisonLoading) ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mt-4 animate-pulse">
+                  {/* Skeleton for basic stats */}
+                  <div className="flex-1 min-w-[160px]">
+                    <div className="h-3 w-24 bg-gray-300 rounded mb-3"></div>
+                    <div className="h-6 w-16 bg-gray-300 rounded mb-2"></div>
+                    <div className="h-3 w-32 bg-gray-300 rounded"></div>
+                  </div>
+                  
+                  {/* Skeleton for enhanced stats */}
+                  <div className="flex-1 min-w-[160px]">
+                    <div className="h-3 w-32 bg-gray-300 rounded mb-3"></div>
+                    <div className="h-6 w-20 bg-gray-300 rounded mb-2"></div>
+                    <div className="h-3 w-48 bg-gray-300 rounded"></div>
+                  </div>
+                  
+                  <div className="flex-1 min-w-[160px]">
+                    <div className="h-3 w-28 bg-gray-300 rounded mb-3"></div>
+                    <div className="h-6 w-16 bg-gray-300 rounded mb-2"></div>
+                    <div className="h-3 w-40 bg-gray-300 rounded"></div>
+                  </div>
+                </div>
+              ) : dividendData.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg mt-4">
                   {/* Basic stats (always show) */}
                   <div className="flex-1 min-w-[160px]">
@@ -925,7 +947,11 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               )}
 
               {/* Dividend payment history button */}
-              {dividendData.length > 0 && (
+              {(dividendsLoading || dividendComparisonLoading) ? (
+                <div className="mt-6 animate-pulse">
+                  <div className="h-10 bg-gray-300 rounded-md w-full"></div>
+                </div>
+              ) : dividendData.length > 0 && (
                 <div className="mt-6">
                   <Button 
                     variant="outline" 
@@ -1035,7 +1061,15 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               {/* Moved inside the history details section */}
 
               {/* Dividend payment amount comparison (hidden by default) */}
-              {dividendComparisonData && dividendComparisonData.quarters && dividendComparisonData.quarters.length > 0 && (
+              {(dividendsLoading || dividendComparisonLoading) ? (
+                <div className="space-y-2 mt-6 animate-pulse">
+                  <div className="flex items-center justify-between">
+                    <div className="h-5 bg-gray-300 rounded w-64"></div>
+                    <div className="h-8 bg-gray-300 rounded w-24"></div>
+                  </div>
+                  <div className="h-[250px] bg-gray-200 rounded"></div>
+                </div>
+              ) : dividendComparisonData && dividendComparisonData.quarters && dividendComparisonData.quarters.length > 0 && (
                 <div className="space-y-2 mt-6">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-medium">Dividend Yield Comparison with VOO (Vanguard S&P 500 ETF)</h4>
