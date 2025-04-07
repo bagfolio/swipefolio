@@ -307,12 +307,11 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
   } = useYahooDividendEvents(symbol, timeFrame);
 
   // Fetch dividend comparison data between stock and VOO (Vanguard S&P 500 ETF)
-  // Always use at least 3Y for dividend comparison to ensure we have enough data
-  const dividendTimeFrame = timeFrame === '1Y' ? '3Y' : timeFrame;
+  // Use the exact time frame the user selected
   const {
     data: dividendComparisonData,
     isLoading: dividendComparisonLoading
-  } = useYahooDividendComparison(symbol, dividendTimeFrame);
+  } = useYahooDividendComparison(symbol, timeFrame);
 
   // Get dividend data with fallback for compatibility
   const dividendData = useMemo(() => {
