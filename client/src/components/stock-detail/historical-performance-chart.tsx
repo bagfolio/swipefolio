@@ -9,7 +9,6 @@ import {
   useSP500ChartData, 
   useYahooDividendEvents,
   useYahooDividendComparison,
-  useYahooLatestDividend,
   timeFrameToRange 
 } from '@/lib/yahoo-finance-client';
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line, LineChart, Bar, BarChart, ComposedChart } from 'recharts';
@@ -138,8 +137,6 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
   const [chartType, setChartType] = useState<'line' | 'bar'>('bar');
   // Add a manual loading state to control loading indicators during timeframe changes
   const [manualDividendLoading, setManualDividendLoading] = useState(false);
-  // Track if dividends tab has been visited to prevent loading indicator on subsequent visits
-  const [dividendsTabVisited, setDividendsTabVisited] = useState(false);
 
   // Fetch stock chart data
   const { 
@@ -317,12 +314,6 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
     data: dividendComparisonData,
     isLoading: dividendComparisonLoading
   } = useYahooDividendComparison(symbol, timeFrame);
-  
-  // Fetch the latest dividend (independent of timeFrame)
-  const {
-    data: latestDividend,
-    isLoading: latestDividendLoading
-  } = useYahooLatestDividend(symbol);
 
   // Get dividend data with fallback for compatibility
   const dividendData = useMemo(() => {
@@ -363,18 +354,18 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
 
   // Handle timeframe change
   const handleTimeFrameChange = (newTimeFrame: string) => {
-    // Only show loading state on first interaction per session
-    if (activeDataTab === 'dividends' && !dividendsTabVisited) {
-      // First time interaction - show loading state
+    // Force loading state to true immediately when timeframe changes
+    // This prevents flickering of "no dividend data" message
+    if (activeDataTab === 'dividends') {
       setManualDividendLoading(true);
       setTimeFrame(newTimeFrame);
       
-      // Reset the manual loading state after a brief delay
+      // Reset the manual loading state after a delay to ensure the loading UI is shown
+      // This gives the data time to fetch before we stop showing loading indicators
       setTimeout(() => {
         setManualDividendLoading(false);
-      }, 800);
+      }, 1000);
     } else {
-      // Subsequent interactions - just change the timeframe
       setTimeFrame(newTimeFrame);
     }
   };
@@ -471,13 +462,12 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
           <Tabs
             value={activeDataTab}
             onValueChange={(tab) => {
-              // If switching to dividends tab for the first time, show loading indicator
-              if (tab === 'dividends' && !dividendsTabVisited) {
-                setDividendsTabVisited(true);
+              // If switching to dividends tab, set manual loading state to true briefly
+              if (tab === 'dividends') {
                 setManualDividendLoading(true);
                 setTimeout(() => {
                   setManualDividendLoading(false);
-                }, 800); // Shorter duration for less jarring
+                }, 1000);
               }
               setActiveDataTab(tab);
             }}
@@ -902,10 +892,10 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                   <div className="flex-1 min-w-[160px]">
                     <h5 className="text-xs text-gray-500 mb-1">Latest Dividend</h5>
                     <div className="text-xl font-semibold text-blue-600">
-                      ${latestDividend?.value.toFixed(2) || (dividendData[0]?.amount.toFixed(2) || "0.00")}
+                      ${dividendData[0]?.amount.toFixed(2)}
                     </div>
                     <div className="text-xs text-gray-700 mt-1">
-                      {latestDividend?.name || dividendData[0]?.date || "N/A"}
+                      {dividendData[0]?.date}
                     </div>
                   </div>
 
@@ -1156,7 +1146,8 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                           tickFormatter={(value) => `${value.toFixed(2)}%`}
                         />
                         <Tooltip 
-                          formatter={(value: number, name: string) => {
+                          formatter={(value: number, name: string, entry: any) => {
+                            // Use the correct stock symbol for the blue bars (stockYield)
                             let label = name === 'stockYield' ? `${symbol} Yield` : 'VOO (S&P 500 ETF) Yield';
                             return [`${value.toFixed(2)}%`, label];
                           }}
@@ -1218,7 +1209,8 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                           tickFormatter={(value) => `$${value.toFixed(2)}`}
                         />
                         <Tooltip 
-                          formatter={(value: number, name: string) => {
+                          formatter={(value: number, name: string, entry: any) => {
+                            // Use the correct stock symbol for the blue bars (stockDividend)
                             let label = name === 'stockDividend' ? `${symbol} Dividend` : 'VOO (S&P 500 ETF) Dividend';
                             return [`$${value.toFixed(2)}`, label];
                           }}
