@@ -16,8 +16,6 @@ import PortfolioImpactCalculator from "@/components/ui/portfolio-impact-calculat
 import PurchaseSuccessModal from "@/components/ui/purchase-success-modal";     // Ensure path is correct
 // Import Analyst Sentiment component
 import { AnalystSentiment } from "@/components/stock-recommendations/AnalystSentiment";
-// Import SEC Filings component
-import { SecFilingsDisplay } from "@/components/stock/sec-filings-display";
 // Import motion and hooks
 import { motion, useAnimation, useMotionValue, AnimatePresence, motionValue } from "framer-motion";
 
@@ -427,13 +425,6 @@ const handlePreviousStock = useCallback(() => {
             />
        </div>
       {/* Analyst Sentiment Panel - currently disabled */}
-      
-      {/* SEC Filings Panel */}
-      {currentStockData && (
-        <div className="absolute bottom-4 left-4 right-4 z-30 max-w-md mx-auto">
-          <SecFilingsDisplay symbol={currentStockData.ticker} />
-        </div>
-      )}
       
       {/* AI Assistant - position as needed, ensure z-index is appropriate */}
       <div className="absolute bottom-4 right-4 z-30">
