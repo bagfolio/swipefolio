@@ -522,6 +522,37 @@ export function useYahooEarningsData(symbol: string) {
   });
 }
 
+// Use this to get the most recent dividend regardless of timeframe
+export function useYahooLatestDividend(symbol: string) {
+  // Always use 5y range to ensure we get the most recent dividend
+  const range = "5y";
+  const chartDataQuery = useQuery<YahooChartResponse>({
+    queryKey: ['/api/yahoo-finance/chart', symbol, range, 'latest-dividend'],
+    queryFn: async () => fetchStockChartData(symbol, range),
+    staleTime: 60 * 60 * 1000, // 1 hour
+    enabled: !!symbol,
+  });
+
+  return useQuery<DividendChartData | null>({
+    queryKey: ['/api/yahoo-finance/latest-dividend', symbol],
+    queryFn: async () => {
+      const chartData = chartDataQuery.data;
+
+      if (!chartData) {
+        return null;
+      }
+
+      const dividendEvents = extractDividendEvents(chartData);
+      const formattedDividends = formatDividendEventsForChart(dividendEvents);
+      
+      // Return the most recent dividend or null if none found
+      return formattedDividends.length > 0 ? formattedDividends[0] : null;
+    },
+    staleTime: 60 * 60 * 1000, // 1 hour
+    enabled: !!symbol && chartDataQuery.isSuccess,
+  });
+}
+
 export function useYahooDividendEvents(symbol: string, timeFrame: string) {
   const range = timeFrameToRange[timeFrame] || "1y";
   const chartDataQuery = useQuery<YahooChartResponse>({

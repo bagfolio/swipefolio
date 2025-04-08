@@ -9,6 +9,7 @@ import {
   useSP500ChartData, 
   useYahooDividendEvents,
   useYahooDividendComparison,
+  useYahooLatestDividend,
   timeFrameToRange 
 } from '@/lib/yahoo-finance-client';
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Line, LineChart, Bar, BarChart, ComposedChart } from 'recharts';
@@ -137,6 +138,8 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
   const [chartType, setChartType] = useState<'line' | 'bar'>('bar');
   // Add a manual loading state to control loading indicators during timeframe changes
   const [manualDividendLoading, setManualDividendLoading] = useState(false);
+  // Track if dividends tab has been visited to prevent loading indicator on subsequent visits
+  const [dividendsTabVisited, setDividendsTabVisited] = useState(false);
 
   // Fetch stock chart data
   const { 
@@ -314,6 +317,12 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
     data: dividendComparisonData,
     isLoading: dividendComparisonLoading
   } = useYahooDividendComparison(symbol, timeFrame);
+  
+  // Fetch the latest dividend (independent of timeFrame)
+  const {
+    data: latestDividend,
+    isLoading: latestDividendLoading
+  } = useYahooLatestDividend(symbol);
 
   // Get dividend data with fallback for compatibility
   const dividendData = useMemo(() => {
@@ -354,18 +363,18 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
 
   // Handle timeframe change
   const handleTimeFrameChange = (newTimeFrame: string) => {
-    // Force loading state to true immediately when timeframe changes
-    // This prevents flickering of "no dividend data" message
-    if (activeDataTab === 'dividends') {
+    // Only show loading state on first interaction per session
+    if (activeDataTab === 'dividends' && !dividendsTabVisited) {
+      // First time interaction - show loading state
       setManualDividendLoading(true);
       setTimeFrame(newTimeFrame);
       
-      // Reset the manual loading state after a delay to ensure the loading UI is shown
-      // This gives the data time to fetch before we stop showing loading indicators
+      // Reset the manual loading state after a brief delay
       setTimeout(() => {
         setManualDividendLoading(false);
-      }, 1000);
+      }, 800);
     } else {
+      // Subsequent interactions - just change the timeframe
       setTimeFrame(newTimeFrame);
     }
   };
@@ -462,12 +471,13 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
           <Tabs
             value={activeDataTab}
             onValueChange={(tab) => {
-              // If switching to dividends tab, set manual loading state to true briefly
-              if (tab === 'dividends') {
+              // If switching to dividends tab for the first time, show loading indicator
+              if (tab === 'dividends' && !dividendsTabVisited) {
+                setDividendsTabVisited(true);
                 setManualDividendLoading(true);
                 setTimeout(() => {
                   setManualDividendLoading(false);
-                }, 1000);
+                }, 800); // Shorter duration for less jarring
               }
               setActiveDataTab(tab);
             }}
@@ -892,10 +902,10 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                   <div className="flex-1 min-w-[160px]">
                     <h5 className="text-xs text-gray-500 mb-1">Latest Dividend</h5>
                     <div className="text-xl font-semibold text-blue-600">
-                      ${dividendData[0]?.amount.toFixed(2)}
+                      ${latestDividend?.value.toFixed(2) || (dividendData[0]?.amount.toFixed(2) || "0.00")}
                     </div>
                     <div className="text-xs text-gray-700 mt-1">
-                      {dividendData[0]?.date}
+                      {latestDividend?.name || dividendData[0]?.date || "N/A"}
                     </div>
                   </div>
 
