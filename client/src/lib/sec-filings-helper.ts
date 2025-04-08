@@ -15,11 +15,13 @@ export interface SecFiling {
 }
 
 export interface SecFilingHighlight {
-  category: 'revenue' | 'income' | 'earnings' | 'guidance' | 'dividend' | 'other';
+  category: 'revenue' | 'income' | 'earnings' | 'guidance' | 'dividend' | 'international' | 'tariff' | 'other';
   value: string;      // Value with proper formatting
   description: string; // Short description
   percentChange?: number; // Percent change if applicable
   previousValue?: string; // Previous period value for comparison
+  regions?: string[];  // International regions mentioned
+  riskLevel?: 'low' | 'medium' | 'high'; // Tariff risk level assessment
 }
 
 /**

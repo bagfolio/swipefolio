@@ -136,20 +136,93 @@ interface FilingCardProps {
 }
 
 function FilingCard({ filing }: FilingCardProps) {
+  // Determine if we have international or tariff data to display
+  const hasInternationalData = filing.highlights?.some(h => h.category === 'international');
+  const hasTariffData = filing.highlights?.some(h => h.category === 'tariff');
+  
+  // Extract those specific highlights
+  const internationalHighlight = filing.highlights?.find(h => h.category === 'international');
+  const tariffHighlight = filing.highlights?.find(h => h.category === 'tariff');
+  
+  // Get color for tariff risk
+  const getTariffRiskColor = (riskLevel?: 'low' | 'medium' | 'high') => {
+    switch(riskLevel) {
+      case 'high': return 'bg-red-100 text-red-800 border-red-300';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'low': return 'bg-green-100 text-green-800 border-green-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
+  
+  // Separate other highlights
+  const otherHighlights = filing.highlights?.filter(h => 
+    h.category !== 'international' && h.category !== 'tariff'
+  ) || [];
+  
   return (
     <Card className="border-muted bg-card/50">
       <CardContent className="pt-4 px-4 pb-4">
         <div className="flex items-start justify-between">
-          <div>
+          <div className="flex-1 pr-4">
             <h4 className="text-sm font-medium">{filing.title}</h4>
             <div className="flex items-center text-xs text-muted-foreground mt-1">
               <Calendar className="h-3.5 w-3.5 mr-1" />
               <span>{filing.formattedDate || filing.date}</span>
             </div>
+            
+            {/* International Operations Section */}
+            {hasInternationalData && (
+              <div className="mt-3 border rounded-md p-2 bg-blue-50/50 dark:bg-blue-950/20">
+                <div className="flex items-center mb-1">
+                  <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
+                    International Operations
+                  </Badge>
+                </div>
+                <p className="text-xs font-medium">{internationalHighlight?.value}</p>
+                <p className="text-xs text-muted-foreground">{internationalHighlight?.description}</p>
+                
+                {internationalHighlight?.regions && internationalHighlight.regions.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {internationalHighlight.regions.map((region, i) => (
+                      <Badge key={i} variant="outline" className="text-[10px] bg-blue-50 border-blue-200">
+                        {region}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Tariff Risk Section */}
+            {hasTariffData && (
+              <div className="mt-2 border rounded-md p-2 bg-gray-50/50 dark:bg-gray-900/20">
+                <div className="flex items-center mb-1">
+                  <Badge 
+                    variant="outline" 
+                    className={getTariffRiskColor(tariffHighlight?.riskLevel)}
+                  >
+                    Tariff Risk: {tariffHighlight?.value}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">{tariffHighlight?.description}</p>
+                
+                {tariffHighlight?.regions && tariffHighlight.regions.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    <span className="text-xs text-muted-foreground">Affected regions: </span>
+                    {tariffHighlight.regions.map((region, i) => (
+                      <Badge key={i} variant="outline" className="text-[10px] bg-gray-50 border-gray-300">
+                        {region}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-            {filing.highlights && filing.highlights.length > 0 && (
+            {/* Other Highlights */}
+            {otherHighlights.length > 0 && (
               <div className="mt-3 space-y-2">
-                {filing.highlights.map((highlight, idx) => (
+                {otherHighlights.map((highlight, idx) => (
                   <div key={idx} className="text-xs">
                     <Badge variant="outline" className="mb-1">
                       {highlight.category}

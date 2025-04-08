@@ -13,6 +13,23 @@ export interface SecFiling {
   url: string;
   description?: string;
   formattedDate?: string;
+  internationalOperations?: {
+    regions: string[];
+    revenuePercentage?: number;
+    description?: string;
+  };
+  tariffRisk?: {
+    level: 'low' | 'medium' | 'high';
+    affectedRegions?: string[];
+    description?: string;
+  };
+  highlights?: {
+    category: string;
+    value: string;
+    description: string;
+    regions?: string[];
+    riskLevel?: 'low' | 'medium' | 'high';
+  }[];
 }
 
 export class SecService {
@@ -107,14 +124,163 @@ export class SecService {
     // Generate description based on filing type
     const description = this.generateFilingDescription(type, date, symbol);
     
+    // For annual and quarterly reports, add international operations and tariff risk analysis
+    let internationalOperations = undefined;
+    let tariffRisk = undefined;
+    let highlights = [];
+    
+    if (type === '10-K' || type === '10-Q') {
+      // Add international operations data based on company
+      internationalOperations = this.getInternationalOperations(symbol, type);
+      
+      // Add tariff risk assessment
+      tariffRisk = this.getTariffRisk(symbol, internationalOperations);
+      
+      // Generate highlights based on filing type and company
+      highlights = this.generateFilingHighlights(symbol, type, internationalOperations, tariffRisk);
+    }
+    
     return {
       type,
       date,
       title,
       url,
       description,
-      formattedDate
+      formattedDate,
+      internationalOperations,
+      tariffRisk,
+      highlights
     };
+  }
+  
+  /**
+   * Extract international operations data for a company
+   * This would typically come from parsing the actual SEC filing content
+   * Currently using pre-defined data for demonstration
+   */
+  private getInternationalOperations(symbol: string, filingType: string): { regions: string[], revenuePercentage?: number, description?: string } | undefined {
+    // Company-specific international operations data
+    const companyInternationalData: Record<string, { regions: string[], revenuePercentage?: number, description?: string }> = {
+      'AAPL': {
+        regions: ['China', 'Europe', 'Japan', 'Rest of Asia Pacific'],
+        revenuePercentage: 58,
+        description: 'Apple generates a significant portion of its revenue internationally, with Greater China being a key market. Manufacturing is primarily in Asia.'
+      },
+      'MSFT': {
+        regions: ['Europe', 'Asia', 'Japan', 'Canada', 'Latin America'],
+        revenuePercentage: 51,
+        description: 'Microsoft has data centers and operations across multiple continents with significant cloud and software sales internationally.'
+      },
+      'AMZN': {
+        regions: ['Europe', 'Asia', 'Canada', 'Latin America'],
+        revenuePercentage: 30,
+        description: 'Amazon has marketplaces, fulfillment centers and AWS regions across multiple countries.'
+      },
+      'TSLA': {
+        regions: ['China', 'Europe', 'Asia-Pacific'],
+        revenuePercentage: 35,
+        description: 'Tesla has production facilities in China and sells vehicles globally, with significant exposure to the Chinese market.'
+      },
+      'WMT': {
+        regions: ['Mexico', 'China', 'Central America', 'UK', 'Canada'],
+        revenuePercentage: 24,
+        description: 'Walmart operates retail stores internationally, with significant presence in Mexico, China, and the UK.'
+      },
+      'COST': {
+        regions: ['Canada', 'Mexico', 'Japan', 'UK', 'Australia', 'South Korea'],
+        revenuePercentage: 27,
+        description: 'Costco operates warehouses in multiple countries, with expansion plans in Asia.'
+      },
+      'HD': {
+        regions: ['Canada', 'Mexico'],
+        revenuePercentage: 8,
+        description: 'Home Depot has limited international exposure, mainly in Canada and Mexico.'
+      },
+      'NKE': {
+        regions: ['China', 'Europe', 'Asia-Pacific', 'Latin America'],
+        revenuePercentage: 61,
+        description: 'Nike has extensive global operations, with manufacturing across Asia and retail worldwide.'
+      }
+    };
+    
+    return companyInternationalData[symbol] || {
+      regions: ['International markets'],
+      description: 'The company has some international operations, but specific details are not available.'
+    };
+  }
+  
+  /**
+   * Assess tariff risks based on international operations
+   */
+  private getTariffRisk(symbol: string, internationalOps?: { regions: string[], revenuePercentage?: number }): { level: 'low' | 'medium' | 'high', affectedRegions?: string[], description?: string } | undefined {
+    if (!internationalOps) return undefined;
+    
+    // High-risk countries for tariffs
+    const highRiskRegions = ['China', 'Russia', 'Mexico'];
+    const mediumRiskRegions = ['Europe', 'Canada', 'Japan', 'South Korea'];
+    
+    // Check for overlaps
+    const highRiskOverlap = internationalOps.regions.filter(region => 
+      highRiskRegions.some(r => region.includes(r))
+    );
+    
+    const mediumRiskOverlap = internationalOps.regions.filter(region => 
+      mediumRiskRegions.some(r => region.includes(r))
+    );
+    
+    // Determine risk level
+    let level: 'low' | 'medium' | 'high' = 'low';
+    let description = 'Limited tariff risk due to minimal international exposure or exposure to low-risk regions.';
+    
+    if (highRiskOverlap.length > 0 && (internationalOps.revenuePercentage || 0) > 20) {
+      level = 'high';
+      description = `High tariff risk due to significant exposure to ${highRiskOverlap.join(', ')}.`;
+    } else if (highRiskOverlap.length > 0 || mediumRiskOverlap.length > 1) {
+      level = 'medium';
+      const regions = [...highRiskOverlap, ...mediumRiskOverlap].slice(0, 3);
+      description = `Moderate tariff risk due to operations in ${regions.join(', ')}.`;
+    }
+    
+    return {
+      level,
+      affectedRegions: [...highRiskOverlap, ...mediumRiskOverlap],
+      description
+    };
+  }
+  
+  /**
+   * Generate filing highlights based on company and filing type
+   */
+  private generateFilingHighlights(
+    symbol: string, 
+    filingType: string,
+    internationalOps?: { regions: string[], revenuePercentage?: number, description?: string },
+    tariffRisk?: { level: 'low' | 'medium' | 'high', affectedRegions?: string[], description?: string }
+  ): any[] {
+    const highlights = [];
+    
+    // Add international operations highlight
+    if (internationalOps && internationalOps.regions.length > 0) {
+      highlights.push({
+        category: 'international',
+        value: internationalOps.revenuePercentage ? `${internationalOps.revenuePercentage}% of revenue` : 'Multiple regions',
+        description: internationalOps.description || `Operations across ${internationalOps.regions.join(', ')}`,
+        regions: internationalOps.regions
+      });
+    }
+    
+    // Add tariff risk highlight
+    if (tariffRisk) {
+      highlights.push({
+        category: 'tariff',
+        value: `${tariffRisk.level.charAt(0).toUpperCase() + tariffRisk.level.slice(1)} Risk`,
+        description: tariffRisk.description || `Tariff risk assessment based on international exposure`,
+        riskLevel: tariffRisk.level,
+        regions: tariffRisk.affectedRegions
+      });
+    }
+    
+    return highlights;
   }
   
   /**
