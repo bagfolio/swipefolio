@@ -21,6 +21,7 @@ import InvestorSimulatorPage from "@/pages/investor-simulator-page";
 import { AuthProvider } from "@/hooks/use-auth";
 import { UserProgressProvider } from "@/contexts/user-progress-context";
 import { PortfolioProvider } from "@/contexts/portfolio-context";
+import { usePreloadStockData } from "@/hooks/use-preload-stock-data";
 
 function Router() {
   return (
@@ -51,13 +52,24 @@ function Router() {
   );
 }
 
+// Global data preloader wrapped component
+function GlobalDataProvider({ children }: { children: React.ReactNode }) {
+  // This hook will aggressively preload all first stock cards data
+  // to ensure there are NEVER any empty price placeholders
+  usePreloadStockData();
+  
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <UserProgressProvider>
-          <Router />
-          <Toaster />
+          <GlobalDataProvider>
+            <Router />
+            <Toaster />
+          </GlobalDataProvider>
         </UserProgressProvider>
       </AuthProvider>
     </QueryClientProvider>
