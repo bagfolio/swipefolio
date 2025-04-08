@@ -520,11 +520,14 @@ export default function StockCard({
                                       `L${(i / (chartPrices.length - 1)) * 100},${100 - ((point - minValue) / (maxValue - minValue || 1)) * 100}`
                                       ).join(' ')
                                   }`}
-                                  stroke={realTimeChange >= 0 ? '#22c55e' : '#ef4444'} 
-                                  fill="none"
-                                  strokeWidth="1.5" 
-                                  strokeLinecap="round" 
-                                  strokeLinejoin="round"
+                                  className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`}
+                                  strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round"
+                                  filter="url(#glow)"
+                                  style={{
+                                    strokeDasharray: "1000",
+                                    strokeDashoffset: "1000",
+                                    animation: "draw-line 1.5s ease-in-out forwards"
+                                  }}
                                   />
                                 )}
                                 

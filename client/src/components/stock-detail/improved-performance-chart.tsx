@@ -44,7 +44,8 @@ const ImprovedPerformanceChart: React.FC<ImprovedPerformanceChartProps> = ({
   const timeFrameOptions = [
     { value: '1Y', label: '1Y' },
     { value: '3Y', label: '3Y' },
-    { value: '5Y', label: '5Y' }
+    { value: '5Y', label: '5Y' },
+    { value: 'MAX', label: 'MAX' }
   ];
   
   // Transform dividend data for the yield comparison chart
@@ -173,7 +174,7 @@ const ImprovedPerformanceChart: React.FC<ImprovedPerformanceChartProps> = ({
                 >
                   <div className="flex justify-between items-center mb-4">
                     <h4 className="text-base font-medium">Dividend History</h4>
-                    <TabsList className="grid grid-cols-3 h-8">
+                    <TabsList className="grid grid-cols-4 h-8">
                       {timeFrameOptions.map(option => (
                         <TabsTrigger
                           key={option.value}
@@ -336,11 +337,7 @@ const ImprovedPerformanceChart: React.FC<ImprovedPerformanceChartProps> = ({
                         domain={[0, 'dataMax * 1.2']}
                       />
                       <Tooltip 
-                        formatter={(value: number, name: string) => {
-                          // The name passed will be either the stock symbol or 'S&P 500'
-                          const displayName = name === 'S&P 500' ? 'S&P 500' : symbol;
-                          return [`$${value.toFixed(2)}`, `${displayName} Dividend`];
-                        }}
+                        formatter={(value: number, name: string) => [`$${value.toFixed(2)}`, `${name} Dividend`]}
                         labelFormatter={(value) => `Quarter: ${value}`}
                         labelStyle={{ color: '#374151', fontWeight: 'bold' }}
                         contentStyle={{ 
