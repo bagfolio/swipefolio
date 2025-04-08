@@ -14,28 +14,46 @@ export default function StacksExplorer({ stacks }: StacksExplorerProps) {
   const queryClient = useQueryClient();
 
   // This function preloads the chart data for the first stock in the stack
-  const preloadFirstStockData = async (industry: string) => {
+  const preloadStackData = async (industry: string) => {
     try {
       // Get the stocks for this industry
       const stocks = getIndustryStocks(industry);
       
-      // If we have stocks, preload the data for the first one
+      // If we have stocks, preload the data for the first few stocks
       if (stocks && stocks.length > 0) {
+        // Preload first stock (the one that will be shown immediately)
         const firstStock = stocks[0];
-        const symbol = firstStock.ticker;
+        const firstSymbol = firstStock.ticker;
         
-        console.log(`Preloading chart data for ${symbol} (first stock in ${industry})`);
+        console.log(`Preloading chart data for ${firstSymbol} (first stock in ${industry})`);
         
-        // Preload 1D timeframe chart data which is used initially
-        const range = timeFrameToRange["1D"];
+        // Get range for default timeframe (1Y is most commonly viewed)
+        const defaultTimeframes = ["1Y", "1D"]; // Preload both 1Y and 1D data
         
-        // Prefetch the data and store it in the cache
-        const queryKey = ['/api/yahoo-finance/chart', symbol, range];
-        await queryClient.prefetchQuery({
-          queryKey,
-          queryFn: async () => fetchStockChartData(symbol, range),
-          staleTime: 60 * 1000, // 1 minute
-        });
+        for (const timeframe of defaultTimeframes) {
+          const range = timeFrameToRange[timeframe];
+          
+          // Prefetch first stock data and store in cache with higher priority
+          const queryKey = ['/api/yahoo-finance/chart', firstSymbol, range];
+          await queryClient.prefetchQuery({
+            queryKey,
+            queryFn: async () => fetchStockChartData(firstSymbol, range),
+            staleTime: 5 * 60 * 1000, // 5 minutes
+          });
+        }
+        
+        // If there's a second stock, preload that too in background
+        if (stocks.length > 1) {
+          const secondStock = stocks[1];
+          console.log(`Prefetching chart data for ${secondStock.ticker} (next stock in stack)`);
+          
+          // Prefetch in background without awaiting
+          queryClient.prefetchQuery({
+            queryKey: ['/api/yahoo-finance/chart', secondStock.ticker, timeFrameToRange["1Y"]],
+            queryFn: async () => fetchStockChartData(secondStock.ticker, timeFrameToRange["1Y"]),
+            staleTime: 5 * 60 * 1000, // 5 minutes
+          });
+        }
       }
     } catch (error) {
       console.error(`Error preloading chart data:`, error);
@@ -49,7 +67,7 @@ export default function StacksExplorer({ stacks }: StacksExplorerProps) {
     
     if (clickedStack?.industry) {
       // Start preloading the chart data for the first stock in this industry
-      preloadFirstStockData(clickedStack.industry);
+      preloadStackData(clickedStack.industry);
     }
     
     // Navigate to the stack detail page

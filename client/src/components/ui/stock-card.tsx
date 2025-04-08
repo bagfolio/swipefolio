@@ -64,7 +64,7 @@ interface StockCardProps {
 }
 
 // Define TimeFrame type locally if not imported
-type TimeFrame = "1D" | "5D" | "1M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX";
+type TimeFrame = "1D" | "5D" | "1M" | "3M" | "6M" | "YTD" | "1Y" | "5Y" | "MAX";
 
 // Helper function to get industry average data (keep if needed for metrics)
 const getIndustryAverageData = (stock: StockData, metricType: string) => {
@@ -128,10 +128,34 @@ export default function StockCard({
   // Internal state for UI ONLY within the card
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("1D");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // Initialize which timeframes have been visited (only first one by default)
+  const [visitedTimeframes, setVisitedTimeframes] = useState<Record<TimeFrame, boolean>>({
+    "1D": true, // First load is considered visited
+    "5D": false,
+    "1M": false,
+    "3M": false, 
+    "6M": false,
+    "YTD": false,
+    "1Y": false, 
+    "5Y": false,
+    "MAX": false
+  });
 
   // Fetch Yahoo Finance data with stable arguments to fix React Hook dependency issue
   const stockTicker = useMemo(() => stock.ticker, [stock.ticker]);
   const selectedTimeFrame = useMemo(() => timeFrame, [timeFrame]);
+  
+  // Custom handler for timeframe changes that tracks visited state
+  const handleTimeFrameChange = useCallback((newTimeFrame: TimeFrame) => {
+    // Mark this timeframe as visited
+    setVisitedTimeframes(prev => ({
+      ...prev,
+      [newTimeFrame]: true
+    }));
+    
+    // Update the active timeframe
+    setTimeFrame(newTimeFrame);
+  }, []);
   
   const { data: yahooChartData, isLoading: isLoadingYahooData, error: yahooError, refetch: refetchYahooData } =
     useYahooChartData(stockTicker, selectedTimeFrame);
@@ -737,19 +761,34 @@ export default function StockCard({
             
             {/* --- Time frame selector (Robinhood style below chart) - Moved up slightly --- */}
             <div className="flex justify-around px-3 pt-2 pb-1 -mt-1">
-                {["1D", "1W", "1M", "3M", "1Y", "5Y"].map((period) => (
-                    <button
-                        key={period}
-                        className={`px-3 py-1 text-xs rounded-full transition-all duration-150 ${
-                            timeFrame === (period === "1W" ? "5D" : period)
-                                ? `font-medium ${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-100' : 'text-red-600 bg-red-50 border border-red-100'}`
-                                : 'text-slate-500 hover:bg-slate-50'
-                        }`}
-                        onClick={() => setTimeFrame((period === "1W" ? "5D" : period) as TimeFrame)}
-                    >
-                        {period}
-                    </button>
-                ))}
+                {["1D", "1W", "1M", "3M", "1Y", "5Y"].map((period) => {
+                    // Map 1W to 5D for internal use
+                    const actualTimeframe = (period === "1W" ? "5D" : period) as TimeFrame;
+                    const isActive = timeFrame === actualTimeframe;
+                    const hasVisited = visitedTimeframes[actualTimeframe];
+                    
+                    return (
+                        <button
+                            key={period}
+                            className={`px-3 py-1 text-xs rounded-full transition-all duration-150 ${
+                                isActive
+                                    ? `font-medium ${realTimeChange >= 0 ? 'text-green-600 bg-green-50 border border-green-100' : 'text-red-600 bg-red-50 border border-red-100'}`
+                                    : 'text-slate-500 hover:bg-slate-50'
+                            }`}
+                            onClick={() => handleTimeFrameChange(actualTimeframe)}
+                        >
+                            {/* Show loading indicator only for first visit */}
+                            {isActive && isLoadingYahooData && !hasVisited ? (
+                                <span className="inline-flex items-center">
+                                    <span className="mr-1 h-2 w-2 rounded-full bg-current opacity-75 animate-pulse"></span>
+                                    {period}
+                                </span>
+                            ) : (
+                                period
+                            )}
+                        </button>
+                    );
+                })}
             </div>
             
             {/* Last Updated Info - Only shown when Yahoo data provides a trading date */}

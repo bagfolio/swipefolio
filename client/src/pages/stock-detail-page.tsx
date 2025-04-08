@@ -120,48 +120,77 @@ const [useRealTimeData] = useState(true); // Keep state if mode switching is pla
     cardControls.set({ x: 0 });
   }, [cardControls]);
   
-  // Preload the chart data for the current stock to avoid empty chart on initial render
-  useEffect(() => {
-    if (stocks.length > 0 && currentStockIndex < stocks.length) {
-      const currentStock = stocks[currentStockIndex];
-      const symbol = currentStock.ticker;
-      const range = timeFrameToRange["1D"]; // Default timeframe
-      
-      // Prefetch immediately to ensure data is available when card renders
-      (async () => {
-        try {
-          console.log(`Prefetching chart data for ${symbol} (current stock in view)`);
-          await queryClient.prefetchQuery({
-            queryKey: ['/api/yahoo-finance/chart', symbol, range],
-            queryFn: async () => fetchStockChartData(symbol, range),
-            staleTime: 60 * 1000, // 1 minute
-          });
-        } catch (error) {
-          console.error(`Error prefetching chart data for ${symbol}:`, error);
-          // Don't throw - just log the error
+  // Function to preload data for a specific stock
+  const preloadStockData = useCallback(async (stock: StockData, priority: 'high' | 'medium' | 'low' = 'medium') => {
+    if (!stock?.ticker) return;
+    
+    const symbol = stock.ticker;
+    // Determine which timeframes to preload based on priority
+    const timeframes = priority === 'high' 
+      ? ["1D", "1W", "1M", "1Y"] // Preload all timeframes for high priority
+      : priority === 'medium'
+        ? ["1D", "1Y"] // Key timeframes for medium priority 
+        : ["1D"]; // Just default for low priority
+    
+    console.log(`Preloading ${priority} priority data for ${symbol} with ${timeframes.length} timeframes`);
+    
+    try {
+      // Load data for each timeframe in parallel
+      await Promise.all(timeframes.map(async (timeframe) => {
+        const range = timeFrameToRange[timeframe];
+        const queryKey = ['/api/yahoo-finance/chart', symbol, range];
+        
+        // Check if data is already in cache
+        const existingData = queryClient.getQueryData(queryKey);
+        if (existingData) {
+          console.log(`Using cached data for ${symbol} (${timeframe})`);
+          return existingData;
         }
-      })();
+        
+        // Otherwise fetch it
+        return queryClient.prefetchQuery({
+          queryKey,
+          queryFn: async () => fetchStockChartData(symbol, range),
+          staleTime: 5 * 60 * 1000, // 5 minutes
+        });
+      }));
+    } catch (error) {
+      console.error(`Error preloading chart data for ${symbol}:`, error);
+      // Don't throw - just log the error
+    }
+  }, [queryClient]);
+  
+  // Aggressively preload data for the first card immediately on load
+  // This ensures it's ready for drawing animation instantly
+  useEffect(() => {
+    // First render - aggressively preload first stock
+    if (stocks.length > 0) {
+      const firstStock = stocks[0];
       
-      // Also preload the next stock if it exists
+      // For the first stock, immediately load with high priority
+      if (currentStockIndex === 0) {
+        preloadStockData(firstStock, 'high');
+      }
+      
+      // Also preload current stock if we've navigated to a different one
+      const currentStock = stocks[currentStockIndex];
+      if (currentStock && currentStock.ticker !== firstStock.ticker) {
+        preloadStockData(currentStock, 'high');
+      }
+      
+      // Preload next stock with medium priority
       if (currentStockIndex + 1 < stocks.length) {
         const nextStock = stocks[currentStockIndex + 1];
-        const nextSymbol = nextStock.ticker;
-        
-        (async () => {
-          try {
-            console.log(`Prefetching chart data for ${nextSymbol} (next stock in stack)`);
-            await queryClient.prefetchQuery({
-              queryKey: ['/api/yahoo-finance/chart', nextSymbol, range],
-              queryFn: async () => fetchStockChartData(nextSymbol, range),
-              staleTime: 60 * 1000, // 1 minute
-            });
-          } catch (error) {
-            console.error(`Error prefetching chart data for ${nextSymbol}:`, error);
-          }
-        })();
+        preloadStockData(nextStock, 'medium');
+      }
+      
+      // If we have capacity, preload one more stock ahead with low priority
+      if (currentStockIndex + 2 < stocks.length) {
+        const futureStock = stocks[currentStockIndex + 2];
+        preloadStockData(futureStock, 'low');
       }
     }
-  }, [stocks, currentStockIndex, queryClient]);
+  }, [stocks, currentStockIndex, preloadStockData]);
 
 // Navigation Handlers
 const handleNextStock = useCallback(() => {
