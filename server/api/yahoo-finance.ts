@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { yahooFinanceService } from '../services/yahoo-finance-service';
 import { getAnalystData } from '../../shared/services/analystRatingsService';
+import { secService } from '../sec-service';
 
 const router = Router();
 
@@ -61,6 +62,43 @@ router.get('/analyst-data/:symbol', async (req, res) => {
     res.status(500).json({
       error: 'Failed to fetch analyst data',
       message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+/**
+ * GET /api/yahoo-finance/sec-filings/:symbol
+ * Get SEC filings for a stock symbol
+ */
+router.get('/sec-filings/:symbol', async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    console.log(`Fetching SEC filings for ${symbol}`);
+    
+    const data = await secService.getSecFilings(symbol);
+    
+    if (!data.success) {
+      console.log(`No SEC filings found for ${symbol}, trying alternate method`);
+      const alternateData = await secService.getSecFilingsAlternate(symbol);
+      
+      if (alternateData.success) {
+        return res.json(alternateData);
+      }
+      
+      return res.status(404).json({
+        error: 'No SEC filings found',
+        message: `No SEC filings available for ${symbol}`,
+        filings: [] // Return empty array instead of null/undefined
+      });
+    }
+    
+    res.json(data);
+  } catch (error: any) {
+    console.error(`Failed to fetch SEC filings for ${req.params.symbol}:`, error);
+    res.status(500).json({
+      error: 'Failed to fetch SEC filings',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      filings: [] // Return empty array instead of null/undefined
     });
   }
 });
