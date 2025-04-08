@@ -66,9 +66,9 @@ export const timeFrameToRange: Record<string, string> = {
   "3M": "3mo",
   "6M": "6mo",
   "1Y": "1y",
-  "3Y": "3y", // Add 3Y mapping explicitly
+  "3Y": "3y",
   "5Y": "5y",
-  "MAX": "max"
+  "MAX": "max"  // Yahoo Finance's API treats 'max' as all available data
 };
 
 export async function fetchStockChartData(symbol: string, range: string = "1mo", interval: string = "1d"): Promise<YahooChartResponse> {

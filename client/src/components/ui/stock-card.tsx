@@ -521,12 +521,12 @@ export default function StockCard({
                                       ).join(' ')
                                   }`}
                                   className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`}
-                                  strokeWidth="0.8" strokeLinecap="round" strokeLinejoin="round"
+                                  strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
                                   filter="url(#glow)"
                                   style={{
                                     strokeDasharray: "1000",
                                     strokeDashoffset: "1000",
-                                    animation: "draw-line 1.5s ease-in-out forwards"
+                                    animation: currentIndex === 0 ? "none" : "draw-line 1.5s ease-in-out forwards"
                                   }}
                                   />
                                 )}

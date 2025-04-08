@@ -802,11 +802,11 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                         dataKey="stockReturn"
                         name={companyName || symbol}
                         stroke={stockColor}
-                        strokeWidth={2}
+                        strokeWidth={1.5}
                         fillOpacity={0.3}
                         fill="url(#colorValue)"
                         dot={false}
-                        activeDot={{ r: 6, strokeWidth: 0 }}
+                        activeDot={{ r: 5, strokeWidth: 0 }}
                       />
 
                       {/* VOO (S&P 500 ETF) percentage line */}
@@ -1065,18 +1065,18 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                             name={`${symbol} Dividend`}
                             dataKey="stockDividend"
                             stroke={stockColor}
-                            strokeWidth={2}
+                            strokeWidth={1.5}
                             dot={{ r: 3 }}
-                            activeDot={{ r: 6, strokeWidth: 0 }}
+                            activeDot={{ r: 5, strokeWidth: 0 }}
                           />
                           <Line
                             type="monotone"
                             name="VOO (S&P 500 ETF) Dividend"
                             dataKey="sp500Dividend"
                             stroke={sp500Color}
-                            strokeWidth={2}
+                            strokeWidth={1.5}
                             dot={{ r: 3 }}
-                            activeDot={{ r: 6, strokeWidth: 0 }}
+                            activeDot={{ r: 5, strokeWidth: 0 }}
                           />
                         </ComposedChart>
                       </ResponsiveContainer>
@@ -1391,19 +1391,19 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                       dataKey="actual"
                       name="Actual EPS"
                       stroke="#2563eb"
-                      strokeWidth={2}
+                      strokeWidth={1.5}
                       dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
+                      activeDot={{ r: 5 }}
                     />
                     <Line
                       type="monotone"
                       dataKey="estimated"
                       name="Estimated EPS"
                       stroke="#9ca3af"
-                      strokeWidth={2}
+                      strokeWidth={1.5}
                       strokeDasharray="5 5"
                       dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
+                      activeDot={{ r: 5 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
