@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack } from "@shared/schema";
 import { ArrowLeft } from "lucide-react";
 import { getQueryFn } from "@/lib/queryClient";
 import { StockData, getIndustryStocks } from "@/lib/stock-data";
+import { fetchStockChartData, timeFrameToRange } from "@/lib/yahoo-finance-client";
 // Import StockCard and the data type for its callback
 import StockCard, { MetricClickData } from "@/components/ui/stock-card"; // Ensure path is correct
 import StackCompletedModal from "@/components/stack-completed-modal";    // Ensure path is correct
@@ -111,12 +112,56 @@ const [useRealTimeData] = useState(true); // Keep state if mode switching is pla
   // Motion value and controls (called unconditionally)
   const x = useMotionValue(0);
   const cardControls = useAnimation();
+  const queryClient = useQueryClient();
   
   // Initialize animation controls after component mount
   useEffect(() => {
     // This ensures that controls.start() is only called after the component is mounted
     cardControls.set({ x: 0 });
   }, [cardControls]);
+  
+  // Preload the chart data for the current stock to avoid empty chart on initial render
+  useEffect(() => {
+    if (stocks.length > 0 && currentStockIndex < stocks.length) {
+      const currentStock = stocks[currentStockIndex];
+      const symbol = currentStock.ticker;
+      const range = timeFrameToRange["1D"]; // Default timeframe
+      
+      // Prefetch immediately to ensure data is available when card renders
+      (async () => {
+        try {
+          console.log(`Prefetching chart data for ${symbol} (current stock in view)`);
+          await queryClient.prefetchQuery({
+            queryKey: ['/api/yahoo-finance/chart', symbol, range],
+            queryFn: async () => fetchStockChartData(symbol, range),
+            staleTime: 60 * 1000, // 1 minute
+          });
+        } catch (error) {
+          console.error(`Error prefetching chart data for ${symbol}:`, error);
+          // Don't throw - just log the error
+        }
+      })();
+      
+      // Also preload the next stock if it exists
+      if (currentStockIndex + 1 < stocks.length) {
+        const nextStock = stocks[currentStockIndex + 1];
+        const nextSymbol = nextStock.ticker;
+        
+        (async () => {
+          try {
+            console.log(`Prefetching chart data for ${nextSymbol} (next stock in stack)`);
+            await queryClient.prefetchQuery({
+              queryKey: ['/api/yahoo-finance/chart', nextSymbol, range],
+              queryFn: async () => fetchStockChartData(nextSymbol, range),
+              staleTime: 60 * 1000, // 1 minute
+            });
+          } catch (error) {
+            console.error(`Error prefetching chart data for ${nextSymbol}:`, error);
+          }
+        })();
+      }
+    }
+  }, [stocks, currentStockIndex, queryClient]);
 
 // Navigation Handlers
 const handleNextStock = useCallback(() => {
@@ -350,12 +395,7 @@ const handlePreviousStock = useCallback(() => {
                 stocksCount={stocks.length} // Access length safely
             />
        </div>
-      {/* Analyst Sentiment Panel */}
-      {currentStockData && (
-        <div className="absolute bottom-16 right-4 z-20 w-64">
-          <AnalystSentiment symbol={currentStockData.symbol} />
-        </div>
-      )}
+      {/* Analyst Sentiment Panel - currently disabled */}
       
       {/* AI Assistant - position as needed, ensure z-index is appropriate */}
       <div className="absolute bottom-4 right-4 z-30">

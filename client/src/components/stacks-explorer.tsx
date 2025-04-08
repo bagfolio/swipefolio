@@ -1,6 +1,9 @@
 import { useLocation } from "wouter";
 import StackCard from "./ui/stack-card";
 import type { Stack } from "@shared/schema";
+import { getIndustryStocks } from "@/lib/stock-data";
+import { useQueryClient } from "@tanstack/react-query";
+import { fetchStockChartData, timeFrameToRange } from "@/lib/yahoo-finance-client";
 
 interface StacksExplorerProps {
   stacks: Stack[];
@@ -8,8 +11,48 @@ interface StacksExplorerProps {
 
 export default function StacksExplorer({ stacks }: StacksExplorerProps) {
   const [_, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+
+  // This function preloads the chart data for the first stock in the stack
+  const preloadFirstStockData = async (industry: string) => {
+    try {
+      // Get the stocks for this industry
+      const stocks = getIndustryStocks(industry);
+      
+      // If we have stocks, preload the data for the first one
+      if (stocks && stocks.length > 0) {
+        const firstStock = stocks[0];
+        const symbol = firstStock.ticker;
+        
+        console.log(`Preloading chart data for ${symbol} (first stock in ${industry})`);
+        
+        // Preload 1D timeframe chart data which is used initially
+        const range = timeFrameToRange["1D"];
+        
+        // Prefetch the data and store it in the cache
+        const queryKey = ['/api/yahoo-finance/chart', symbol, range];
+        await queryClient.prefetchQuery({
+          queryKey,
+          queryFn: async () => fetchStockChartData(symbol, range),
+          staleTime: 60 * 1000, // 1 minute
+        });
+      }
+    } catch (error) {
+      console.error(`Error preloading chart data:`, error);
+      // Don't throw - we don't want to interrupt the stack click navigation
+    }
+  };
 
   const handleStackClick = (stackId: number) => {
+    // Find the stack that was clicked
+    const clickedStack = stacks.find(stack => stack.id === stackId);
+    
+    if (clickedStack?.industry) {
+      // Start preloading the chart data for the first stock in this industry
+      preloadFirstStockData(clickedStack.industry);
+    }
+    
+    // Navigate to the stack detail page
     setLocation(`/stock/${stackId}`);
   };
 

@@ -91,11 +91,22 @@ export async function fetchStockChartData(symbol: string, range: string = "1mo",
 
 export function useYahooChartData(symbol: string, timeFrame: string) {
   const range = timeFrameToRange[timeFrame] || "1mo";
+  const queryKey = ['/api/yahoo-finance/chart', symbol, range];
+  
   return useQuery<YahooChartResponse>({
-    queryKey: ['/api/yahoo-finance/chart', symbol, range],
+    queryKey,
     queryFn: async () => fetchStockChartData(symbol, range),
     staleTime: 5 * 60 * 1000, // 5 minutes
     enabled: !!symbol,
+    
+    // Higher refetchInterval for real-time data like 1D
+    refetchInterval: timeFrame === '1D' ? 60 * 1000 : undefined, // 1 minute for 1D timeframe
+    
+    // Increase cache time for historical data
+    gcTime: timeFrame === '1D' ? 5 * 60 * 1000 : 30 * 60 * 1000, // 5 min for 1D, 30 min for others
+    
+    // Reduce loading state flickering
+    placeholderData: (previousData) => previousData,
   });
 }
 
@@ -105,6 +116,9 @@ export function useSP500ChartData(timeFrame: string) {
     queryKey: ['/api/yahoo-finance/chart', '^GSPC', range],
     queryFn: async () => fetchStockChartData('^GSPC', range),
     staleTime: 5 * 60 * 1000, // 5 minutes
+    // Reduce loading state flickering
+    placeholderData: (previousData) => previousData,
+    gcTime: timeFrame === '1D' ? 5 * 60 * 1000 : 30 * 60 * 1000, // 5 min for 1D, 30 min for others
   });
 }
 
