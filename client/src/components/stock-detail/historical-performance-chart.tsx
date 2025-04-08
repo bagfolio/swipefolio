@@ -137,6 +137,12 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
   const [chartType, setChartType] = useState<'line' | 'bar'>('bar');
   // Add a manual loading state to control loading indicators during timeframe changes
   const [manualDividendLoading, setManualDividendLoading] = useState(false);
+  
+  // Track which timeframes and tabs have been visited to avoid showing loading states on revisits
+  const [visitedTimeframes, setVisitedTimeframes] = useState<Record<string, boolean>>({
+    '1M': false, '3M': false, '6M': false, '1Y': true, '5Y': false
+  });
+  const [dividendsTabVisited, setDividendsTabVisited] = useState(false);
 
   // Fetch stock chart data
   const { 
@@ -354,18 +360,24 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
 
   // Handle timeframe change
   const handleTimeFrameChange = (newTimeFrame: string) => {
-    // Force loading state to true immediately when timeframe changes
-    // This prevents flickering of "no dividend data" message
-    if (activeDataTab === 'dividends') {
+    // Only show loading state the first time a timeframe is visited in the dividends tab
+    if (activeDataTab === 'dividends' && !visitedTimeframes[newTimeFrame]) {
+      // Track that we've visited this timeframe
+      setVisitedTimeframes(prev => ({
+        ...prev,
+        [newTimeFrame]: true
+      }));
+      
+      // Show loading state for first visit only
       setManualDividendLoading(true);
       setTimeFrame(newTimeFrame);
       
-      // Reset the manual loading state after a delay to ensure the loading UI is shown
-      // This gives the data time to fetch before we stop showing loading indicators
+      // Reset the loading state after a short delay
       setTimeout(() => {
         setManualDividendLoading(false);
-      }, 1000);
+      }, 800);
     } else {
+      // Just update the timeframe without loading state
       setTimeFrame(newTimeFrame);
     }
   };
@@ -462,12 +474,13 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
           <Tabs
             value={activeDataTab}
             onValueChange={(tab) => {
-              // If switching to dividends tab, set manual loading state to true briefly
-              if (tab === 'dividends') {
+              // Only show loading state the first time dividends tab is visited
+              if (tab === 'dividends' && !dividendsTabVisited) {
+                setDividendsTabVisited(true);
                 setManualDividendLoading(true);
                 setTimeout(() => {
                   setManualDividendLoading(false);
-                }, 1000);
+                }, 800); // Shorter duration for less jarring
               }
               setActiveDataTab(tab);
             }}
@@ -1159,11 +1172,15 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                                       >
                                         <span 
                                           className={`w-3 h-3 inline-block rounded-full mr-2 ${
-                                            entry.dataKey === 'stockYield' ? 'bg-blue-600' : 'bg-emerald-500'
+                                            entry.name === `${symbol} Yield` || entry.dataKey === 'stockYield' 
+                                            ? 'bg-blue-600' 
+                                            : 'bg-emerald-500'
                                           }`}
                                         />
                                         <span className="text-gray-700">
-                                          {entry.dataKey === 'stockYield' ? symbol : 'VOO (S&P 500 ETF)'}:
+                                          {entry.name === `${symbol} Yield` || entry.dataKey === 'stockYield' 
+                                           ? symbol 
+                                           : 'VOO (S&P 500 ETF)'}:
                                         </span>
                                         <span className="ml-1 font-medium">
                                           {entry.value.toFixed(2)}%
@@ -1246,11 +1263,15 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                                       >
                                         <span 
                                           className={`w-3 h-3 inline-block rounded-full mr-2 ${
-                                            entry.dataKey === 'stockDividend' ? 'bg-blue-600' : 'bg-emerald-500'
+                                            entry.name === `${symbol}` || entry.dataKey === 'stockDividend' 
+                                            ? 'bg-blue-600' 
+                                            : 'bg-emerald-500'
                                           }`}
                                         />
                                         <span className="text-gray-700">
-                                          {entry.dataKey === 'stockDividend' ? symbol : 'VOO (S&P 500 ETF)'}:
+                                          {entry.name === `${symbol}` || entry.dataKey === 'stockDividend' 
+                                           ? symbol 
+                                           : 'VOO (S&P 500 ETF)'}:
                                         </span>
                                         <span className="ml-1 font-medium">
                                           ${entry.value.toFixed(2)}
