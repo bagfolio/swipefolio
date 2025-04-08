@@ -321,18 +321,31 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
     isLoading: dividendComparisonLoading
   } = useYahooDividendComparison(symbol, timeFrame);
 
+  // Store the latest dividend information
+  const [latestDividend, setLatestDividend] = useState<{date: string, amount: number} | null>(null);
+  
   // Get dividend data with fallback for compatibility
   const dividendData = useMemo(() => {
     if (dividendEvents && dividendEvents.length > 0) {
-      return dividendEvents.map(event => ({
+      const processedDividends = dividendEvents.map(event => ({
         date: event.name,
         amount: event.value,
         yield: "~" // Yield isn't directly available from the event data
       }));
+      
+      // Store the latest dividend for consistent display across timeframes
+      if (processedDividends.length > 0 && !latestDividend) {
+        setLatestDividend({
+          date: processedDividends[0].date,
+          amount: processedDividends[0].amount
+        });
+      }
+      
+      return processedDividends;
     }
     // If no real data is available, return empty array
     return [];
-  }, [dividendEvents, timeFrame]);
+  }, [dividendEvents, latestDividend]);
 
   // Get earnings data
   const earningsData = useMemo(() => {
@@ -849,7 +862,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
               {/* Time frame controls for dividends */}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-                  {['1Y', '3Y', '5Y', 'MAX'].map((frame) => (
+                  {['1Y', '3Y', '5Y'].map((frame) => (
                     <button
                       key={frame}
                       onClick={() => handleTimeFrameChange(frame)}
@@ -905,10 +918,10 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                   <div className="flex-1 min-w-[160px]">
                     <h5 className="text-xs text-gray-500 mb-1">Latest Dividend</h5>
                     <div className="text-xl font-semibold text-blue-600">
-                      ${dividendData[0]?.amount.toFixed(2)}
+                      ${latestDividend?.amount.toFixed(2) || dividendData[0]?.amount.toFixed(2)}
                     </div>
                     <div className="text-xs text-gray-700 mt-1">
-                      {dividendData[0]?.date}
+                      {latestDividend?.date || dividendData[0]?.date}
                     </div>
                   </div>
 
@@ -1110,20 +1123,6 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                 <div className="space-y-2 mt-6">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-medium">Dividend Yield Comparison with VOO (Vanguard S&P 500 ETF)</h4>
-
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="text-xs h-8"
-                      onClick={() => {
-                        const element = document.getElementById('dividend-payment-details');
-                        if (element) {
-                          element.style.display = element.style.display === 'none' ? 'block' : 'none';
-                        }
-                      }}
-                    >
-                      Payment Details
-                    </Button>
                   </div>
 
                   {/* Dividend Yield Comparison Chart - ALWAYS SHOWN */}
