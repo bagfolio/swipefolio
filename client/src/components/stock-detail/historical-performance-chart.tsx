@@ -1146,12 +1146,36 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                           tickFormatter={(value) => `${value.toFixed(2)}%`}
                         />
                         <Tooltip 
-                          formatter={(value: number, name: string, entry: any) => {
-                            // Use the correct stock symbol for the blue bars (stockYield)
-                            let label = name === 'stockYield' ? `${symbol} Yield` : 'VOO (S&P 500 ETF) Yield';
-                            return [`${value.toFixed(2)}%`, label];
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="bg-white p-3 border rounded-md shadow-md text-xs">
+                                  <p className="font-semibold text-gray-800">Quarter: {label}</p>
+                                  <div className="mt-1">
+                                    {payload.map((entry: any, index: number) => (
+                                      <p 
+                                        key={`tooltip-${index}`} 
+                                        className="flex items-center mt-1"
+                                      >
+                                        <span 
+                                          className={`w-3 h-3 inline-block rounded-full mr-2 ${
+                                            entry.dataKey === 'stockYield' ? 'bg-blue-600' : 'bg-emerald-500'
+                                          }`}
+                                        />
+                                        <span className="text-gray-700">
+                                          {entry.dataKey === 'stockYield' ? symbol : 'VOO (S&P 500 ETF)'}:
+                                        </span>
+                                        <span className="ml-1 font-medium">
+                                          {entry.value.toFixed(2)}%
+                                        </span>
+                                      </p>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
                           }}
-                          labelFormatter={(label) => `Quarter: ${label}`}
                         />
                         <Legend />
                         <Bar
@@ -1209,12 +1233,36 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                           tickFormatter={(value) => `$${value.toFixed(2)}`}
                         />
                         <Tooltip 
-                          formatter={(value: number, name: string, entry: any) => {
-                            // Use the correct stock symbol for the blue bars (stockDividend)
-                            let label = name === 'stockDividend' ? `${symbol} Dividend` : 'VOO (S&P 500 ETF) Dividend';
-                            return [`$${value.toFixed(2)}`, label];
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="bg-white p-3 border rounded-md shadow-md text-xs">
+                                  <p className="font-semibold text-gray-800">Quarter: {label}</p>
+                                  <div className="mt-1">
+                                    {payload.map((entry: any, index: number) => (
+                                      <p 
+                                        key={`tooltip-${index}`} 
+                                        className="flex items-center mt-1"
+                                      >
+                                        <span 
+                                          className={`w-3 h-3 inline-block rounded-full mr-2 ${
+                                            entry.dataKey === 'stockDividend' ? 'bg-blue-600' : 'bg-emerald-500'
+                                          }`}
+                                        />
+                                        <span className="text-gray-700">
+                                          {entry.dataKey === 'stockDividend' ? symbol : 'VOO (S&P 500 ETF)'}:
+                                        </span>
+                                        <span className="ml-1 font-medium">
+                                          ${entry.value.toFixed(2)}
+                                        </span>
+                                      </p>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
                           }}
-                          labelFormatter={(label) => `Quarter: ${label}`}
                         />
                         <Legend />
                         <Bar
