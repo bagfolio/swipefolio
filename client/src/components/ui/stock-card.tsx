@@ -521,7 +521,7 @@ export default function StockCard({
                                       ).join(' ')
                                   }`}
                                   className={`${realTimeChange >= 0 ? 'stroke-green-500' : 'stroke-red-500'} fill-none`}
-                                  strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+                                  strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"
                                   filter="url(#glow)"
                                   style={{
                                     strokeDasharray: "1000",

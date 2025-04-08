@@ -1391,7 +1391,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                       dataKey="actual"
                       name="Actual EPS"
                       stroke="#2563eb"
-                      strokeWidth={1.5}
+                      strokeWidth={1}
                       dot={{ r: 4 }}
                       activeDot={{ r: 5 }}
                     />
@@ -1400,7 +1400,7 @@ const HistoricalPerformanceChart: React.FC<HistoricalPerformanceChartProps> = ({
                       dataKey="estimated"
                       name="Estimated EPS"
                       stroke="#9ca3af"
-                      strokeWidth={1.5}
+                      strokeWidth={1}
                       strokeDasharray="5 5"
                       dot={{ r: 4 }}
                       activeDot={{ r: 5 }}
