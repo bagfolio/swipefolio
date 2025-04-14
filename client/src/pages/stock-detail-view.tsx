@@ -6,7 +6,7 @@ import { StockData, getIndustryStocks } from "@/lib/stock-data";
 import StockChart from "@/components/stock-detail/stock-chart";
 import ComparativeAnalysis from "@/components/comparative-analysis";
 import OverallAnalysisCard from "@/components/overall-analysis-card";
-import AnalystRatings from "@/components/stock-detail/analyst-ratings";
+import AnalystRatings from "@/components/stock-detail/modern-analyst-ratings";
 import ImprovedPerformanceChart from "@/components/stock-detail/improved-performance-chart";
 import { Skeleton } from "@/components/ui/skeleton";
 
