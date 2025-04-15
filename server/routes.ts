@@ -1,44 +1,111 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import axios from "axios";
 import { getAIResponse } from "./ai-service";
-
 import yahooFinanceRoutes from "./api/yahoo-finance";
 import { yahooFinanceService } from "./services/yahoo-finance-service";
+import {
+  validateStockSymbol,
+  validateUserId,
+  validateStackId,
+  validateUserProgress,
+  sanitizeInput
+} from "./middleware/validation";
+
+// Type definitions
+interface User {
+  id: number;
+  username: string;
+  password: string;
+  displayName: string;
+  xp: number;
+  streakCount: number;
+  lastActive: Date;
+  level: number;
+  dailyGoal: number;
+  interests: string[];
+  experienceLevel: string;
+  onboarded: boolean;
+}
+
+interface RequestWithUser extends Request {
+  user?: User;
+}
+
+// Error handling middleware
+const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error('Error:', err);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+  });
+};
+
+// Rate limiting middleware
+const rateLimiter = (req: Request, res: Response, next: NextFunction) => {
+  // TODO: Implement rate limiting logic
+  next();
+};
+
+// Security headers middleware
+const securityHeaders = (req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Apply security middleware
+  app.use(securityHeaders);
+  app.use(rateLimiter);
+  app.use(sanitizeInput);
+  
   // Set up authentication routes
   setupAuth(app);
 
   // Get all stacks
-  app.get("/api/stacks", async (req, res) => {
-    const stacks = await storage.getStacks();
-    res.json(stacks);
+  app.get("/api/stacks", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const stacks = await storage.getStacks();
+      res.json(stacks);
+    } catch (error) {
+      next(error);
+    }
   });
 
   // Get stack by ID
-  app.get("/api/stacks/:id", async (req, res) => {
-    const stackId = parseInt(req.params.id);
-    const stack = await storage.getStackById(stackId);
-    
-    if (!stack) {
-      return res.status(404).json({ message: "Stack not found" });
+  app.get("/api/stacks/:id", validateStackId, async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const stackId = parseInt(req.params.id);
+      const stack = await storage.getStackById(stackId);
+      
+      if (!stack) {
+        return res.status(404).json({ message: "Stack not found" });
+      }
+      
+      res.json(stack);
+    } catch (error) {
+      next(error);
     }
-    
-    res.json(stack);
   });
 
   // Get cards by stack ID
-  app.get("/api/stacks/:id/cards", async (req, res) => {
-    const stackId = parseInt(req.params.id);
-    const cards = await storage.getCardsByStackId(stackId);
-    res.json(cards);
+  app.get("/api/stacks/:id/cards", validateStackId, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const stackId = parseInt(req.params.id);
+      const cards = await storage.getCardsByStackId(stackId);
+      res.json(cards);
+    } catch (error) {
+      next(error);
+    }
   });
 
   // Protected routes - require authentication
-  app.use("/api/user-progress", (req, res, next) => {
+  app.use("/api/user-progress", (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -46,114 +113,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user progress for all stacks
-  app.get("/api/user-progress", async (req, res) => {
-    const userId = req.user!.id;
-    const progress = await storage.getUserProgressByUserId(userId);
-    res.json(progress);
+  app.get("/api/user-progress", async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.id;
+      const progress = await storage.getUserProgressByUserId(userId);
+      res.json(progress);
+    } catch (error) {
+      next(error);
+    }
   });
 
   // Get user progress for a specific stack
-  app.get("/api/user-progress/:stackId", async (req, res) => {
-    const userId = req.user!.id;
-    const stackId = parseInt(req.params.stackId);
-    
-    const progress = await storage.getUserProgressByStackId(userId, stackId);
-    
-    if (!progress) {
-      // If no progress exists, create a new one
-      const newProgress = await storage.createUserProgress({
-        userId,
-        stackId,
-        completed: false,
-        currentCardIndex: 0,
-        earnedXp: 0,
-        lastAccessed: new Date()
-      });
-      return res.json(newProgress);
+  app.get("/api/user-progress/:stackId", validateStackId, async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.id;
+      const stackId = parseInt(req.params.stackId);
+      
+      const progress = await storage.getUserProgressByStackId(userId, stackId);
+      
+      if (!progress) {
+        // If no progress exists, create a new one
+        const newProgress = await storage.createUserProgress({
+          userId,
+          stackId,
+          completed: false,
+          currentCardIndex: 0,
+          earnedXp: 0,
+          lastAccessed: new Date()
+        });
+        return res.json(newProgress);
+      }
+      
+      res.json(progress);
+    } catch (error) {
+      next(error);
     }
-    
-    res.json(progress);
   });
 
   // Update user progress for a stack
-  app.patch("/api/user-progress/:stackId", async (req, res) => {
-    const userId = req.user!.id;
-    const stackId = parseInt(req.params.stackId);
-    
-    const { currentCardIndex, completed, earnedXp } = req.body;
-    let progress = await storage.getUserProgressByStackId(userId, stackId);
-    
-    if (!progress) {
-      // If no progress exists, create a new one
-      progress = await storage.createUserProgress({
-        userId,
-        stackId,
-        completed: completed || false,
-        currentCardIndex: currentCardIndex || 0,
-        earnedXp: earnedXp || 0,
-        lastAccessed: new Date()
-      });
-    } else {
-      // Update existing progress
-      progress = await storage.updateUserProgress(progress.id, {
-        currentCardIndex: currentCardIndex !== undefined ? currentCardIndex : progress.currentCardIndex,
-        completed: completed !== undefined ? completed : progress.completed,
-        earnedXp: earnedXp !== undefined ? earnedXp : progress.earnedXp,
-        lastAccessed: new Date()
-      });
-    }
-    
-    // If a lesson was completed, update daily progress
-    if (completed && !progress?.completed) {
-      // Check if user has daily progress for today
-      const today = new Date();
-      let dailyProgress = await storage.getUserDailyProgress(userId, today);
+  app.patch("/api/user-progress/:stackId", validateStackId, validateUserProgress, async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user!.id;
+      const stackId = parseInt(req.params.stackId);
       
-      if (!dailyProgress) {
-        // Create new daily progress
-        dailyProgress = await storage.createUserDailyProgress({
+      const { currentCardIndex, completed, earnedXp } = req.body;
+      let progress = await storage.getUserProgressByStackId(userId, stackId);
+      
+      if (!progress) {
+        // If no progress exists, create a new one
+        progress = await storage.createUserProgress({
           userId,
-          date: today,
-          lessonsCompleted: 1,
-          xpEarned: earnedXp || 0,
-          goalCompleted: false
+          stackId,
+          completed: completed || false,
+          currentCardIndex: currentCardIndex || 0,
+          earnedXp: earnedXp || 0,
+          lastAccessed: new Date()
         });
       } else {
-        // Update existing daily progress
-        const newLessonsCompleted = dailyProgress.lessonsCompleted + 1;
-        const newXpEarned = dailyProgress.xpEarned + (earnedXp || 0);
-        const newGoalCompleted = newLessonsCompleted >= req.user!.dailyGoal;
-        
-        dailyProgress = await storage.updateUserDailyProgress(dailyProgress.id, {
-          lessonsCompleted: newLessonsCompleted,
-          xpEarned: newXpEarned,
-          goalCompleted: newGoalCompleted
+        // Update existing progress
+        progress = await storage.updateUserProgress(progress.id, {
+          currentCardIndex: currentCardIndex !== undefined ? currentCardIndex : progress.currentCardIndex,
+          completed: completed !== undefined ? completed : progress.completed,
+          earnedXp: earnedXp !== undefined ? earnedXp : progress.earnedXp,
+          lastAccessed: new Date()
         });
       }
       
-      // Update user XP
-      const user = await storage.updateUser(userId, {
-        xp: req.user!.xp + (earnedXp || 0)
-      });
-      
-      // Check if a badge should be awarded (for the tech rookie badge)
-      if (stackId === 1) {
-        const existingBadges = await storage.getUserBadges(userId);
-        const hasTechRookie = existingBadges.some(b => b.badgeName === "Tech Rookie");
+      // If a lesson was completed, update daily progress
+      if (completed && !progress?.completed) {
+        // Check if user has daily progress for today
+        const today = new Date();
+        let dailyProgress = await storage.getUserDailyProgress(userId, today);
         
-        if (!hasTechRookie) {
-          await storage.createUserBadge({
+        if (!dailyProgress) {
+          // Create new daily progress
+          dailyProgress = await storage.createUserDailyProgress({
             userId,
-            badgeName: "Tech Rookie",
-            badgeDescription: "Completed your first tech industry stack",
-            iconName: "computer-line",
-            earnedOn: new Date()
+            date: today,
+            lessonsCompleted: 1,
+            xpEarned: earnedXp || 0,
+            goalCompleted: false
+          });
+        } else {
+          // Update existing daily progress
+          const newLessonsCompleted = dailyProgress.lessonsCompleted + 1;
+          const newXpEarned = dailyProgress.xpEarned + (earnedXp || 0);
+          const newGoalCompleted = newLessonsCompleted >= req.user!.dailyGoal;
+          
+          dailyProgress = await storage.updateUserDailyProgress(dailyProgress.id, {
+            lessonsCompleted: newLessonsCompleted,
+            xpEarned: newXpEarned,
+            goalCompleted: newGoalCompleted
           });
         }
+        
+        // Update user XP
+        const user = await storage.updateUser(userId, {
+          xp: req.user!.xp + (earnedXp || 0)
+        });
+        
+        // Check if a badge should be awarded (for the tech rookie badge)
+        if (stackId === 1) {
+          const existingBadges = await storage.getUserBadges(userId);
+          const hasTechRookie = existingBadges.some(b => b.badgeName === "Tech Rookie");
+          
+          if (!hasTechRookie) {
+            await storage.createUserBadge({
+              userId,
+              badgeName: "Tech Rookie",
+              badgeDescription: "Completed your first tech industry stack",
+              iconName: "computer-line",
+              earnedOn: new Date()
+            });
+          }
+        }
       }
+      
+      res.json(progress);
+    } catch (error) {
+      next(error);
     }
-    
-    res.json(progress);
   });
 
   // Get user badges
@@ -206,7 +285,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Try to ensure we have the latest environment variable value
       const apiKey = process.env.OPENROUTER_API_KEY;
-      console.log("Using OpenRouter API key (first 5 chars):", apiKey ? apiKey.substring(0, 5) + "..." : "undefined");
       
       if (!apiKey) {
         console.error("OpenRouter API key is missing");
@@ -247,7 +325,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userMessage = `Context: ${contextString.trim()}\n\nQuestion: ${userQuestion}`;
       
       console.log("Making API call to OpenRouter with prompt:", userMessage);
-      console.log("Using API key:", apiKey.substring(0, 5) + "..." + apiKey.substring(apiKey.length - 4));
       
       // Make the API call to OpenRouter following their documentation exactly
       const openRouterUrl = 'https://openrouter.ai/api/v1/chat/completions';
@@ -625,6 +702,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register Yahoo Finance routes
   app.use('/api/yahoo-finance', yahooFinanceRoutes);
   
+  // Error handling middleware
+  app.use(errorHandler);
+
   // Create an HTTP server for the Express app
   const server = createServer(app);
   

@@ -2,51 +2,144 @@ import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-import NotFound from "@/pages/not-found";
-import HomePage from "@/pages/home-page";
-import AuthPage from "@/pages/auth-page";
-import LessonPage from "@/pages/lesson-page";
-import LearnPage from "@/pages/LearnPage";
-import OnboardingPage from "@/pages/onboarding-page";
-import StockDetailPage from "@/pages/stock-detail-page";
-import StockDetailView from "@/pages/stock-detail-view";
-import PortfolioPage from "@/pages/portfolio-page";
-import LeaderboardPage from "@/pages/leaderboard-page-new";
-import GamesHubPage from "@/pages/games-hub-page";
-import BoardRoomPage from "@/pages/board-room-page";
-import TimeAttackPage from "@/pages/time-attack-page";
-import MarketAdventurePage from "@/pages/market-adventure-page";
-import MacroMastermindPage from "@/pages/macro-mastermind-page";
-import InvestorSimulatorPage from "@/pages/investor-simulator-page";
+import { Suspense, lazy } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AuthProvider } from "@/hooks/use-auth";
 import { UserProgressProvider } from "@/contexts/user-progress-context";
 import { PortfolioProvider } from "@/contexts/portfolio-context";
 import { usePreloadStockData } from "@/hooks/use-preload-stock-data";
+import { ThemeProvider } from "@/contexts/theme-context";
+import { ErrorBoundary } from "@/components/error-boundary";
+
+// Lazy load components
+const NotFound = lazy(() => import("@/pages/not-found"));
+const HomePage = lazy(() => import("@/pages/home-page"));
+const AuthPage = lazy(() => import("@/pages/auth-page"));
+const LessonPage = lazy(() => import("@/pages/lesson-page"));
+const LearnPage = lazy(() => import("@/pages/LearnPage"));
+const OnboardingPage = lazy(() => import("@/pages/onboarding-page"));
+const StockDetailPage = lazy(() => import("@/pages/stock-detail-page"));
+const StockDetailView = lazy(() => import("@/pages/stock-detail-view"));
+const PortfolioPage = lazy(() => import("@/pages/portfolio-page"));
+const LeaderboardPage = lazy(() => import("@/pages/leaderboard-page-new"));
+const GamesHubPage = lazy(() => import("@/pages/games-hub-page"));
+const BoardRoomPage = lazy(() => import("@/pages/board-room-page"));
+const TimeAttackPage = lazy(() => import("@/pages/time-attack-page"));
+const MarketAdventurePage = lazy(() => import("@/pages/market-adventure-page"));
+const MacroMastermindPage = lazy(() => import("@/pages/macro-mastermind-page"));
+const InvestorSimulatorPage = lazy(() => import("@/pages/investor-simulator-page"));
+
+// Loading component
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <Skeleton className="w-[300px] h-[200px]" />
+  </div>
+);
 
 function Router() {
   return (
     <PortfolioProvider>
       <Switch>
-        <Route path="/" component={HomePage} />
-        <Route path="/stock/:stackId" component={StockDetailPage} />
-        <Route path="/stock-detail/:symbol" component={StockDetailView} />
-        <Route path="/lesson/:stackId" component={LessonPage} />
-        <Route path="/learn/:stackId" component={LearnPage} />
-        <Route path="/learn" component={HomePage} />
-        <Route path="/market" component={HomePage} />
-        <Route path="/portfolio" component={PortfolioPage} />
-        <Route path="/leaderboard" component={LeaderboardPage} />
-        <Route path="/achievements" component={HomePage} />
-        <Route path="/profile" component={HomePage} />
-        <Route path="/onboarding" component={OnboardingPage} />
-        <Route path="/auth" component={AuthPage} />
-        <Route path="/games" component={GamesHubPage} />
-        <Route path="/games/board-room" component={BoardRoomPage} />
-        <Route path="/games/time-attack" component={TimeAttackPage} />
-        <Route path="/games/market-adventure" component={MarketAdventurePage} />
-        <Route path="/games/macro-mastermind" component={MacroMastermindPage} />
-        <Route path="/games/investor-simulator" component={InvestorSimulatorPage} />
-        <Route component={NotFound} />
+        <Route path="/">
+          <Suspense fallback={<LoadingFallback />}>
+            <HomePage />
+          </Suspense>
+        </Route>
+        <Route path="/stock/:stackId">
+          <Suspense fallback={<LoadingFallback />}>
+            <StockDetailPage />
+          </Suspense>
+        </Route>
+        <Route path="/stock-detail/:symbol">
+          <Suspense fallback={<LoadingFallback />}>
+            <StockDetailView />
+          </Suspense>
+        </Route>
+        <Route path="/lesson/:stackId">
+          <Suspense fallback={<LoadingFallback />}>
+            <LessonPage />
+          </Suspense>
+        </Route>
+        <Route path="/learn/:stackId">
+          <Suspense fallback={<LoadingFallback />}>
+            <LearnPage />
+          </Suspense>
+        </Route>
+        <Route path="/learn">
+          <Suspense fallback={<LoadingFallback />}>
+            <HomePage />
+          </Suspense>
+        </Route>
+        <Route path="/market">
+          <Suspense fallback={<LoadingFallback />}>
+            <HomePage />
+          </Suspense>
+        </Route>
+        <Route path="/portfolio">
+          <Suspense fallback={<LoadingFallback />}>
+            <PortfolioPage />
+          </Suspense>
+        </Route>
+        <Route path="/leaderboard">
+          <Suspense fallback={<LoadingFallback />}>
+            <LeaderboardPage />
+          </Suspense>
+        </Route>
+        <Route path="/achievements">
+          <Suspense fallback={<LoadingFallback />}>
+            <HomePage />
+          </Suspense>
+        </Route>
+        <Route path="/profile">
+          <Suspense fallback={<LoadingFallback />}>
+            <HomePage />
+          </Suspense>
+        </Route>
+        <Route path="/onboarding">
+          <Suspense fallback={<LoadingFallback />}>
+            <OnboardingPage />
+          </Suspense>
+        </Route>
+        <Route path="/auth">
+          <Suspense fallback={<LoadingFallback />}>
+            <AuthPage />
+          </Suspense>
+        </Route>
+        <Route path="/games">
+          <Suspense fallback={<LoadingFallback />}>
+            <GamesHubPage />
+          </Suspense>
+        </Route>
+        <Route path="/games/board-room">
+          <Suspense fallback={<LoadingFallback />}>
+            <BoardRoomPage />
+          </Suspense>
+        </Route>
+        <Route path="/games/time-attack">
+          <Suspense fallback={<LoadingFallback />}>
+            <TimeAttackPage />
+          </Suspense>
+        </Route>
+        <Route path="/games/market-adventure">
+          <Suspense fallback={<LoadingFallback />}>
+            <MarketAdventurePage />
+          </Suspense>
+        </Route>
+        <Route path="/games/macro-mastermind">
+          <Suspense fallback={<LoadingFallback />}>
+            <MacroMastermindPage />
+          </Suspense>
+        </Route>
+        <Route path="/games/investor-simulator">
+          <Suspense fallback={<LoadingFallback />}>
+            <InvestorSimulatorPage />
+          </Suspense>
+        </Route>
+        <Route>
+          <Suspense fallback={<LoadingFallback />}>
+            <NotFound />
+          </Suspense>
+        </Route>
       </Switch>
     </PortfolioProvider>
   );
@@ -63,16 +156,20 @@ function GlobalDataProvider({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <UserProgressProvider>
-          <GlobalDataProvider>
-            <Router />
-            <Toaster />
-          </GlobalDataProvider>
-        </UserProgressProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <UserProgressProvider>
+              <GlobalDataProvider>
+                <Router />
+                <Toaster />
+              </GlobalDataProvider>
+            </UserProgressProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 
