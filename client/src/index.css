@@ -8,7 +8,18 @@
   }
 
   body {
-    @apply font-sans antialiased bg-white text-slate-800;
+    @apply font-sans antialiased bg-background text-foreground transition-colors duration-150;
+    background-image: none !important; /* Prevent unwanted gradients */
+  }
+
+  /* Prevent flash of unstyled content */
+  html {
+    @apply antialiased;
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 }
 
@@ -145,21 +156,21 @@ svg text, svg circle, svg line, svg path, svg rect {
 /* Metric card styling */
 /* This section is moved below */
 
-/* Custom styles for Swipefolio light theme */
+/* Custom styles for Swipefolio themes */
 .app-header {
-  @apply bg-white border-b border-slate-100 text-slate-800 shadow-sm; 
+  @apply bg-background border-b border-border text-foreground shadow-sm; 
 }
 
 .app-navigation {
-  @apply bg-white border-t border-slate-100 text-slate-600 shadow-[0_-1px_2px_rgba(0,0,0,0.03)];
+  @apply bg-background border-t border-border text-muted-foreground shadow-[0_-1px_2px_rgba(0,0,0,0.03)];
 }
 
 .search-bar {
-  @apply bg-slate-50 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-sky-400 focus:ring-sky-400/20;
+  @apply bg-muted/50 border border-input text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-ring/20;
 }
 
 .stack-card {
-  @apply bg-white rounded-xl overflow-hidden border border-slate-100 cursor-pointer transition-all duration-300 hover:border-sky-400/30 hover:shadow-lg hover:shadow-sky-100;
+  @apply bg-card text-card-foreground rounded-xl overflow-hidden border border-border cursor-pointer transition-all duration-300 hover:border-ring/30 hover:shadow-lg hover:shadow-ring/5;
 }
 
 .stack-thumbnail {
@@ -167,35 +178,35 @@ svg text, svg circle, svg line, svg path, svg rect {
 }
 
 .stack-category {
-  @apply text-xs uppercase tracking-wide text-sky-500 mb-1 font-medium;
+  @apply text-xs uppercase tracking-wide text-primary mb-1 font-medium;
 }
 
 .stack-title {
-  @apply text-slate-800 font-bold text-lg;
+  @apply text-card-foreground font-bold text-lg;
 }
 
 .stack-stats {
-  @apply text-slate-500 text-xs;
+  @apply text-muted-foreground text-xs;
 }
 
 .section-header {
-  @apply text-slate-800 font-semibold text-xl;
+  @apply text-foreground font-semibold text-xl;
 }
 
 .see-all {
-  @apply text-sky-500 text-sm hover:text-sky-600 transition-colors;
+  @apply text-primary text-sm hover:text-primary/80 transition-colors;
 }
 
 .category-chip {
-  @apply bg-slate-50 text-slate-600 rounded-full px-4 py-1.5 text-sm border border-slate-200 transition-all duration-200;
+  @apply bg-muted/50 text-muted-foreground rounded-full px-4 py-1.5 text-sm border border-input transition-all duration-200;
 }
 
 .category-chip.active {
-  @apply bg-sky-500 text-white border-sky-500 font-medium shadow-sm;
+  @apply bg-primary text-primary-foreground border-primary font-medium shadow-sm;
 }
 
 .main-content {
-  @apply pb-24 pt-20 px-4 bg-slate-50;
+  @apply pb-24 pt-20 px-4 bg-background;
 }
 
 .badge {
@@ -203,19 +214,19 @@ svg text, svg circle, svg line, svg path, svg rect {
 }
 
 .badge-beginner {
-  @apply bg-green-50 text-green-600 border border-green-200;
+  @apply bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border border-green-200 dark:border-green-900;
 }
 
 .badge-intermediate {
-  @apply bg-amber-50 text-amber-600 border border-amber-200;
+  @apply bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900;
 }
 
 .badge-advanced {
-  @apply bg-red-50 text-red-600 border border-red-200;
+  @apply bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900;
 }
 
 .badge-cards {
-  @apply bg-slate-100 text-slate-500 border border-slate-200;
+  @apply bg-muted text-muted-foreground border border-input;
 }
 
 /* Hide scrollbar but keep functionality */
@@ -264,51 +275,51 @@ svg text, svg circle, svg line, svg path, svg rect {
 }
 
 .metric-box {
-  @apply bg-white rounded-xl border border-slate-200 p-4 shadow-md transition-all duration-300 hover:shadow-lg;
+  @apply bg-card text-card-foreground rounded-xl border border-border p-4 shadow-md transition-all duration-300 hover:shadow-lg;
   box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
 }
 
 .metric-high {
-  @apply bg-gradient-to-br from-green-50 to-white border border-green-200;
+  @apply bg-gradient-to-br from-green-100 dark:from-green-900/30 to-card border border-green-200 dark:border-green-900;
   box-shadow: 0 4px 12px -4px rgba(16, 185, 129, 0.15), 0 2px 6px -2px rgba(16, 185, 129, 0.05);
 }
 
 .metric-average {
-  @apply bg-gradient-to-br from-amber-50 to-white border border-amber-200;
+  @apply bg-gradient-to-br from-amber-100 dark:from-amber-900/30 to-card border border-amber-200 dark:border-amber-900;
   box-shadow: 0 4px 12px -4px rgba(245, 158, 11, 0.15), 0 2px 6px -2px rgba(245, 158, 11, 0.05);
 }
 
 .metric-low {
-  @apply bg-gradient-to-br from-red-50 to-white border border-red-200;
+  @apply bg-gradient-to-br from-red-100 dark:from-red-900/30 to-card border border-red-200 dark:border-red-900;
   box-shadow: 0 4px 12px -4px rgba(239, 68, 68, 0.15), 0 2px 6px -2px rgba(239, 68, 68, 0.05);
 }
 
 .stat-value {
-  @apply text-2xl font-bold text-slate-800;
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.8);
+  @apply text-2xl font-bold text-foreground;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0.25rem 0.5rem;
-  background: linear-gradient(to bottom, #ffffff, #f8fafc);
+  background: linear-gradient(to bottom, hsl(var(--card)), hsl(var(--muted)));
   border-radius: 0.5rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid hsl(var(--border));
   box-shadow: 
     0 1px 2px rgba(0, 0, 0, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .stat-label {
-  @apply text-xs uppercase tracking-wide text-slate-500 font-medium;
+  @apply text-xs uppercase tracking-wide text-muted-foreground font-medium;
   letter-spacing: 0.05em;
 }
 
 .card-shadow {
-  @apply shadow-[0_10px_30px_-15px_rgba(0,0,0,0.12),_0_4px_6px_-2px_rgba(0,0,0,0.05)];
+  @apply shadow-[0_10px_30px_-15px_rgba(0,0,0,0.12),_0_4px_6px_-2px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_30px_-15px_rgba(0,0,0,0.5),_0_4px_6px_-2px_rgba(0,0,0,0.2)];
 }
 
 .stock-card {
-  @apply bg-white rounded-2xl border border-slate-200 overflow-hidden;
+  @apply bg-card text-card-foreground rounded-2xl border border-border overflow-hidden;
   box-shadow: 
     0 10px 25px -10px rgba(0, 0, 0, 0.1),
     0 5px 15px -5px rgba(0, 0, 0, 0.04),
@@ -318,22 +329,22 @@ svg text, svg circle, svg line, svg path, svg rect {
 
 .stock-card:hover {
   box-shadow: 
-    0 20px 30px -15px rgba(0, 0, 0, 0.1),
-    0 10px 20px -10px rgba(0, 0, 0, 0.04),
-    0 0 0 1px rgba(0, 0, 0, 0.02);
+    0 20px 30px -15px rgba(0, 0, 0, 0.15),
+    0 10px 20px -10px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.03);
   transform: translateY(-2px);
 }
 
 /* Chart gradients */
 .chart-positive-stroke {
-  @apply stroke-cyan-500;
+  @apply stroke-cyan-500 dark:stroke-cyan-400;
   stroke-width: 2px;
   stroke-linecap: round;
   filter: drop-shadow(0 1px 2px rgba(14, 165, 233, 0.3));
 }
 
 .chart-negative-stroke {
-  @apply stroke-red-500;
+  @apply stroke-red-500 dark:stroke-red-400;
   stroke-width: 2px;
   stroke-linecap: round;
   filter: drop-shadow(0 1px 2px rgba(239, 68, 68, 0.3));
@@ -532,4 +543,86 @@ svg text, svg circle, svg line, svg path, svg rect {
 .drag-handle {
   touch-action: none; /* Always capture touch on drag handle */
   user-select: none;
+}
+
+/* Game card styles */
+.game-card {
+  @apply bg-card text-card-foreground rounded-xl overflow-hidden border border-border transition-all duration-300;
+  background: linear-gradient(to bottom,
+    hsl(var(--card)) 0%,
+    hsl(var(--card)) 70%,
+    hsl(var(--card)) 100%
+  );
+}
+
+.game-card-description {
+  @apply text-muted-foreground text-sm;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.game-card-title {
+  @apply text-xl font-semibold text-card-foreground;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Portfolio page specific styles */
+.portfolio-header {
+  @apply bg-card text-card-foreground;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.portfolio-value {
+  @apply text-2xl font-bold text-foreground;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.portfolio-label {
+  @apply text-muted-foreground;
+}
+
+.portfolio-card {
+  @apply bg-card rounded-xl border border-border overflow-hidden;
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Navigation bar */
+.app-navigation {
+  @apply bg-background border-t border-border;
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--background)) 0%,
+    hsl(var(--background)) 100%
+  );
+}
+
+.nav-item {
+  @apply text-muted-foreground hover:text-foreground transition-colors;
+}
+
+.nav-item.active {
+  @apply text-primary;
+}
+
+/* Game hub specific styles */
+.game-hub-header {
+  @apply bg-background text-foreground;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.game-category-tag {
+  @apply px-2 py-1 rounded-full text-xs font-medium;
+  background-color: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+}
+
+/* Boost portfolio button */
+.boost-portfolio-button {
+  @apply bg-primary text-primary-foreground rounded-xl p-4 transition-all duration-300;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.1);
+}
+
+/* Remove any unwanted background effects */
+#root {
+  background: hsl(var(--background));
 }

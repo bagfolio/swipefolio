@@ -9,6 +9,28 @@
     <title>Swipefolio - Finance Learning Made Fun</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@300;400;500&family=Roboto+Mono&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <script>
+      // Prevent flash of wrong theme
+      let darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      let theme = localStorage.getItem('theme');
+      
+      if (theme === 'dark' || (!theme && darkModeMediaQuery.matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      
+      // Listen for theme changes
+      darkModeMediaQuery.addEventListener('change', e => {
+        if (!localStorage.getItem('theme')) {
+          if (e.matches) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        }
+      });
+    </script>
     <style>
       body {
         font-family: 'Inter', sans-serif;

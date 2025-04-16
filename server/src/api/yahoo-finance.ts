@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { yahooFinanceService } from '../services/yahoo-finance-service';
-import { getAnalystData } from '../../shared/services/analystRatingsService';
+import { getAnalystData } from '../../../shared/services/analystRatingsService';
 
 const router = Router();
 

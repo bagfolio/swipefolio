@@ -141,7 +141,7 @@ export default function HomePage() {
     <>
       <AppHeader />
       
-      <main className="main-content pb-24 pt-20 px-4 bg-gradient-to-br from-slate-50 via-white to-blue-50/40">
+      <main className="main-content pb-24 pt-20 px-4 bg-background">
         <AnimatedContainer>
           <HeroSection />
           <ModernUserWelcome name="Belford&Co" rank={11} />
@@ -156,7 +156,7 @@ export default function HomePage() {
         
         <AnimatedContainer delay={0.25}>
           <div className="mb-2 mt-4">
-            <h2 className="text-xl font-semibold text-slate-800">Popular Picks</h2>
+            <h2 className="text-xl font-semibold">Popular Picks</h2>
           </div>
           <CategoryChips 
             onCategoryChange={setSelectedCategory}

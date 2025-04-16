@@ -1,10 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
-import { Toaster } from "@/components/ui/toaster";
-import { PortfolioProvider } from "@/contexts/portfolio-context";
+import { queryClient } from "./lib/queryClient";
+import { Toaster } from "./components/ui/toaster";
+import { PortfolioProvider } from "./contexts/portfolio-context";
 import App from "./App";
+import "./theme.css";
 import "./index.css";
 
 // Register service worker

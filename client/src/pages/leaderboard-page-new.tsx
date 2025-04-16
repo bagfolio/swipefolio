@@ -22,6 +22,7 @@ import {
 } from "@/data/leaderboard-data";
 import { PortfolioContext } from "@/contexts/portfolio-context";
 import InvestorProfilePopup from "@/components/investor-profile-popup";
+import AppNavigation from '@/components/app-navigation';
 
 const LeaderboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"all" | "friends">("all");
@@ -125,30 +126,30 @@ const LeaderboardPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 pb-20">
-      {/* Header - Lighter Background */}
-      <div className="bg-gradient-to-r from-slate-100 to-blue-50 text-slate-800 pt-10 pb-8 px-4 rounded-b-3xl shadow-sm">
+    <div className="min-h-screen bg-background pb-20">
+      {/* Header */}
+      <div className="bg-card text-card-foreground pt-10 pb-8 px-4 rounded-b-3xl border-b border-border">
         <div className="flex items-center justify-between mb-4">
           <Link href="/">
-            <button className="flex items-center text-slate-600 hover:text-slate-800 transition-colors">
+            <button className="flex items-center text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-5 h-5 mr-1" />
               <span>Back</span>
             </button>
           </Link>
-          <div className="w-5"></div> {/* Empty div for even spacing */}
+          <div className="w-5"></div>
         </div>
         
-        {/* iOS-Style Tab Selector - Moved to top as requested */}
+        {/* iOS-Style Tab Selector */}
         <div className="flex justify-center mb-4">
-          <div className="bg-white/90 backdrop-blur-sm p-1 rounded-full flex shadow-sm border border-slate-200">
+          <div className="bg-background/90 backdrop-blur-sm p-1 rounded-full flex shadow-sm border border-border">
             <button 
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeTab === 'all' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeTab === 'all' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
               onClick={() => setActiveTab('all')}
             >
               All Investors
             </button>
             <button 
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeTab === 'friends' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${activeTab === 'friends' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}
               onClick={() => setActiveTab('friends')}
             >
               Friends
@@ -156,10 +157,10 @@ const LeaderboardPage: React.FC = () => {
           </div>
         </div>
         
-        {/* Enhanced Leaderboard Title */}
+        {/* Leaderboard Title */}
         <div className="text-center mb-5">
-          <h1 className="text-3xl font-bold text-slate-800 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Leaderboard</h1>
-          <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-indigo-500 mx-auto mt-1 rounded-full"></div>
+          <h1 className="text-3xl font-bold text-foreground">Leaderboard</h1>
+          <div className="w-24 h-1 bg-primary mx-auto mt-1 rounded-full opacity-80"></div>
         </div>
         
         {/* iOS-Style Card Podium Layout for Top 3 */}
@@ -537,6 +538,9 @@ const LeaderboardPage: React.FC = () => {
           onClose={handleCloseProfile} 
         />
       )}
+
+      {/* Add the navigation bar */}
+      <AppNavigation />
     </div>
   );
 };
